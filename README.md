@@ -1,29 +1,15 @@
 # GymPlify
 
-**GymPlify** is a cross-platform gym management system built using the FERN stack (Firebase, Express.js, React.js, Node.js) for the web and React Native for the mobile app.
+**GymPlify** is a cross-platform gym management system using the FERN stack (Firebase, Express, React, Node.js) for the web and React Native (Expo) for mobile.
 
 ## 📱 Platforms
 
-- **Web App**: For gym owners and staff (admin operations, attendance tracking, QR management)
-- **Mobile App**: For gym clients (check-ins, schedules, QR identity)
+- **Web App** – For gym owners and staff
+- **Mobile App** – For gym clients
 
 ## 🔧 Tech Stack
 
 - **Frontend (Web)**: React.js
-- **Backend**: Node.js + Express.js
-- **Database & Auth**: Firebase (Firestore, Authentication, Storage)
+- **Backend**: Node.js + Express
+- **Database/Auth**: Firebase (Firestore, Auth, Storage)
 - **Mobile**: React Native (Expo)
-- **CI/CD**: GitHub Actions (TBD)
-
-## 📁 Folder Structure
-
-```
-GymPlify/
-├── backend/
-├── web/
-├── mobile/
-```
-
-## 🛠 Setup Guide
-
-See `setup.md` (coming soon) for full environment and Firebase config instructions.
