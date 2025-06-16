@@ -4,10 +4,9 @@ node_modules/
 dist/
 build/
 
-# React Native
-.expo/
-.expo-shared/
-web-build/
+# Environment Variables
+.env
+.env.*
 
 # Logs
 *.log
@@ -17,3 +16,10 @@ web-build/
 
 # Firebase
 .firebase/
+
+# React Native
+.expo/
+.expo-shared/
+web-build/
+
+
