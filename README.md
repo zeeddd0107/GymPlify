@@ -13,3 +13,5 @@
 - **Backend**: Node.js + Express
 - **Database/Auth**: Firebase (Firestore, Auth, Storage)
 - **Mobile**: React Native (Expo)
+
+<pre> ## 📁 Folder Structure ``` GymPlify/ ├── backend/ # Express.js server and API logic ├── web/ # React.js frontend for gym staff/owners ├── mobile/ # React Native app for gym clients ``` </pre>
