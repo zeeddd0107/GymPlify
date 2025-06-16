@@ -1,0 +1,24 @@
+# Node modules
+**/node_modules/
+
+# Env files
+*.env
+*.env.local
+
+# Logs
+logs
+*.log
+
+# Build folders
+web/build/
+mobile/android/
+mobile/ios/
+mobile/.expo/
+
+# Firebase local emulators
+firebase-debug.log
+
+# OS
+.DS_Store
+Thumbs.db
+
