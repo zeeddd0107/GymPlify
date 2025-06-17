@@ -22,4 +22,7 @@ build/
 .expo-shared/
 web-build/
 
+# Ignore VSCode workspace settings
+.vscode/
+
 
