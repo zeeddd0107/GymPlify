@@ -5,7 +5,7 @@ import {
   signInWithCustomToken
 } from 'firebase/auth';
 import app from './firebase';
-import axios from './api'; // Make sure this points to your backend
+import axios from './api'; 
 
 const auth = getAuth(app);
 
