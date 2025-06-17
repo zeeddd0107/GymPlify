@@ -1,0 +1,41 @@
+# --- Normalize line endings to LF ---
+* text=auto
+
+# Force LF line endings for source code files
+*.js     text eol=lf
+*.jsx    text eol=lf
+*.ts     text eol=lf
+*.tsx    text eol=lf
+*.json   text eol=lf
+*.md     text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.html   text eol=lf
+*.css    text eol=lf
+*.scss   text eol=lf
+*.env    text eol=lf
+
+# --- Prevent line-ending issues for assets ---
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.svg    text eol=lf
+*.ico    binary
+*.ttf    binary
+*.woff   binary
+*.woff2  binary
+*.mp4    binary
+*.mov    binary
+
+# --- React Native specific ---
+*.xcworkspace/** -text
+*.pbxproj      text eol=lf
+
+# --- Firebase rules and configs ---
+*.rules   text eol=lf
+*.firebaserc text eol=lf
+
+# --- Lock file should remain consistent across platforms ---
+package-lock.json text eol=lf
+yarn.lock         text eol=lf
