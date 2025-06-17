@@ -41,6 +41,9 @@ app.get('/test/firebase', async (req, res) => {
 const authRoutes = require('./routes/auth');
 app.use('/auth', authRoutes);
 
+const qrRoutes = require('./routes/qr');
+app.use('/qr', qrRoutes);
+
 // 🏁 Start server
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
