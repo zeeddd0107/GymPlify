@@ -1,4 +1,4 @@
-const { createQRCodeForUser } = require('../services/qrService');
+const { createQRCodeForUser } = require("../services/qrService");
 
 exports.generateQRCode = async (req, res) => {
   const { uid } = req.body;
