@@ -1,5 +1,6 @@
-const admin = require('../../config/firebase');
+const admin = require("../../config/firebase");
 
+// CREATE USER
 exports.registerUser = async (req, res) => {
   const { email, password } = req.body;
 
@@ -17,7 +18,7 @@ exports.registerUser = async (req, res) => {
       message: "User registered successfully",
       uid: userRecord.uid,
       email: userRecord.email,
-      token: customToken, // 🔐 send the token
+      token: customToken, // send the token
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -25,7 +26,8 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-const { getAllUsers } = require('../services/authService');
+// GET USER LISTS
+const { getAllUsers } = require("../services/authService");
 
 exports.listUsers = async (req, res) => {
   try {
@@ -36,3 +38,21 @@ exports.listUsers = async (req, res) => {
   }
 };
 
+// DELETE /auth/delete
+exports.deleteUser = async (req, res) => {
+  const { uid } = req.body;
+
+  if (!uid) {
+    return res.status(400).json({ error: "UID is required" });
+  }
+
+  try {
+    await admin.auth().deleteUser(uid);
+    res
+      .status(200)
+      .json({ message: `User with UID ${uid} deleted successfully.` });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    res.status(500).json({ error: "Failed to delete user." });
+  }
+};
