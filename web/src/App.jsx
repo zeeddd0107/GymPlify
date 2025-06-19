@@ -1,19 +1,20 @@
-import { useState } from 'react';
+import React from "react";
+import { useState } from "react";
 import {
   getAuth,
   signInWithEmailAndPassword,
-  signInWithCustomToken
-} from 'firebase/auth';
-import app from './firebase';
-import axios from './api'; 
+  signInWithCustomToken,
+} from "firebase/auth";
+import app from "./firebase";
+import axios from "./api";
 
 const auth = getAuth(app);
 
 function App() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const [mode, setMode] = useState('login'); // 'login' or 'register'
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [mode, setMode] = useState("login"); // 'login' or 'register'
 
   // 🔐 Log in using Firebase custom token
   const loginWithCustomToken = async (tokenFromBackend) => {
@@ -30,10 +31,10 @@ function App() {
   // 📥 Handle registration and use token to sign in
   const handleRegister = async (e) => {
     e.preventDefault();
-    setMessage('');
+    setMessage("");
 
     try {
-      const response = await axios.post('/auth/register', { email, password });
+      const response = await axios.post("/auth/register", { email, password });
       const { token } = response.data;
 
       await loginWithCustomToken(token); // ✅ login immediately after register
@@ -46,10 +47,14 @@ function App() {
   // 🔐 Handle normal login
   const handleLogin = async (e) => {
     e.preventDefault();
-    setMessage('');
+    setMessage("");
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
       const user = userCredential.user;
       setMessage(`Welcome, ${user.email}`);
     } catch (error) {
@@ -58,31 +63,50 @@ function App() {
   };
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <h1>GymPlify {mode === 'login' ? 'Login' : 'Register'}</h1>
+    <div style={{ padding: "2rem", fontFamily: "sans-serif" }}>
+      <h1>GymPlify {mode === "login" ? "Login" : "Register"}</h1>
 
-      <form onSubmit={mode === 'login' ? handleLogin : handleRegister}>
+      <form onSubmit={mode === "login" ? handleLogin : handleRegister}>
         <div>
-          <label>Email:</label><br />
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <label>Email:</label>
+          <br />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
         </div>
-        <div style={{ marginTop: '1rem' }}>
-          <label>Password:</label><br />
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <div style={{ marginTop: "1rem" }}>
+          <label>Password:</label>
+          <br />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </div>
-        <button type="submit" style={{ marginTop: '1rem' }}>
-          {mode === 'login' ? 'Login' : 'Register'}
+        <button type="submit" style={{ marginTop: "1rem" }}>
+          {mode === "login" ? "Login" : "Register"}
         </button>
       </form>
 
-      <div style={{ marginTop: '1rem' }}>
-        <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
-          Switch to {mode === 'login' ? 'Register' : 'Login'}
+      <div style={{ marginTop: "1rem" }}>
+        <button
+          onClick={() => setMode(mode === "login" ? "register" : "login")}
+        >
+          Switch to {mode === "login" ? "Register" : "Login"}
         </button>
       </div>
 
       {message && (
-        <p style={{ marginTop: '1rem', color: message.startsWith('Welcome') ? 'green' : 'red' }}>
+        <p
+          style={{
+            marginTop: "1rem",
+            color: message.startsWith("Welcome") ? "green" : "red",
+          }}
+        >
           {message}
         </p>
       )}
