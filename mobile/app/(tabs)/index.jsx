@@ -25,7 +25,7 @@ export default function HomeScreen() {
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
         <ThemedText>
           Edit{" "}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText>{" "}
+          <ThemedText type="defaultSemiBold">app/(tabs)/index.jsx</ThemedText>{" "}
           to see changes. Press{" "}
           <ThemedText type="defaultSemiBold">
             {Platform.select({
@@ -77,4 +77,4 @@ const styles = StyleSheet.create({
     left: 0,
     position: "absolute",
   },
-});
+}); 

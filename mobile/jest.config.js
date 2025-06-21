@@ -4,5 +4,9 @@ module.exports = {
   transformIgnorePatterns: [
     'node_modules/(?!(react-native|@react-native|expo|@expo|@react-navigation)/)'
   ],
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-}; 
+  moduleFileExtensions: ['js', 'jsx', 'json', 'node'],
+  transform: {
+    '^.+\\.(js|jsx)$': 'babel-jest',
+  },
+  testEnvironment: 'node',
+};

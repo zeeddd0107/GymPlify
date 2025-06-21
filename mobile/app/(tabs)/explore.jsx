@@ -30,13 +30,13 @@ export default function TabTwoScreen() {
       <Collapsible title="File-based routing">
         <ThemedText>
           This app has two screens:{" "}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText>{" "}
+          <ThemedText type="defaultSemiBold">app/(tabs)/index.jsx</ThemedText>{" "}
           and{" "}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
+          <ThemedText type="defaultSemiBold">app/(tabs)/explore.jsx</ThemedText>
         </ThemedText>
         <ThemedText>
           The layout file in{" "}
-          <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{" "}
+          <ThemedText type="defaultSemiBold">app/(tabs)/_layout.jsx</ThemedText>{" "}
           sets up the tab navigator.
         </ThemedText>
         <ExternalLink href="https://docs.expo.dev/router/introduction">
@@ -67,7 +67,7 @@ export default function TabTwoScreen() {
       </Collapsible>
       <Collapsible title="Custom fonts">
         <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText>{" "}
+          Open <ThemedText type="defaultSemiBold">app/_layout.jsx</ThemedText>{" "}
           to see how to load{" "}
           <ThemedText style={{ fontFamily: "SpaceMono" }}>
             custom fonts such as this one.
@@ -92,7 +92,7 @@ export default function TabTwoScreen() {
         <ThemedText>
           This template includes an example of an animated component. The{" "}
           <ThemedText type="defaultSemiBold">
-            components/HelloWave.tsx
+            components/HelloWave.jsx
           </ThemedText>{" "}
           component uses the powerful{" "}
           <ThemedText type="defaultSemiBold">
@@ -105,7 +105,7 @@ export default function TabTwoScreen() {
             <ThemedText>
               The{" "}
               <ThemedText type="defaultSemiBold">
-                components/ParallaxScrollView.tsx
+                components/ParallaxScrollView.jsx
               </ThemedText>{" "}
               component provides a parallax effect for the header image.
             </ThemedText>
@@ -127,4 +127,4 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
-});
+}); 
