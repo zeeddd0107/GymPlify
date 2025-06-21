@@ -1,8 +1,8 @@
 # Node
 node_modules/
-.env
 dist/
 build/
+coverage/
 
 # Environment Variables
 .env
@@ -17,12 +17,23 @@ build/
 # Firebase
 .firebase/
 
-# React Native
+# React Native & Expo
 .expo/
 .expo-shared/
+android/
+ios/
 web-build/
+*.keystore
 
-# Ignore VSCode workspace settings
+# Editor & IDE
 .vscode/
+.idea/
+*.iml
+*.swp
 
+# Jest test coverage
+coverage/
+test-results/
 
+# Misc
+*.local
