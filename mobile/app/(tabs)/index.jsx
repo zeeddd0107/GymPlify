@@ -77,4 +77,4 @@ const styles = StyleSheet.create({
     left: 0,
     position: "absolute",
   },
-}); 
+});
