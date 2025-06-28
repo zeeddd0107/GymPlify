@@ -1,7 +1,7 @@
 const QRCode = require('qrcode');
 
 exports.createQRCodeForUser = async (uid) => {
-  const payload = JSON.stringify({ uid }); // You can also include a token, timestamp, etc.
-  const qrDataUrl = await QRCode.toDataURL(payload); // base64-encoded image
+  const payload = JSON.stringify({ uid }); // The QR code will encode this JSON object
+  const qrDataUrl = await QRCode.toDataURL(payload); // Generates a base64 image
   return qrDataUrl;
 };
