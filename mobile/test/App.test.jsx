@@ -1,6 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import Page from '../app/index';
+import Page from '../app/(tabs)/index';
 
 describe('App Main Page', () => {
   it('renders Hello World and subtitle', () => {
