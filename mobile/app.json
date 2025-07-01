@@ -9,10 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "bundleIdentifier": "com.gymplify.mobile",
       "supportsTablet": true
     },
     "android": {
-      "adaptiveIcon": {
+       "package": "com.gymplify.mobile",
+        "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
