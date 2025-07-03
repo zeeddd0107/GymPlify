@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -19,3 +20,24 @@ export const loginUser = (email, password) => {
 export const logoutUser = () => {
   return signOut(auth);
 };
+=======
+import { firebase } from "./firebase";
+
+export async function registerUser(email, password) {
+  try {
+    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+    return userCredential.user;
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function loginUser(email, password) {
+  try {
+    const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+    return userCredential.user;
+  } catch (error) {
+    throw error;
+  }
+} 
+>>>>>>> test-from-old-commit

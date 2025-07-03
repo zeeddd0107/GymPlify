@@ -69,10 +69,21 @@ export default function RootLayout() {
   }
 
   return (
+<<<<<<< HEAD
     <AuthProvider>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <RootLayoutNav />
       </ThemeProvider>
     </AuthProvider>
+=======
+    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <Stack>
+        <Stack.Screen name="auth" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+      <StatusBar style="auto" />
+    </ThemeProvider>
+>>>>>>> test-from-old-commit
   );
 }

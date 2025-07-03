@@ -1,4 +1,5 @@
-import { initializeApp } from "firebase/app";
+import firebase from "firebase/compat/app";
+import "firebase/compat/auth";
 import {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,
@@ -17,5 +18,8 @@ const firebaseConfig = {
   appId: FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-export default app;
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+
+export { firebase };
