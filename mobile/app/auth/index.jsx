@@ -7,26 +7,22 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import { registerUser, loginUser } from "@/src/authService";
+import { loginUser } from "@/src/authService";
+import { useRouter } from "expo-router";
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  const handleAuthAction = async () => {
+  const handleLogin = async () => {
     setLoading(true);
     setMessage("");
     try {
-      if (mode === "register") {
-        await registerUser(email, password);
-        setMessage("Welcome! Account created successfully.");
-      } else {
-        await loginUser(email, password);
-        setMessage("Welcome back!");
-      }
+      await loginUser(email, password);
+      router.replace("/"); // Navigate to Home (tabs)
     } catch (error) {
       setMessage(error.message);
     } finally {
@@ -36,9 +32,7 @@ export default function AuthScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        GymPlify {mode === "login" ? "Login" : "Register"}
-      </Text>
+      <Text style={styles.title}>GymPlify Login</Text>
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -57,29 +51,15 @@ export default function AuthScreen() {
       {loading ? (
         <ActivityIndicator size="large" color="#22c55e" />
       ) : (
-        <Pressable style={styles.button} onPress={handleAuthAction}>
-          <Text style={styles.buttonText}>
-            {mode === "login" ? "Login" : "Create Account"}
-          </Text>
+        <Pressable style={styles.button} onPress={handleLogin}>
+          <Text style={styles.buttonText}>Login</Text>
         </Pressable>
       )}
-      <Pressable
-        disabled={loading}
-        onPress={() => setMode(mode === "login" ? "register" : "login")}
-      >
-        <Text style={styles.switchText}>
-          {mode === "login"
-            ? "Don't have an account? Register"
-            : "Already have an account? Login"}
-        </Text>
-      </Pressable>
       {message && (
         <Text
           style={[
             styles.message,
-            message.startsWith("Welcome")
-              ? styles.successMessage
-              : styles.errorMessage,
+            styles.errorMessage,
           ]}
         >
           {message}
@@ -121,11 +101,6 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
-  },
-  switchText: {
-    marginTop: 16,
-    textAlign: "center",
-    color: "#1d4ed8",
   },
   message: {
     marginTop: 16,
