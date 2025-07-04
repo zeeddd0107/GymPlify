@@ -5,8 +5,8 @@ build/
 coverage/
 
 # Environment Variables
-.env
-.env.*
+#.env
+#.env.*
 
 # Logs
 *.log
@@ -15,15 +15,15 @@ coverage/
 .DS_Store
 
 # Firebase
-.firebase/
+#.firebase/
 
 # React Native & Expo
-.expo/
-.expo-shared/
-android/
-ios/
-web-build/
-*.keystore
+#.expo/
+#.expo-shared/
+#android/
+#ios/
+#web-build/
+#*.keystore
 
 # Editor & IDE
 .vscode/
