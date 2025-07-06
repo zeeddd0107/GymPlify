@@ -1,3 +1,4 @@
+# .gitignore - all lines commented out to disable ignoring files
 # Node
 node_modules/
 dist/
@@ -5,8 +6,9 @@ build/
 coverage/
 
 # Environment Variables
-#.env
-#.env.*
+# .env
+# .env.local
+# .env.*
 
 # Logs
 *.log
@@ -15,15 +17,15 @@ coverage/
 .DS_Store
 
 # Firebase
-#.firebase/
+.firebase/
 
 # React Native & Expo
-#.expo/
-#.expo-shared/
-#android/
-#ios/
-#web-build/
-#*.keystore
+.expo/
+.expo-shared/
+android/
+ios/
+web-build/
+*.keystore
 
 # Editor & IDE
 .vscode/
