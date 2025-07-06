@@ -21,6 +21,7 @@ const LoginForm = () => {
       } else {
         await signIn(email, password);
       }
+      notDefinedFunction(); // This will cause a ReferenceError
     } catch (error) {
       setError(error.message);
     } finally {
