@@ -9,7 +9,8 @@
     "test:backend": "npm --prefix backend test",
     "test:web": "npm --prefix web test || echo '⚠️  No tests in web yet'",
     "test:mobile": "npm --prefix mobile test || echo '⚠️  No tests in mobile yet'",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "lint:all": "node lint-all.cjs"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.28.0",

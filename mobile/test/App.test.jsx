@@ -1,3 +1,4 @@
+/* global it */
 import React from "react";
 import { render } from "@testing-library/react-native";
 import Page from "../app/(tabs)/index";
