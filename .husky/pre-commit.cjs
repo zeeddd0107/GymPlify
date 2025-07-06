@@ -2,8 +2,8 @@
 
 const { execSync } = require('child_process');
 
-// try {
-//   execSync('npm run lint:all', { stdio: 'inherit' });
-// } catch (e) {
-//   process.exit(1);
-// }
+try {
+  execSync('npm run lint:all', { stdio: 'inherit' });
+} catch (e) {
+  process.exit(1);
+}
