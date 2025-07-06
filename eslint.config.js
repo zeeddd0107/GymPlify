@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import babelParser from "@babel/eslint-parser";
 
 /**
  * No need to import defineFlatConfig — it's globally available in ESLint 9+
@@ -48,6 +49,67 @@ export default [
         beforeEach: "readonly",
         afterEach: "readonly",
       },
+    },
+  },
+
+  // 🛠️ Node config overrides for web/config
+  {
+    files: ["web/config/postcss.config.js", "web/config/tailwind.config.js"],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.node,
+      parserOptions: {
+        sourceType: "script",
+      },
+    },
+    rules: {
+      "no-undef": "off",
+    },
+  },
+  {
+    files: ["web/config/vite.config.js"],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.node,
+      parserOptions: {
+        sourceType: "module",
+      },
+    },
+    rules: {
+      "no-undef": "off",
+    },
+  },
+
+  // 📱 Mobile React Native JSX support
+  {
+    files: ["mobile/**/*.{js,jsx,ts,tsx}"],
+    languageOptions: {
+      parser: babelParser,
+      parserOptions: {
+        requireConfigFile: false,
+        babelOptions: {
+          presets: ["@babel/preset-react"],
+        },
+        ecmaFeatures: { jsx: true },
+        sourceType: "module",
+      },
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+    plugins: {
+      "react-hooks": reactHooks,
+      "react-refresh": reactRefresh,
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      ...reactHooks.configs.recommended.rules,
+      "no-unused-vars": ["error", { varsIgnorePattern: "^[A-Z_]" }],
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true },
+      ],
     },
   },
 ];

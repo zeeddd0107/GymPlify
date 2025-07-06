@@ -11,7 +11,9 @@ describe("App", () => {
   it("renders login form", () => {
     render(<App />);
     expect(screen.getByText("Sign In")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Enter your email")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Enter your emails"),
+    ).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText("Enter your password"),
     ).toBeInTheDocument();

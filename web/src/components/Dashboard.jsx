@@ -1,36 +1,37 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context";
 
 const Dashboard = () => {
   const { user, signOut, getUsers, deleteUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
+  // useCallback to avoid useEffect dependency warning
+  const loadUsers = useCallback(async () => {
     setLoading(true);
-    setError("");
+    setErrorMsg("");
     try {
       const usersList = await getUsers();
       setUsers(usersList);
-    } catch (error) {
-      setError("Failed to load users");
+    } catch {
+      setErrorMsg("Failed to load users");
     } finally {
       setLoading(false);
     }
-  };
+  }, [getUsers]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const handleDeleteUser = async (uid) => {
     if (window.confirm("Are you sure you want to delete this user?")) {
       try {
         await deleteUser(uid);
         await loadUsers(); // Reload the list
-      } catch (error) {
-        setError("Failed to delete user");
+      } catch {
+        setErrorMsg("Failed to delete user");
       }
     }
   };
@@ -38,8 +39,8 @@ const Dashboard = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
-    } catch (error) {
-      setError("Failed to sign out");
+    } catch {
+      setErrorMsg("Failed to sign out");
     }
   };
 
@@ -67,9 +68,9 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {error && (
+        {errorMsg && (
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
+            {errorMsg}
           </div>
         )}
 
