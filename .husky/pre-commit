@@ -1,18 +1,1 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
-
-echo "🔍 Running ESLint checks for backend, web, and mobile..."
-
-cd backend && echo "📦 Linting backend..." && npx eslint . --ext .js --fix || exit 1
-cd ../web && echo "🌐 Linting web..." && npx eslint . --ext .js,.jsx --fix || exit 1
-cd ../mobile && echo "📱 Linting mobile..." && npx eslint . --ext .js,.jsx --fix || exit 1
-cd ..
-
-echo "✅ All lint checks passed!"
-
-npm test || exit 1
-npx lint-staged || exit 1
-
-echo "✅ Pre-commit checks complete. Proceeding to commit..."
-
-npm run lint:all
+node .husky/pre-commit.cjs
