@@ -26,6 +26,29 @@ exports.registerUser = async (req, res) => {
   }
 };
 
+// LOGIN USER
+exports.loginUser = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    // 1. Get user by email
+    const userRecord = await admin.auth().getUserByEmail(email);
+
+    // 2. Create a custom token
+    const customToken = await admin.auth().createCustomToken(userRecord.uid);
+
+    res.status(200).json({
+      message: "User logged in successfully",
+      uid: userRecord.uid,
+      email: userRecord.email,
+      token: customToken,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(400).json({ error: "Invalid email or password" });
+  }
+};
+
 // GET USER LISTS
 const { getAllUsers } = require("../services/authService");
 
