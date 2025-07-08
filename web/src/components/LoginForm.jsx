@@ -31,7 +31,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
         <div className="flex items-center justify-center mb-5">
           <FontAwesomeIcon
             icon={faDumbbell}
-            className="text-[2.5rem] text-[#4362ee] mr-2.5"
+            className="text-[2.5rem] text-primary mr-2.5"
           />
           <h1 className="text-[2rem] font-bold text-primary font-main">
             GymPlify
@@ -75,12 +75,12 @@ const LoginForm = ({ onSwitchToRegister }) => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 bg-[#4361ee] text-white rounded-[20px] font-medium text-base transition-colors hover:bg-[#3a0ca3] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 bg-primary text-white rounded-[20px] font-medium text-base transition-colors hover:bg-[#3a0ca3] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? "Processing..." : "Sign In"}
           </button>
           <div className="mt-4">
-            <a href="#" className="text-[#4361ee] text-sm hover:underline">
+            <a href="#" className="text-primary text-sm hover:underline">
               Forgot Password?
             </a>
           </div>
@@ -90,7 +90,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
           <button
             type="button"
             onClick={onSwitchToRegister}
-            className="text-[#4361ee] font-medium hover:underline ml-1"
+            className="text-primary font-medium hover:underline ml-1"
           >
             Register
           </button>

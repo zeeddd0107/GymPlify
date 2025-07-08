@@ -29,12 +29,12 @@ const RegisterForm = ({ onSwitchToLogin }) => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#4361ee] to-[#3a0ca3]">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-primary to-[#3a0ca3]">
       <div className="bg-white rounded-2xl shadow-2xl w-[400px] p-10 text-center">
         <div className="flex items-center justify-center mb-5">
           <FontAwesomeIcon
             icon={faDumbbell}
-            className="text-[2.5rem] text-[#4362ee] mr-2.5"
+            className="text-[2.5rem] text-primary mr-2.5"
           />
           <h1 className="text-[2rem] font-bold text-primary font-main">
             GymPlify
@@ -78,7 +78,7 @@ const RegisterForm = ({ onSwitchToLogin }) => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 bg-[#4361ee] text-white rounded-[20px] font-medium text-base transition-colors hover:bg-[#3a0ca3] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 bg-primary text-white rounded-[20px] font-medium text-base transition-colors hover:bg-[#3a0ca3] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? "Processing..." : "Register"}
           </button>
@@ -88,7 +88,7 @@ const RegisterForm = ({ onSwitchToLogin }) => {
           <button
             type="button"
             onClick={onSwitchToLogin}
-            className="text-[#4361ee] font-medium hover:underline ml-1"
+            className="text-primary font-medium hover:underline ml-1"
           >
             Sign In
           </button>
