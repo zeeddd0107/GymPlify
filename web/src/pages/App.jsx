@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/context";
-import { LoginForm, Dashboard } from "@/components";
+import { LoginForm, RegisterForm, Dashboard } from "@/components";
 
 function App() {
   const { user, loading } = useAuth();
+  const [showRegister, setShowRegister] = useState(false);
 
   if (loading) {
     return (
@@ -16,7 +17,13 @@ function App() {
     );
   }
 
-  return user ? <Dashboard /> : <LoginForm />;
+  if (user) return <Dashboard />;
+
+  return showRegister ? (
+    <RegisterForm onSwitchToLogin={() => setShowRegister(false)} />
+  ) : (
+    <LoginForm onSwitchToRegister={() => setShowRegister(true)} />
+  );
 }
 
 export default App;

@@ -25,10 +25,8 @@ ul {
 }
 
 button,
-input,
+
 select {
   font-family: 'Poppins', 'Arial', 'sans-serif';
-  border: none;
-  outline: none;
   cursor: pointer;
 }
