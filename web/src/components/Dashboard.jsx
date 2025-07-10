@@ -140,11 +140,10 @@ const Dashboard = () => {
                 }}
               >
                 {/* Icon */}
-                <div className="flex items-center justify-center w-8 text-2xl">
+                <div className="flex items-center justify-center w-12 text-2xl">
                   {Menu.icon}
                 </div>
 
-                {/* Label with smoother transitions like YouTube */}
                 <div
                   className={`flex-1 transition-all duration-300 text-lg ${!open ? "opacity-0 w-0 overflow-hidden" : "opacity-100 w-auto ml-2.5"}`}
                   style={{ minWidth: 0 }}
@@ -165,11 +164,11 @@ const Dashboard = () => {
               paddingRight: open ? 16 : 0,
             }}
           >
-            <div className="flex items-center justify-center w-8 text-2xl text-danger group-hover:text-white">
+            <div className="flex items-center justify-center w-12 text-2xl text-danger group-hover:text-white">
               <MdOutlineLogout />
             </div>
             <div
-              className={`flex-1 transition-all duration-300 text-lg text-danger group-hover:text-white ${!open ? "opacity-0 w-0 overflow-hidden" : "opacity-100 w-auto ml-2.5"}`}
+              className={`flex-1 transition-all duration-300 text-lg text-danger group-hover:text-white ${!open ? "opacity-0 w-0 overflow-hidden" : "opacity-100 w-auto ml-1.5"}`}
               style={{ minWidth: 0 }}
             >
               Logout
