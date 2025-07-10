@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "@/context";
 import { FaBell, FaSearch, FaUsers } from "react-icons/fa";
 
@@ -20,27 +21,68 @@ import { FaDumbbell } from "react-icons/fa6";
 const Dashboard = () => {
   const { signOut } = useAuth();
   const [open, setOpen] = useState(true);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const Menus = [
-    { title: "Dashboard", icon: <MdSpaceDashboard />, key: "dashboard" },
+    {
+      title: "Dashboard",
+      icon: <MdSpaceDashboard />,
+      key: "dashboard",
+      path: "/",
+    },
     {
       title: "Subscriptions",
       icon: <MdOutlineSubscriptions />,
       gap: true,
       key: "subscriptions",
+      path: "/subscriptions",
     },
-    { title: "Sessions", icon: <GiWeightLiftingUp />, key: "sessions" },
-    { title: "Inventory", icon: <MdOutlineInventory />, key: "inventory" },
+    {
+      title: "Sessions",
+      icon: <GiWeightLiftingUp />,
+      key: "sessions",
+      path: "/sessions",
+    },
+    {
+      title: "Inventory",
+      icon: <MdOutlineInventory />,
+      key: "inventory",
+      path: "/inventory",
+    },
     {
       title: "Subscription Requests",
       icon: <MdOutlinePendingActions />,
       key: "requests",
+      path: "/requests",
     },
-    { title: "Equipment Guide", icon: <MdOutlinePlayCircle />, key: "guide" },
-    { title: "Staff", icon: <FaUsers />, key: "staff" },
+    {
+      title: "Equipment Guide",
+      icon: <MdOutlinePlayCircle />,
+      key: "guide",
+      path: "/guide",
+    },
+    { title: "Staff", icon: <FaUsers />, key: "staff", path: "/staff" },
   ];
 
-  const [activeMenu, setActiveMenu] = useState("dashboard");
+  // Get the current active menu based on the current path
+  const getCurrentActiveMenu = () => {
+    const currentPath = location.pathname;
+    const menu = Menus.find((m) => m.path === currentPath);
+    return menu ? menu.key : "dashboard";
+  };
+
+  const [activeMenu, setActiveMenu] = useState(getCurrentActiveMenu());
+
+  // Update active menu when location changes
+  useEffect(() => {
+    setActiveMenu(getCurrentActiveMenu());
+  }, [location.pathname]);
+
+  const handleMenuClick = (menuKey, menuPath) => {
+    setActiveMenu(menuKey);
+    navigate(menuPath);
+  };
 
   const handleSignOut = async () => {
     try {
@@ -87,19 +129,24 @@ const Dashboard = () => {
             {Menus.map((Menu, index) => (
               <li
                 key={index}
-                className={`flex flex-col rounded-md py-3 px-4 cursor-pointer transition-all ease-in-out duration-300
-                          ${Menu.gap ? "mt-9" : "mt-2"}
-                          ${activeMenu === Menu.key ? "bg-primary text-white" : "text-primary-50 hover:text-white hover:bg-primary"}
-                `}
-                onClick={() => setActiveMenu(Menu.key)}
+                className={`relative flex items-center h-14 rounded-md cursor-pointer transition-all ease-in-out duration-300
+                ${Menu.gap ? "mt-9" : "mt-2"}
+                ${activeMenu === Menu.key ? "bg-primary text-white" : "text-primary-50 hover:text-white hover:bg-primary"}
+      `}
+                onClick={() => handleMenuClick(Menu.key, Menu.path)}
+                style={{
+                  paddingLeft: open ? 16 : 0,
+                  paddingRight: open ? 16 : 0,
+                }}
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{Menu.icon}</span>
-                  <span
-                    className={`${!open && "hidden"} origin-left ease-in-out duration-300`}
-                  >
-                    {Menu.title}
-                  </span>
+                <div className="flex items-center justify-center w-12 text-xl">
+                  {Menu.icon}
+                </div>
+                <div
+                  className={`flex-1 transition-all duration-300 text-lg ${!open ? "opacity-0 w-0 overflow-hidden" : "opacity-100 w-auto ml-2"}`}
+                  style={{ minWidth: 0 }}
+                >
+                  {Menu.title}
                 </div>
               </li>
             ))}
@@ -163,9 +210,7 @@ const Dashboard = () => {
 
         {/* Dashboard contents */}
         <div className="w-full px-12">
-          <h1 className="text-xl text-zinc-800 font-medium">
-            This is the Dashboard page.
-          </h1>
+          <Outlet />
         </div>
       </div>
     </div>

@@ -1,11 +1,19 @@
 import React, { useState } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import { useAuth } from "@/context";
 import { LoginForm, RegisterForm, Dashboard } from "@/components";
+import { Subscriptions, Sessions, Inventory, Requests, Guide, Staff } from ".";
 
 function App() {
   const { user, loading } = useAuth();
   const [showRegister, setShowRegister] = useState(false);
 
+  // Show loading animation while checking auth status
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -17,12 +25,31 @@ function App() {
     );
   }
 
-  if (user) return <Dashboard />;
+  // If no user is logged in, show login or register form
+  if (!user) {
+    return showRegister ? (
+      <RegisterForm onSwitchToLogin={() => setShowRegister(false)} />
+    ) : (
+      <LoginForm onSwitchToRegister={() => setShowRegister(true)} />
+    );
+  }
 
-  return showRegister ? (
-    <RegisterForm onSwitchToLogin={() => setShowRegister(false)} />
-  ) : (
-    <LoginForm onSwitchToRegister={() => setShowRegister(true)} />
+  // If user is logged in, show dashboard and subroutes
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Dashboard />}>
+          <Route index element={<div>This is the Dashboard page.</div>} />
+          <Route path="subscriptions" element={<Subscriptions />} />
+          <Route path="sessions" element={<Sessions />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route path="requests" element={<Requests />} />
+          <Route path="guide" element={<Guide />} />
+          <Route path="staff" element={<Staff />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </Router>
   );
 }
 
