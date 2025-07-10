@@ -51,13 +51,13 @@ const Dashboard = () => {
       path: "/inventory",
     },
     {
-      title: "Subscription Requests",
+      title: "Subscription",
       icon: <MdOutlinePendingActions />,
       key: "requests",
       path: "/requests",
     },
     {
-      title: "Equipment Guide",
+      title: "Guide",
       icon: <MdOutlinePlayCircle />,
       key: "guide",
       path: "/guide",
@@ -125,25 +125,28 @@ const Dashboard = () => {
           </div>
 
           {/* Sidebar Navbar Items section */}
-          <ul className="pt-5 space-y-0.5">
+          <ul className="pt-5 space-y-0">
             {Menus.map((Menu, index) => (
               <li
                 key={index}
-                className={`relative flex items-center h-14 rounded-md cursor-pointer transition-all ease-in-out duration-300
-                ${Menu.gap ? "mt-9" : "mt-2"}
-                ${activeMenu === Menu.key ? "bg-primary text-white" : "text-primary-50 hover:text-white hover:bg-primary"}
-      `}
+                className={`relative flex items-center h-14 rounded-xl cursor-pointer group
+                transition-all ease-in-out duration-300
+                ${Menu.gap ? "mt-9" : "mt-0"}
+                ${activeMenu === Menu.key ? "bg-primary text-white" : "text-primary-50 hover:text-white hover:bg-primary"}`}
                 onClick={() => handleMenuClick(Menu.key, Menu.path)}
                 style={{
                   paddingLeft: open ? 16 : 0,
                   paddingRight: open ? 16 : 0,
                 }}
               >
-                <div className="flex items-center justify-center w-12 text-xl">
+                {/* Icon */}
+                <div className="flex items-center justify-center w-8 text-2xl">
                   {Menu.icon}
                 </div>
+
+                {/* Label with smoother transitions like YouTube */}
                 <div
-                  className={`flex-1 transition-all duration-300 text-lg ${!open ? "opacity-0 w-0 overflow-hidden" : "opacity-100 w-auto ml-2"}`}
+                  className={`flex-1 transition-all duration-300 text-lg ${!open ? "opacity-0 w-0 overflow-hidden" : "opacity-100 w-auto ml-2.5"}`}
                   style={{ minWidth: 0 }}
                 >
                   {Menu.title}
@@ -153,20 +156,25 @@ const Dashboard = () => {
           </ul>
         </div>
         {/* Logout button always at the bottom */}
-        <div className="">
-          <button
+        <div className="pb-1">
+          <li
+            className={`group relative flex items-center h-14 rounded-xl cursor-pointer transition-all ease-in-out duration-300 mt-2 hover:bg-danger`}
             onClick={handleSignOut}
-            className="w-full flex items-center gap-2 py-3 px-4 rounded-md font-semibold bg-zinc-50 text-red-600 hover:bg-red-700 hover:text-white transition-all duration-300 justify-start"
+            style={{
+              paddingLeft: open ? 16 : 0,
+              paddingRight: open ? 16 : 0,
+            }}
           >
-            <span className="text-2xl font-bold">
+            <div className="flex items-center justify-center w-8 text-2xl text-danger group-hover:text-white">
               <MdOutlineLogout />
-            </span>
-            <span
-              className={`${!open && "hidden"} origin-left ease-in-out duration-300`}
+            </div>
+            <div
+              className={`flex-1 transition-all duration-300 text-lg text-danger group-hover:text-white ${!open ? "opacity-0 w-0 overflow-hidden" : "opacity-100 w-auto ml-2.5"}`}
+              style={{ minWidth: 0 }}
             >
               Logout
-            </span>
-          </button>
+            </div>
+          </li>
         </div>
       </div>
 
