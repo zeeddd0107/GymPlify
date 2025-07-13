@@ -49,6 +49,43 @@ exports.loginUser = async (req, res) => {
   }
 };
 
+// GOOGLE AUTH
+exports.googleAuth = async (req, res) => {
+  const { email, displayName, photoURL, uid } = req.body;
+
+  try {
+    let userRecord;
+
+    // Check if user already exists
+    try {
+      userRecord = await admin.auth().getUserByEmail(email);
+    } catch (error) {
+      // User doesn't exist, create new user
+      userRecord = await admin.auth().createUser({
+        email,
+        displayName,
+        photoURL,
+        uid: uid, // Firebase will use this UID if provided
+      });
+    }
+
+    // Create a custom token
+    const customToken = await admin.auth().createCustomToken(userRecord.uid);
+
+    res.status(200).json({
+      message: "Google authentication successful",
+      uid: userRecord.uid,
+      email: userRecord.email,
+      displayName: userRecord.displayName,
+      photoURL: userRecord.photoURL,
+      token: customToken,
+    });
+  } catch (error) {
+    console.error("Google auth error:", error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
 // GET USER LISTS
 const { getAllUsers } = require("../services/authService");
 
