@@ -1,11 +1,20 @@
-import { firebase } from "./firebase";
+import { firebase, googleProvider } from "./firebase";
 
 export async function registerUser(email, password) {
-    const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
-    return userCredential.user;
+  const userCredential = await firebase
+    .auth()
+    .createUserWithEmailAndPassword(email, password);
+  return userCredential.user;
 }
 
 export async function loginUser(email, password) {
-    const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
-    return userCredential.user;
+  const userCredential = await firebase
+    .auth()
+    .signInWithEmailAndPassword(email, password);
+  return userCredential.user;
+}
+
+export async function signInWithGoogle() {
+  const result = await firebase.auth().signInWithPopup(googleProvider);
+  return result.user;
 }
