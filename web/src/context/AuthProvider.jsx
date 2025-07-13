@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = (email, password) => authService.register(email, password);
   const signIn = (email, password) => authService.signIn(email, password);
+  const signInWithGoogle = () => authService.signInWithGoogle();
   const signOut = () => authService.signOut();
   const getUsers = () => authService.getUsers();
   const deleteUser = (uid) => authService.deleteUser(uid);
@@ -25,6 +26,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     register,
     signIn,
+    signInWithGoogle,
     signOut,
     getUsers,
     deleteUser,
