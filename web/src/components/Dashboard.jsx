@@ -131,7 +131,7 @@ const Dashboard = () => {
                 key={index}
                 className={`relative flex items-center h-14 rounded-xl cursor-pointer group
                 transition-all ease-in-out duration-300
-                ${Menu.gap ? "mt-9" : "mt-0"}
+                ${Menu.gap ? "mt-9" : "mt-2"}
                 ${activeMenu === Menu.key ? "bg-primary text-white" : "text-primary-50 hover:text-white hover:bg-primary"}`}
                 onClick={() => handleMenuClick(Menu.key, Menu.path)}
                 style={{
@@ -154,7 +154,7 @@ const Dashboard = () => {
             ))}
           </ul>
         </div>
-        {/* Logout button always at the bottom */}
+        {/* Logout button */}
         <div className="pb-1">
           <li
             className={`group relative flex items-center h-14 rounded-xl cursor-pointer transition-all ease-in-out duration-300 mt-2 hover:bg-danger`}
@@ -183,17 +183,11 @@ const Dashboard = () => {
       >
         {/* Navbar section */}
         <div className="w-full h-[8ch] px-12 bg-zinc-50 shadow-md flex items-center justify-between">
-          <div className="w-96 border border-zinc-300 rounded-full h-11 flex items-center justify-center">
-            <input
-              type="text"
-              placeholder="Search..."
-              className="flex-1 h-full rounded-full outline-none border-none bg-zinc-50 px-4"
-            />
-
-            <button className="px-4 h-full flex items-center justify-center text-base text-zinc-600 border-l border-zinc-300">
-              <FaSearch />
-            </button>
-          </div>
+          <h1
+            className={`origin-left font-bold text-2xl duration-200 ease-in-out ${!open && "scale-0"}`}
+          >
+            Dashboard
+          </h1>
 
           <div className="flex items-center gap-x-8">
             {/* Notification */}
