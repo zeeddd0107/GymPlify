@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { useAuth } from "@/context";
 import { LoginForm, RegisterForm, Dashboard } from "@/components";
+import DashboardHome from "./DashboardHome";
 import { Subscriptions, Sessions, Inventory, Requests, Guide, Staff } from ".";
 
 function App() {
@@ -39,7 +40,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Dashboard />}>
-          <Route index element={<div>This is the Dashboard page.</div>} />
+          <Route index element={<DashboardHome />} />
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="sessions" element={<Sessions />} />
           <Route path="inventory" element={<Inventory />} />
