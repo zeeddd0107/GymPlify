@@ -19,7 +19,7 @@ import {
 import { FaDumbbell } from "react-icons/fa6";
 
 const Dashboard = () => {
-  const { signOut } = useAuth();
+  const { isAdmin, signOut } = useAuth();
   const [open, setOpen] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
@@ -213,6 +213,13 @@ const Dashboard = () => {
         <div className="w-full px-12">
           <Outlet />
         </div>
+        {isAdmin && (
+          <div className="my-4 p-4 bg-yellow-100 border border-yellow-400 rounded">
+            <a href="/admin" className="text-yellow-800 font-bold">
+              Go to Admin Panel
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

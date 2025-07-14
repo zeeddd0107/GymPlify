@@ -9,6 +9,7 @@ import { useAuth } from "@/context";
 import { LoginForm, RegisterForm, Dashboard } from "@/components";
 import DashboardHome from "./DashboardHome";
 import { Subscriptions, Sessions, Inventory, Requests, Guide, Staff } from ".";
+import Admin from "./Admin";
 
 function App() {
   const { user, loading } = useAuth();
@@ -48,6 +49,7 @@ function App() {
           <Route path="guide" element={<Guide />} />
           <Route path="staff" element={<Staff />} />
         </Route>
+        <Route path="admin" element={<Admin />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

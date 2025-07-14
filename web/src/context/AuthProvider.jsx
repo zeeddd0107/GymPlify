@@ -5,11 +5,18 @@ import authService from "@/services/authService";
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = authService.onAuthStateChange((user) => {
+    const unsubscribe = authService.onAuthStateChange(async (user) => {
       setUser(user);
       setLoading(false);
+      if (user) {
+        const token = await user.getIdTokenResult();
+        setIsAdmin(!!token.claims.admin);
+      } else {
+        setIsAdmin(false);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -24,6 +31,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     loading,
+    isAdmin,
     register,
     signIn,
     signInWithGoogle,
