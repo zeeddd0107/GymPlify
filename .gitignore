@@ -1,43 +1,23 @@
-# .gitignore - all lines commented out to disable ignoring files
-# Node
+# Node modules
 node_modules/
+
+# Yarn lock file (keep this tracked)
+# yarn.lock
+
+# npm lock files (ignore these)
+package-lock.json
+npm-debug.log*
+
+# Build output
 dist/
 build/
-coverage/
 
-# Environment Variables
-# .env
-# .env.local
-# .env.*
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# OS
-.DS_Store
-
-# Firebase
-.firebase/
-
-# React Native & Expo
+# Expo/React Native
 .expo/
 .expo-shared/
-android/
-ios/
 web-build/
-*.keystore
 
-# Editor & IDE
-.vscode/
-.idea/
-*.iml
-*.swp
-
-# Jest test coverage
-coverage/
-test-results/
-
-# Misc - local is the .env.local file in web, remove the comment someday
-# *.local
+# Misc
+.DS_Store
+.env
+.env.*
