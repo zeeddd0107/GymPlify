@@ -1,17 +1,46 @@
 # GymPlify
 
-**GymPlify** is a cross-platform gym management system using the FERN stack (Firebase, Express, React, Node.js) for the web and React Native (Expo) for mobile.
+## Setup Instructions
 
-## 📱 Platforms
+After cloning this repository, you must install dependencies using Yarn. This is standard practice for all Node.js, React, and Expo projects.
 
-- **Web App** – For gym owners and staff
-- **Mobile App** – For gym clients
+### 1. Install Yarn (if you don't have it)
+```sh
+yarn --version
+# If you see a version number, you're good!
+# If not, install it:
+npm install -g yarn
+```
 
-## 🔧 Tech Stack
+### 2. Install dependencies in all project directories
+From the root of your project, run:
+```sh
+yarn install
+cd web && yarn install
+cd ../mobile && yarn install
+```
 
-- **Frontend (Web)**: React.js
-- **Backend**: Node.js + Express
-- **Database/Auth**: Firebase (Firestore, Auth, Storage)
-- **Mobile**: React Native (Expo)
+### 3. Start your projects
+- For web:
+  ```sh
+  cd web
+  yarn dev
+  ```
+- For mobile (Expo):
+  ```sh
+  cd mobile
+  yarn start
+  # or
+  npx expo start
+  ```
 
-<pre> ## 📁 Folder Structure ``` GymPlify/ ├── backend/ # Express.js server and API logic ├── web/ # React.js frontend for gym staff/owners ├── mobile/ # React Native app for gym clients ``` </pre>
+---
+
+**Note:**
+- You do NOT need to (and should NOT) commit `node_modules` to git. All dependencies are described in `package.json` and `yarn.lock`.
+- If you add or update dependencies, always use `yarn add <package>` or `yarn add --dev <package>`.
+- If you switch to npm, remove all `yarn.lock` files and use `npm install` instead (not recommended for this project).
+
+---
+
+For any issues, please open an issue or contact the maintainer.
