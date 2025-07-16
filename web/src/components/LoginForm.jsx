@@ -71,7 +71,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
               className="w-full pl-12 py-3 border border-[#b1b2b3] rounded-[20px] text-base focus:border-primary focus:outline-none transition-colors"
             />
           </div>
-          <div className="relative mb-5">
+          <div className="relative mb-8">
             <FontAwesomeIcon
               icon={faLock}
               className="absolute left-4 top-1/2 -translate-y-1/2 text-gray"
