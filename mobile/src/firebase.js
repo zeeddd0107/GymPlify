@@ -1,5 +1,6 @@
 import firebase from "firebase/compat/app";
 import "firebase/compat/auth";
+import "firebase/compat/firestore";
 import {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,
@@ -22,10 +23,12 @@ if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
 
+const firestore = firebase.firestore();
+
 // Initialize Google Auth Provider
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: "select_account",
 });
 
-export { firebase, googleProvider };
+export { firebase, googleProvider, firestore };
