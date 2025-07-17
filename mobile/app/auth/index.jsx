@@ -26,8 +26,8 @@ export default function AuthScreen() {
   // Google Auth State
   const [userInfo, setUserInfo] = React.useState(null);
   const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: "92567912347-q242e9l92m353hu4h07f4dm5hpvbjdal.apps.googleusercontent.com",
-    iosClientId: "92567912347-942835ebp1tv39tsj52s0s93tlaou44a.apps.googleusercontent.com",
+    androidClientId: "792567912347-q242e9l92m353hu4h07f4dm5hpvbjdal.apps.googleusercontent.com",
+    iosClientId: "792567912347-942835ebp1tv39tsj52s0s93tlaou44a.apps.googleusercontent.com",
     webClientId: "792567912347-ub4fb24e5ne43litim6ql4c3tq03dqfa.apps.googleusercontent.com",
   });
 
