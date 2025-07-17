@@ -26,6 +26,7 @@ class AuthService {
       const userSnap = await getDoc(userRef);
       if (!userSnap.exists()) {
         await setDoc(userRef, {
+          uid: user.uid,
           email: user.email,
           displayName: user.displayName || null,
           photoURL: user.photoURL || null,
@@ -35,6 +36,7 @@ class AuthService {
         }, { merge: true });
       } else {
         await setDoc(userRef, {
+          uid: user.uid,
           email: user.email,
           displayName: user.displayName || null,
           photoURL: user.photoURL || null,
