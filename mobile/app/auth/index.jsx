@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,59 +6,57 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  Button
+  Button,
 } from "react-native";
 import { loginUser, registerUser } from "@/src/authService";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { makeRedirectUri } from "expo-auth-session";
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState("login"); // 'login' or 'register'
+  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
   const router = useRouter();
-  // Google Auth State
-  const [userInfo, setUserInfo] = React.useState(null);
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: "792567912347-q242e9l92m353hu4h07f4dm5hpvbjdal.apps.googleusercontent.com",
     iosClientId: "792567912347-942835ebp1tv39tsj52s0s93tlaou44a.apps.googleusercontent.com",
-    webClientId: "792567912347-ub4fb24e5ne43litim6ql4c3tq03dqfa.apps.googleusercontent.com",
+    redirectUri: makeRedirectUri({
+  native: "com.zeeeddd.mobile:/oauthredirect",
+}),
+
   });
 
-  React.useEffect(() => {
-    handleGoogleLogin();
-  }, [response]);
-
-  async function handleGoogleLogin() {
-    const user = await AsyncStorage.getItem("@user");
-    if (!user) {
-      if(response?.type === "success") {
-        await getUserInfo(response.authentication.accessToken);
-      }
-    } else {
-      setUserInfo(JSON.parse(user));
+  // Listen to Google Sign-In response
+  useEffect(() => {
+    if (response?.type === "success" && response.authentication?.accessToken) {
+      getUserInfo(response.authentication.accessToken);
     }
-  }
+  }, [response]);
 
   const getUserInfo = async (token) => {
     if (!token) return;
     try {
-      const response = await fetch("https://www.googleapis.com/userinfo/v2/me", {
+      const res = await fetch("https://www.googleapis.com/userinfo/v2/me", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      const user = await response.json();
+
+      const user = await res.json();
+      console.log("Fetched Google user:", user);
       await AsyncStorage.setItem("@user", JSON.stringify(user));
       setUserInfo(user);
-    } catch (error) {
-      // Handle error
+    } catch (err) {
+      console.log("Error fetching Google user info:", err);
     }
   };
 
@@ -72,8 +70,8 @@ export default function AuthScreen() {
         await loginUser(email, password);
       }
       router.replace("/");
-    } catch (error) {
-      setMessage(error.message);
+    } catch (err) {
+      setMessage(err.message);
     } finally {
       setLoading(false);
     }
@@ -81,14 +79,31 @@ export default function AuthScreen() {
 
   return (
     <View style={styles.container}>
-      <Text>
+      <Text style={{ fontSize: 12, marginBottom: 10 }}>
         {JSON.stringify(userInfo, null, 2)}
       </Text>
+
       <Button title="Sign in with Google" onPress={() => promptAsync()} />
-      <Button title="Delete local storage" onPress={() => AsyncStorage.removeItem("@user")} />
+      <Button
+        title="Delete local storage"
+        onPress={() => {
+          AsyncStorage.removeItem("@user");
+          setUserInfo(null);
+        }}
+      />
+      <Button
+        title="Log debug info"
+        onPress={() => {
+          console.log("Google response:", response);
+          console.log("Access Token:", response?.authentication?.accessToken);
+          console.log("userInfo state:", userInfo);
+        }}
+      />
+
       <Text style={styles.title}>
         GymPlify {mode === "login" ? "Login" : "Register"}
       </Text>
+
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -104,6 +119,7 @@ export default function AuthScreen() {
         onChangeText={setPassword}
         secureTextEntry
       />
+
       {loading ? (
         <ActivityIndicator size="large" color="#22c55e" />
       ) : (
@@ -113,6 +129,7 @@ export default function AuthScreen() {
           </Text>
         </Pressable>
       )}
+
       <Pressable
         disabled={loading}
         onPress={() => {
@@ -126,6 +143,7 @@ export default function AuthScreen() {
             : "Already have an account? Login"}
         </Text>
       </Pressable>
+
       {message && (
         <Text style={[styles.message, styles.errorMessage]}>{message}</Text>
       )}
