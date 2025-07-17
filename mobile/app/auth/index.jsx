@@ -82,10 +82,10 @@ export default function AuthScreen() {
       } else {
         user = await loginUser(email, password);
       }
-      // Add/update lastLoggedIn in Firestore
+      // Add/update lastLogin in Firestore
       if (user) {
         await firestore.collection("users").doc(user.uid).set({
-          lastLoggedIn: firebase.firestore.FieldValue.serverTimestamp(),
+          lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
         }, { merge: true });
       }
       router.replace("/(tabs)");

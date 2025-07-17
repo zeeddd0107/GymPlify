@@ -3,15 +3,30 @@ import { firestore } from "./firebase";
 
 export async function upsertUserInFirestore(user, provider) {
   if (!user) return;
-  await firestore.collection("users").doc(user.uid).set({
-    uid: user.uid,
-    email: user.email,
-    provider,
-    displayName: user.displayName,
-    photoURL: user.photoURL,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    lastLoggedIn: firebase.firestore.FieldValue.serverTimestamp(),
-  }, { merge: true });
+  const userRef = firestore.collection("users").doc(user.uid);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) {
+    // New user: set createdAt
+    await userRef.set({
+      uid: user.uid,
+      email: user.email,
+      provider,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } else {
+    // Existing user: do not update createdAt
+    await userRef.set({
+      uid: user.uid,
+      email: user.email,
+      provider,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
 }
 
 export async function registerUser(email, password) {
@@ -27,7 +42,12 @@ export async function loginUser(email, password) {
   const userCredential = await firebase
     .auth()
     .signInWithEmailAndPassword(email, password);
-  return userCredential.user;
+  const user = userCredential.user;
+  // Only update lastLogin, not createdAt
+  await firestore.collection("users").doc(user.uid).set({
+    lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+  return user;
 }
 
 export async function signInWithGoogle() {

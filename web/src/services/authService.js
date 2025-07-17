@@ -5,7 +5,8 @@ import {
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
-import { auth, googleProvider } from "@/config/firebase";
+import { auth, googleProvider, db } from "@/config/firebase";
+import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import api from "./api";
 
 class AuthService {
@@ -18,14 +19,37 @@ class AuthService {
         email,
         password,
       );
+      const user = userCredential.user;
 
-      // 2. Register user in backend
+      // 2. Add user to Firestore 'users' collection (only set createdAt if not exists)
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) {
+        await setDoc(userRef, {
+          email: user.email,
+          displayName: user.displayName || null,
+          photoURL: user.photoURL || null,
+          createdAt: serverTimestamp(),
+          provider: "password",
+          lastLogin: serverTimestamp(),
+        }, { merge: true });
+      } else {
+        await setDoc(userRef, {
+          email: user.email,
+          displayName: user.displayName || null,
+          photoURL: user.photoURL || null,
+          provider: "password",
+          lastLogin: serverTimestamp(),
+        }, { merge: true });
+      }
+
+      // 3. Register user in backend
       const response = await api.post("/auth/register", {
         email,
         password,
       });
 
-      // 3. Store the custom token from backend
+      // 4. Store the custom token from backend
       if (response.data.token) {
         localStorage.setItem("authToken", response.data.token);
       }
@@ -47,6 +71,12 @@ class AuthService {
         email,
         password,
       );
+      const user = userCredential.user;
+
+      // Update lastLogin in Firestore (do not update createdAt)
+      await setDoc(doc(db, "users", user.uid), {
+        lastLogin: serverTimestamp(),
+      }, { merge: true });
 
       // Get custom token from backend
       const response = await api.post("/auth/login", {
@@ -70,6 +100,30 @@ class AuthService {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
+      // Add or update user in Firestore 'users' collection (only set createdAt if not exists)
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+      if (!userSnap.exists()) {
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || null,
+          photoURL: user.photoURL || null,
+          createdAt: serverTimestamp(),
+          provider: "google",
+          lastLogin: serverTimestamp(),
+        }, { merge: true });
+      } else {
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || null,
+          photoURL: user.photoURL || null,
+          provider: "google",
+          lastLogin: serverTimestamp(),
+        }, { merge: true });
+      }
+
       // Register/login user in backend with Google data
       const response = await api.post("/auth/google", {
         email: user.email,
@@ -91,6 +145,13 @@ class AuthService {
   // Sign out user
   async signOut() {
     try {
+      const user = auth.currentUser;
+      if (user) {
+        // Update lastLogout in Firestore
+        await setDoc(doc(db, "users", user.uid), {
+          lastLogout: serverTimestamp(),
+        }, { merge: true });
+      }
       await signOut(auth);
       localStorage.removeItem("authToken");
     } catch (error) {
