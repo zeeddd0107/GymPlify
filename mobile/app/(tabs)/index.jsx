@@ -19,7 +19,9 @@ export default function HomeScreen() {
           try {
             const userObj = JSON.parse(userStr);
             userEmail = userObj.email || userObj.name || "";
-          } catch {}
+          } catch {
+            // ignore JSON parse errors
+          }
         }
       }
       setEmail(userEmail || "");

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,11 @@ import {
   ActivityIndicator,
   Button,
 } from "react-native";
-import { loginUser, registerUser, upsertUserInFirestore } from "@/src/authService";
+import {
+  loginUser,
+  registerUser,
+  upsertUserInFirestore,
+} from "@/src/authService";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
@@ -29,50 +33,74 @@ export default function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: "792567912347-q242e9l92m353hu4h07f4dm5hpvbjdal.apps.googleusercontent.com",
-    iosClientId: "792567912347-942835ebp1tv39tsj52s0s93tlaou44a.apps.googleusercontent.com",
+  const [_, response, promptAsync] = Google.useAuthRequest({
+    androidClientId:
+      "792567912347-q242e9l92m353hu4h07f4dm5hpvbjdal.apps.googleusercontent.com",
+    iosClientId:
+      "792567912347-942835ebp1tv39tsj52s0s93tlaou44a.apps.googleusercontent.com",
     redirectUri: makeRedirectUri({
       native: "com.zeeeddd.mobile:/oauthredirect",
     }),
-    scopes: ['openid', 'profile', 'email'],
+    scopes: ["openid", "profile", "email"],
   });
 
-  // Listen to Google Sign-In response
+  // Fix useEffect dependency warning
   useEffect(() => {
     if (response?.type === "success" && response.authentication?.accessToken) {
       getUserInfo(response.authentication.accessToken);
     }
-  }, [response]);
+  }, [response, getUserInfo]);
 
-  const getUserInfo = async (token) => {
-    if (!token) return;
-    try {
-      // Sign in to Firebase Auth with Google access token
-      const credential = firebase.auth.GoogleAuthProvider.credential(null, token);
-      await firebase.auth().signInWithCredential(credential);
-      
-      // Add user to Firestore using shared helper
-      const fbUser = firebase.auth().currentUser;
-      if (fbUser) {
-        await upsertUserInFirestore(fbUser, "google");
-      }
-      
-      // Try to fetch user info from Google (optional - Firebase already has the user data)
+  const getUserInfo = useCallback(
+    async (token) => {
+      if (!token) return;
       try {
-        const res = await fetch("https://www.googleapis.com/userinfo/v2/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        
-        if (res.ok) {
-          const user = await res.json();
-          console.log("Fetched Google user:", user);
-          await AsyncStorage.setItem("@user", JSON.stringify(user));
-          setUserInfo(user);
-        } else {
-          console.log("Google API response not ok:", res.status, res.statusText);
+        // Sign in to Firebase Auth with Google access token
+        const credential = firebase.auth.GoogleAuthProvider.credential(
+          null,
+          token,
+        );
+        await firebase.auth().signInWithCredential(credential);
+
+        // Add user to Firestore using shared helper
+        const fbUser = firebase.auth().currentUser;
+        if (fbUser) {
+          await upsertUserInFirestore(fbUser, "google");
+        }
+
+        // Try to fetch user info from Google (optional - Firebase already has the user data)
+        try {
+          const res = await fetch("https://www.googleapis.com/userinfo/v2/me", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (res.ok) {
+            const user = await res.json();
+            console.log("Fetched Google user:", user);
+            await AsyncStorage.setItem("@user", JSON.stringify(user));
+            setUserInfo(user);
+          } else {
+            console.log(
+              "Google API response not ok:",
+              res.status,
+              res.statusText,
+            );
+            // Use Firebase user data instead
+            if (fbUser) {
+              const userData = {
+                id: fbUser.uid,
+                email: fbUser.email,
+                name: fbUser.displayName,
+                picture: fbUser.photoURL,
+              };
+              await AsyncStorage.setItem("@user", JSON.stringify(userData));
+              setUserInfo(userData);
+            }
+          }
+        } catch (googleErr) {
+          console.log("Error fetching Google user info:", googleErr);
           // Use Firebase user data instead
           if (fbUser) {
             const userData = {
@@ -85,27 +113,15 @@ export default function AuthScreen() {
             setUserInfo(userData);
           }
         }
-      } catch (googleErr) {
-        console.log("Error fetching Google user info:", googleErr);
-        // Use Firebase user data instead
-        if (fbUser) {
-          const userData = {
-            id: fbUser.uid,
-            email: fbUser.email,
-            name: fbUser.displayName,
-            picture: fbUser.photoURL,
-          };
-          await AsyncStorage.setItem("@user", JSON.stringify(userData));
-          setUserInfo(userData);
-        }
+
+        router.replace("/(tabs)");
+      } catch (err) {
+        console.log("Error in Google authentication:", err);
+        setMessage("Google authentication failed. Please try again.");
       }
-      
-      router.replace("/(tabs)");
-    } catch (err) {
-      console.log("Error in Google authentication:", err);
-      setMessage("Google authentication failed. Please try again.");
-    }
-  };
+    },
+    [router, setUserInfo, setMessage],
+  );
 
   const handleAuth = async () => {
     setLoading(true);
@@ -119,9 +135,12 @@ export default function AuthScreen() {
       }
       // Add/update lastLogin in Firestore
       if (user) {
-        await firestore.collection("users").doc(user.uid).set({
-          lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-        }, { merge: true });
+        await firestore.collection("users").doc(user.uid).set(
+          {
+            lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
       }
       router.replace("/(tabs)");
     } catch (err) {
@@ -155,7 +174,10 @@ export default function AuthScreen() {
             title="Log debug info"
             onPress={() => {
               console.log("Google response:", response);
-              console.log("Access Token:", response?.authentication?.accessToken);
+              console.log(
+                "Access Token:",
+                response?.authentication?.accessToken,
+              );
               console.log("userInfo state:", userInfo);
             }}
           />
@@ -183,8 +205,8 @@ export default function AuthScreen() {
             style={{ marginBottom: 12 }}
             onPress={() => setShowPassword((prev) => !prev)}
           >
-            <Text style={{ color: '#1d4ed8', textAlign: 'right' }}>
-              {showPassword ? 'Hide' : 'Show'} Password
+            <Text style={{ color: "#1d4ed8", textAlign: "right" }}>
+              {showPassword ? "Hide" : "Show"} Password
             </Text>
           </Pressable>
 
