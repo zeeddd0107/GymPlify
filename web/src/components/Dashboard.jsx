@@ -87,6 +87,7 @@ const Dashboard = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
+      navigate("/login"); // Redirect to login after logout
     } catch {
       // error handling
     }
