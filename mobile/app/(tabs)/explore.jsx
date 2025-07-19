@@ -1,13 +1,26 @@
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  Button,
+  Alert,
+} from "react-native";
 import { useEffect, useState } from "react";
 import { firebase, firestore } from "@/src/firebase";
 import QRCode from "react-native-qrcode-svg";
+
+function generateNewQrValue(uid) {
+  // Generate a new unique QR value (e.g., UID + timestamp + random)
+  return `${uid}_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+}
 
 export default function QRCodeScreen() {
   const [qrValue, setQrValue] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userInitial, setUserInitial] = useState("");
-  const [telegramHandle, setTelegramHandle] = useState(""); // Placeholder, update as needed
+  const [telegramHandle, setTelegramHandle] = useState("");
+  const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
     const fetchQr = async () => {
@@ -24,7 +37,6 @@ export default function QRCodeScreen() {
             ? user.email[0].toUpperCase()
             : "?",
       );
-      // Optionally, fetch Telegram handle from user profile or Firestore
       setTelegramHandle(
         user.displayName
           ? `@${user.displayName.replace(/\s/g, "").toUpperCase()}`
@@ -45,6 +57,26 @@ export default function QRCodeScreen() {
     fetchQr();
   }, []);
 
+  const handleRegenerate = async () => {
+    const user = firebase.auth().currentUser;
+    if (!user) return;
+    setRegenerating(true);
+    try {
+      const newQrValue = generateNewQrValue(user.uid);
+      await firestore.collection("users").doc(user.uid).set(
+        {
+          qrCodeValue: newQrValue,
+        },
+        { merge: true },
+      );
+      setQrValue(newQrValue);
+      Alert.alert("QR Code Updated", "Your QR code has been regenerated.");
+    } catch {
+      Alert.alert("Error", "Failed to regenerate QR code.");
+    }
+    setRegenerating(false);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.avatarContainer}>
@@ -56,11 +88,17 @@ export default function QRCodeScreen() {
         {loading ? (
           <ActivityIndicator size="large" color="#22c55e" />
         ) : qrValue ? (
-          <QRCode value={qrValue} size={240} />
+          <QRCode value={qrValue} size={250} />
         ) : (
           <Text>No QR code found.</Text>
         )}
       </View>
+      <Button
+        title={regenerating ? "Regenerating..." : "Regenerate QR"}
+        onPress={handleRegenerate}
+        disabled={regenerating || loading}
+      />
+      {qrValue && <Text style={styles.qrValue}>{qrValue}</Text>}
       <Text style={styles.handle}>{telegramHandle}</Text>
     </View>
   );
@@ -108,5 +146,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 18,
     marginTop: 16,
+  },
+  qrValue: {
+    color: "#888",
+    fontSize: 14,
+    marginTop: 12,
+    marginBottom: 4,
+    textAlign: "center",
+    wordBreak: "break-all",
   },
 });
