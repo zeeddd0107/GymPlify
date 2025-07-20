@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Button,
+  Image,
 } from "react-native";
 import {
   loginUser,
@@ -20,6 +21,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { makeRedirectUri } from "expo-auth-session";
 import { firebase } from "@/src/firebase";
 import { firestore } from "@/src/firebase";
+import { Feather } from "@expo/vector-icons";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -29,7 +31,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [userInfo, setUserInfo] = useState(null);
+  const [, setUserInfo] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
@@ -156,36 +158,93 @@ export default function AuthScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#22c55e" />
         </View>
-      ) : (
+      ) : mode === "login" ? (
         <>
-          <Text style={{ fontSize: 12, marginBottom: 10 }}>
-            {JSON.stringify(userInfo, null, 2)}
+          <Text style={styles.loginTitle}>Sign In</Text>
+          <Text style={styles.loginSubtitle}>
+            Enter valid email/number and password to continue
           </Text>
 
-          <Button title="Sign in with Google" onPress={() => promptAsync()} />
-          <Button
-            title="Delete local storage"
-            onPress={() => {
-              AsyncStorage.removeItem("@user");
-              setUserInfo(null);
-            }}
+          <TextInput
+            style={styles.input}
+            placeholder="Email or phone number"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
           />
-          <Button
-            title="Log debug info"
-            onPress={() => {
-              console.log("Google response:", response);
-              console.log(
-                "Access Token:",
-                response?.authentication?.accessToken,
-              );
-              console.log("userInfo state:", userInfo);
-            }}
-          />
+          <View style={styles.passwordInputContainer}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <Pressable
+              style={styles.eyeButton}
+              onPress={() => setShowPassword((prev) => !prev)}
+            >
+              {showPassword ? (
+                <Feather name="eye-off" size={20} color="#bdbdbd" />
+              ) : (
+                <Feather name="eye" size={20} color="#bdbdbd" />
+              )}
+            </Pressable>
+          </View>
+          <Pressable style={styles.forgotPassword} onPress={() => {}}>
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </Pressable>
 
+          <Pressable
+            style={styles.loginButton}
+            onPress={handleAuth}
+            disabled={loading}
+          >
+            <Text style={styles.loginButtonText}>Login</Text>
+          </Pressable>
+
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>or continue with</Text>
+            <View style={styles.divider} />
+          </View>
+
+          <View style={styles.socialButtonsContainer}>
+            <Pressable
+              style={styles.googleButton}
+              onPress={() => promptAsync()}
+            >
+              <Image
+                source={require("../../assets/images/google-icon.png")}
+                style={styles.googlePngIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.googleButtonText}>Google</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.signupContainer}>
+            <Text style={styles.signupText}>Don't have an account? </Text>
+            <Pressable
+              onPress={() => {
+                setMode("register");
+                setMessage("");
+              }}
+            >
+              <Text style={styles.signupLink}>Sign up</Text>
+            </Pressable>
+          </View>
+
+          {message && (
+            <Text style={[styles.message, styles.errorMessage]}>{message}</Text>
+          )}
+        </>
+      ) : (
+        <>
           <Text style={styles.title}>
             GymPlify {mode === "login" ? "Login" : "Register"}
           </Text>
-
           <TextInput
             style={styles.input}
             placeholder="Email"
@@ -205,11 +264,10 @@ export default function AuthScreen() {
             style={{ marginBottom: 12 }}
             onPress={() => setShowPassword((prev) => !prev)}
           >
-            <Text style={{ color: "#1d4ed8", textAlign: "right" }}>
+            <Text style={{ color: "#4361EE", textAlign: "right" }}>
               {showPassword ? "Hide" : "Show"} Password
             </Text>
           </Pressable>
-
           <Pressable
             style={styles.button}
             onPress={handleAuth}
@@ -219,7 +277,6 @@ export default function AuthScreen() {
               {mode === "login" ? "Login" : "Register"}
             </Text>
           </Pressable>
-
           <Pressable
             disabled={loading}
             onPress={() => {
@@ -233,7 +290,6 @@ export default function AuthScreen() {
                 : "Already have an account? Login"}
             </Text>
           </Pressable>
-
           {message && (
             <Text style={[styles.message, styles.errorMessage]}>{message}</Text>
           )}
@@ -246,24 +302,138 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     padding: 24,
     backgroundColor: "#f3f4f6",
+    paddingTop: 220, // Move content slightly down
+  },
+  loginTitle: {
+    fontSize: 40,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 12,
+    marginTop: 12,
+  },
+  loginSubtitle: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  input: {
+    backgroundColor: "white",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    fontSize: 16,
+  },
+  passwordInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 0,
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 12, // was 16, move icon further right
+    top: 0,
+    height: "100%",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  eyeText: {
+    fontSize: 18,
+    color: "#888",
+  },
+  forgotPassword: {
+    alignSelf: "flex-end",
+    marginVertical: 16,
+  },
+  forgotPasswordText: {
+    color: "#2a4eff",
+    fontWeight: "500",
+    fontSize: 14,
+    marginVertical: 5,
+  },
+  loginButton: {
+    backgroundColor: "#2a4eff",
+    paddingVertical: 16,
+    borderRadius: 10,
+    alignItems: "center",
+    shadowColor: "#2a4eff",
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  loginButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 18,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#e0e0e0",
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    marginVertical: 5,
+    color: "#888",
+    fontSize: 14,
+  },
+  socialButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
+  googleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "white",
+    borderRadius: 10,
+    paddingVertical: 16,
+    width: "100%",
+    marginHorizontal: 0,
+    marginBottom: 0,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+  },
+  googleIcon: {
+    marginRight: 8,
+    // The AntDesign icon is already colored like Google
+  },
+  googleButtonText: {
+    color: "#222",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
+  signupContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  signupText: {
+    color: "#888",
+    fontSize: 14,
+  },
+  signupLink: {
+    color: "#2a4eff",
+    fontWeight: "bold",
+    fontSize: 14,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 24,
     textAlign: "center",
-  },
-  input: {
-    backgroundColor: "white",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
   },
   button: {
     backgroundColor: "#22c55e",
@@ -279,7 +449,7 @@ const styles = StyleSheet.create({
   switchText: {
     marginTop: 16,
     textAlign: "center",
-    color: "#1d4ed8",
+    color: "#2a4eff",
   },
   message: {
     marginTop: 16,
@@ -302,5 +472,10 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     zIndex: 10,
+  },
+  googlePngIcon: {
+    width: 22,
+    height: 22,
+    marginRight: 8,
   },
 });
