@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  Button,
   Image,
 } from "react-native";
 import {
@@ -26,15 +25,17 @@ import { Feather } from "@expo/vector-icons";
 WebBrowser.maybeCompleteAuthSession();
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState("login");
+  // --- STATE MANAGEMENT ---
+  const [mode, setMode] = useState("login"); // Controls 'login' or 'register' mode
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [, setUserInfo] = useState(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const router = useRouter();
+  const [message, setMessage] = useState(""); // For displaying errors or success messages
+  const [loading, setLoading] = useState(false); // Controls loading spinner
+  const [, setUserInfo] = useState(null); // To store user info after login
+  const [showPassword, setShowPassword] = useState(false); // Toggles password visibility
+  const router = useRouter(); // For navigation
 
+  // --- GOOGLE AUTHENTICATION HOOK ---
   const [_, response, promptAsync] = Google.useAuthRequest({
     androidClientId:
       "792567912347-q242e9l92m353hu4h07f4dm5hpvbjdal.apps.googleusercontent.com",
@@ -46,29 +47,32 @@ export default function AuthScreen() {
     scopes: ["openid", "profile", "email"],
   });
 
-  // Fix useEffect dependency warning
+  // --- EFFECT HOOKS ---
+  // Listens for a successful response from Google's auth session
   useEffect(() => {
     if (response?.type === "success" && response.authentication?.accessToken) {
       getUserInfo(response.authentication.accessToken);
     }
   }, [response, getUserInfo]);
 
+  // --- AUTHENTICATION LOGIC ---
+  // Handles the entire Google sign-in process after getting the token
   const getUserInfo = useCallback(
     async (token) => {
       if (!token) return;
       try {
-        // Sign in to Firebase Auth with Google access token
+        // Sign in to Firebase with the Google credential
         const credential = firebase.auth.GoogleAuthProvider.credential(
           null,
           token,
         );
         await firebase.auth().signInWithCredential(credential);
 
-        // Add user to Firestore using shared helper
+        // Create or update the user in Firestore
         const fbUser = firebase.auth().currentUser;
         if (fbUser) {
           await upsertUserInFirestore(fbUser, "google");
-          // Check if a subscription already exists for this user
+          // Create a subscription if one doesn't exist
           const subSnap = await firestore
             .collection("subscriptions")
             .where("userId", "==", fbUser.uid)
@@ -82,53 +86,16 @@ export default function AuthScreen() {
               createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             });
           }
+          // Store user data on the device for local access
+          const userData = {
+            id: fbUser.uid,
+            email: fbUser.email,
+            name: fbUser.displayName,
+            picture: fbUser.photoURL,
+          };
+          await AsyncStorage.setItem("@user", JSON.stringify(userData));
+          setUserInfo(userData);
         }
-
-        // Try to fetch user info from Google (optional - Firebase already has the user data)
-        try {
-          const res = await fetch("https://www.googleapis.com/userinfo/v2/me", {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-
-          if (res.ok) {
-            const user = await res.json();
-            await AsyncStorage.setItem("@user", JSON.stringify(user));
-            setUserInfo(user);
-          } else {
-            console.log(
-              "Google API response not ok:",
-              res.status,
-              res.statusText,
-            );
-            // Use Firebase user data instead
-            if (fbUser) {
-              const userData = {
-                id: fbUser.uid,
-                email: fbUser.email,
-                name: fbUser.displayName,
-                picture: fbUser.photoURL,
-              };
-              await AsyncStorage.setItem("@user", JSON.stringify(userData));
-              setUserInfo(userData);
-            }
-          }
-        } catch (googleErr) {
-          console.log("Error fetching Google user info:", googleErr);
-          // Use Firebase user data instead
-          if (fbUser) {
-            const userData = {
-              id: fbUser.uid,
-              email: fbUser.email,
-              name: fbUser.displayName,
-              picture: fbUser.photoURL,
-            };
-            await AsyncStorage.setItem("@user", JSON.stringify(userData));
-            setUserInfo(userData);
-          }
-        }
-
         router.replace("/(tabs)");
       } catch (err) {
         console.log("Error in Google authentication:", err);
@@ -138,6 +105,7 @@ export default function AuthScreen() {
     [router, setUserInfo, setMessage],
   );
 
+  // Handles email/password login and registration
   const handleAuth = async () => {
     setLoading(true);
     setMessage("");
@@ -148,7 +116,7 @@ export default function AuthScreen() {
       } else {
         user = await loginUser(email, password);
       }
-      // Add/update lastLogin in Firestore
+      // Update the user's last login timestamp
       if (user) {
         await firestore.collection("users").doc(user.uid).set(
           {
@@ -165,6 +133,34 @@ export default function AuthScreen() {
     }
   };
 
+  // --- UI RENDER FUNCTIONS ---
+  // Renders the email input field to avoid duplication
+  const renderEmailInput = () => (
+    <TextInput
+      style={styles.input}
+      placeholder={mode === "login" ? "Email or phone number" : "Email"}
+      value={email}
+      onChangeText={setEmail}
+      autoCapitalize="none"
+      keyboardType="email-address"
+      placeholderTextColor="#bdbdbd"
+    />
+  );
+
+  // Renders the main action button (Login/Create account) to avoid duplication
+  const renderAuthButton = () => (
+    <Pressable
+      style={styles.loginButton}
+      onPress={handleAuth}
+      disabled={loading}
+    >
+      <Text style={styles.loginButtonText}>
+        {mode === "login" ? "Login" : "Create account"}
+      </Text>
+    </Pressable>
+  );
+
+  // --- MAIN RENDER ---
   return (
     <View style={styles.container}>
       {loading ? (
@@ -174,70 +170,41 @@ export default function AuthScreen() {
       ) : (
         <>
           {/* Page Title and Subtitle */}
-          {mode === "login" ? (
-            <>
-              <Text style={styles.loginTitle}>Sign In</Text>
-              <Text style={styles.loginSubtitle}>
-                Enter valid email/number and password to continue
-              </Text>
-            </>
-          ) : (
-            <Text style={styles.title}>GymPlify Register</Text>
-          )}
+          <Text style={styles.loginTitle}>
+            {mode === "login" ? "Sign In" : "Sign Up"}
+          </Text>
+          <Text style={styles.loginSubtitle}>
+            {mode === "login"
+              ? "Enter valid email/number and password to continue"
+              : "Create an account to get started"}
+          </Text>
 
           {/* Email Input */}
-          <TextInput
-            style={styles.input}
-            placeholder={mode === "login" ? "Email or phone number" : "Email"}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            placeholderTextColor="#bdbdbd"
-          />
+          {renderEmailInput()}
 
-          {/* Password Input and Toggle (Different styles for each mode) */}
-          {mode === "login" ? (
-            <View style={styles.passwordInputContainer}>
-              <TextInput
-                style={[styles.input, styles.passwordInput]}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                placeholderTextColor="#bdbdbd"
-              />
-              <Pressable
-                style={styles.eyeButton}
-                onPress={() => setShowPassword((prev) => !prev)}
-              >
-                {showPassword ? (
-                  <Feather name="eye-off" size={20} color="#bdbdbd" />
-                ) : (
-                  <Feather name="eye" size={20} color="#bdbdbd" />
-                )}
-              </Pressable>
-            </View>
-          ) : (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                placeholderTextColor="#bdbdbd"
-              />
-              <Pressable
-                style={styles.showPasswordContainer}
-                onPress={() => setShowPassword((prev) => !prev)}
-              >
-                <Text style={styles.showPasswordText}>
-                  {showPassword ? "Hide" : "Show"} Password
-                </Text>
-              </Pressable>
-            </>
-          )}
+          {/* Password Input with Eye Icon (for both modes) */}
+          <View style={styles.passwordInputContainer}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              placeholderTextColor="#bdbdbd"
+            />
+            <Pressable
+              style={styles.eyeButton}
+              onPress={() => setShowPassword((prev) => !prev)}
+            >
+              {showPassword ? (
+                <Feather name="eye-off" size={20} color="#bdbdbd" />
+              ) : (
+                <Feather name="eye" size={20} color="#bdbdbd" />
+              )}
+            </Pressable>
+          </View>
+
+          {mode === "register" && <View style={{ marginTop: 18 }} />}
 
           {/* Forgot Password (Login only) */}
           {mode === "login" && (
@@ -247,71 +214,48 @@ export default function AuthScreen() {
           )}
 
           {/* Main Action Button */}
-          <Pressable
-            style={mode === "login" ? styles.loginButton : styles.button}
-            onPress={handleAuth}
-            disabled={loading}
-          >
-            <Text
-              style={
-                mode === "login" ? styles.loginButtonText : styles.buttonText
-              }
+          {renderAuthButton()}
+
+          {/* Social Login Divider */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>or continue with</Text>
+            <View style={styles.divider} />
+          </View>
+
+          {/* Social Login Buttons */}
+          <View style={styles.socialButtonsContainer}>
+            <Pressable
+              style={styles.googleButton}
+              onPress={() => promptAsync()}
             >
-              {mode === "login" ? "Login" : "Register"}
-            </Text>
-          </Pressable>
-
-          {/* Social Login (Login only) */}
-          {mode === "login" && (
-            <>
-              <View style={styles.dividerContainer}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>or continue with</Text>
-                <View style={styles.divider} />
-              </View>
-
-              <View style={styles.socialButtonsContainer}>
-                <Pressable
-                  style={styles.googleButton}
-                  onPress={() => promptAsync()}
-                >
-                  <Image
-                    source={require("../../assets/images/google-icon.png")}
-                    style={styles.googlePngIcon}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.googleButtonText}>Google</Text>
-                </Pressable>
-              </View>
-            </>
-          )}
+              <Image
+                source={require("../../assets/images/google-icon.png")}
+                style={styles.googlePngIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.googleButtonText}>Google</Text>
+            </Pressable>
+          </View>
 
           {/* Switch Mode Link */}
-          {mode === "login" ? (
-            <View style={styles.signupContainer}>
-              <Text style={styles.signupText}>Don't have an account? </Text>
-              <Pressable
-                onPress={() => {
-                  setMode("register");
-                  setMessage("");
-                }}
-              >
-                <Text style={styles.signupLink}>Sign up</Text>
-              </Pressable>
-            </View>
-          ) : (
+          <View style={styles.signupContainer}>
+            <Text style={styles.signupText}>
+              {mode === "login"
+                ? "Don't have an account? "
+                : "Already have an account? "}
+            </Text>
             <Pressable
-              disabled={loading}
               onPress={() => {
-                setMode("login");
+                setMode(mode === "login" ? "register" : "login");
                 setMessage("");
               }}
             >
-              <Text style={styles.switchText}>
-                Already have an account? Login
+              <Text style={styles.signupLink}>
+                {mode === "login" ? "Sign up" : "Sign in"}
               </Text>
             </Pressable>
-          )}
+          </View>
 
           {/* Common Error Message */}
           {message && (
@@ -353,7 +297,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#d1d5db",
     fontSize: 16,
-    color: "#222", // Ensure text is visible in all inputs
+    color: "#222",
   },
   passwordInputContainer: {
     flexDirection: "row",
@@ -435,10 +379,6 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     borderWidth: 1,
     borderColor: "#d1d5db",
-  },
-  googleIcon: {
-    marginRight: 8,
-    // The AntDesign icon is already colored like Google
   },
   googleButtonText: {
     color: "#222",
