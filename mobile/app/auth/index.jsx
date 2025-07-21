@@ -68,6 +68,20 @@ export default function AuthScreen() {
         const fbUser = firebase.auth().currentUser;
         if (fbUser) {
           await upsertUserInFirestore(fbUser, "google");
+          // Check if a subscription already exists for this user
+          const subSnap = await firestore
+            .collection("subscriptions")
+            .where("userId", "==", fbUser.uid)
+            .get();
+          if (subSnap.empty) {
+            await firestore.collection("subscriptions").add({
+              userId: fbUser.uid,
+              plan: "basic",
+              status: "active",
+              startDate: firebase.firestore.FieldValue.serverTimestamp(),
+              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            });
+          }
         }
 
         // Try to fetch user info from Google (optional - Firebase already has the user data)
@@ -80,7 +94,6 @@ export default function AuthScreen() {
 
           if (res.ok) {
             const user = await res.json();
-            console.log("Fetched Google user:", user);
             await AsyncStorage.setItem("@user", JSON.stringify(user));
             setUserInfo(user);
           } else {
@@ -158,138 +171,149 @@ export default function AuthScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#22c55e" />
         </View>
-      ) : mode === "login" ? (
-        <>
-          <Text style={styles.loginTitle}>Sign In</Text>
-          <Text style={styles.loginSubtitle}>
-            Enter valid email/number and password to continue
-          </Text>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Email or phone number"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-          <View style={styles.passwordInputContainer}>
-            <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
-            <Pressable
-              style={styles.eyeButton}
-              onPress={() => setShowPassword((prev) => !prev)}
-            >
-              {showPassword ? (
-                <Feather name="eye-off" size={20} color="#bdbdbd" />
-              ) : (
-                <Feather name="eye" size={20} color="#bdbdbd" />
-              )}
-            </Pressable>
-          </View>
-          <Pressable style={styles.forgotPassword} onPress={() => {}}>
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </Pressable>
-
-          <Pressable
-            style={styles.loginButton}
-            onPress={handleAuth}
-            disabled={loading}
-          >
-            <Text style={styles.loginButtonText}>Login</Text>
-          </Pressable>
-
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.divider} />
-          </View>
-
-          <View style={styles.socialButtonsContainer}>
-            <Pressable
-              style={styles.googleButton}
-              onPress={() => promptAsync()}
-            >
-              <Image
-                source={require("../../assets/images/google-icon.png")}
-                style={styles.googlePngIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.googleButtonText}>Google</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.signupContainer}>
-            <Text style={styles.signupText}>Don't have an account? </Text>
-            <Pressable
-              onPress={() => {
-                setMode("register");
-                setMessage("");
-              }}
-            >
-              <Text style={styles.signupLink}>Sign up</Text>
-            </Pressable>
-          </View>
-
-          {message && (
-            <Text style={[styles.message, styles.errorMessage]}>{message}</Text>
-          )}
-        </>
       ) : (
         <>
-          <Text style={styles.title}>
-            GymPlify {mode === "login" ? "Login" : "Register"}
-          </Text>
+          {/* Page Title and Subtitle */}
+          {mode === "login" ? (
+            <>
+              <Text style={styles.loginTitle}>Sign In</Text>
+              <Text style={styles.loginSubtitle}>
+                Enter valid email/number and password to continue
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.title}>GymPlify Register</Text>
+          )}
+
+          {/* Email Input */}
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder={mode === "login" ? "Email or phone number" : "Email"}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
+            placeholderTextColor="#bdbdbd"
           />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-          />
+
+          {/* Password Input and Toggle (Different styles for each mode) */}
+          {mode === "login" ? (
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                placeholderTextColor="#bdbdbd"
+              />
+              <Pressable
+                style={styles.eyeButton}
+                onPress={() => setShowPassword((prev) => !prev)}
+              >
+                {showPassword ? (
+                  <Feather name="eye-off" size={20} color="#bdbdbd" />
+                ) : (
+                  <Feather name="eye" size={20} color="#bdbdbd" />
+                )}
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                placeholderTextColor="#bdbdbd"
+              />
+              <Pressable
+                style={styles.showPasswordContainer}
+                onPress={() => setShowPassword((prev) => !prev)}
+              >
+                <Text style={styles.showPasswordText}>
+                  {showPassword ? "Hide" : "Show"} Password
+                </Text>
+              </Pressable>
+            </>
+          )}
+
+          {/* Forgot Password (Login only) */}
+          {mode === "login" && (
+            <Pressable style={styles.forgotPassword} onPress={() => {}}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </Pressable>
+          )}
+
+          {/* Main Action Button */}
           <Pressable
-            style={{ marginBottom: 12 }}
-            onPress={() => setShowPassword((prev) => !prev)}
-          >
-            <Text style={{ color: "#4361EE", textAlign: "right" }}>
-              {showPassword ? "Hide" : "Show"} Password
-            </Text>
-          </Pressable>
-          <Pressable
-            style={styles.button}
+            style={mode === "login" ? styles.loginButton : styles.button}
             onPress={handleAuth}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>
+            <Text
+              style={
+                mode === "login" ? styles.loginButtonText : styles.buttonText
+              }
+            >
               {mode === "login" ? "Login" : "Register"}
             </Text>
           </Pressable>
-          <Pressable
-            disabled={loading}
-            onPress={() => {
-              setMode(mode === "login" ? "register" : "login");
-              setMessage("");
-            }}
-          >
-            <Text style={styles.switchText}>
-              {mode === "login"
-                ? "Don't have an account? Register"
-                : "Already have an account? Login"}
-            </Text>
-          </Pressable>
+
+          {/* Social Login (Login only) */}
+          {mode === "login" && (
+            <>
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>or continue with</Text>
+                <View style={styles.divider} />
+              </View>
+
+              <View style={styles.socialButtonsContainer}>
+                <Pressable
+                  style={styles.googleButton}
+                  onPress={() => promptAsync()}
+                >
+                  <Image
+                    source={require("../../assets/images/google-icon.png")}
+                    style={styles.googlePngIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.googleButtonText}>Google</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+
+          {/* Switch Mode Link */}
+          {mode === "login" ? (
+            <View style={styles.signupContainer}>
+              <Text style={styles.signupText}>Don't have an account? </Text>
+              <Pressable
+                onPress={() => {
+                  setMode("register");
+                  setMessage("");
+                }}
+              >
+                <Text style={styles.signupLink}>Sign up</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              disabled={loading}
+              onPress={() => {
+                setMode("login");
+                setMessage("");
+              }}
+            >
+              <Text style={styles.switchText}>
+                Already have an account? Login
+              </Text>
+            </Pressable>
+          )}
+
+          {/* Common Error Message */}
           {message && (
             <Text style={[styles.message, styles.errorMessage]}>{message}</Text>
           )}
@@ -305,7 +329,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     padding: 24,
     backgroundColor: "#f3f4f6",
-    paddingTop: 220, // Move content slightly down
+    paddingTop: 220,
   },
   loginTitle: {
     fontSize: 40,
@@ -329,15 +353,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#d1d5db",
     fontSize: 16,
+    color: "#222", // Ensure text is visible in all inputs
   },
   passwordInputContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 0,
   },
+  passwordInput: {
+    flex: 1,
+    marginBottom: 0,
+    color: "#222",
+  },
   eyeButton: {
     position: "absolute",
-    right: 12, // was 16, move icon further right
+    right: 12,
     top: 0,
     height: "100%",
     justifyContent: "center",
@@ -428,6 +458,13 @@ const styles = StyleSheet.create({
     color: "#2a4eff",
     fontWeight: "bold",
     fontSize: 14,
+  },
+  showPasswordContainer: {
+    marginBottom: 12,
+  },
+  showPasswordText: {
+    color: "#4361EE",
+    textAlign: "right",
   },
   title: {
     fontSize: 24,

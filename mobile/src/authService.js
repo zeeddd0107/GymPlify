@@ -43,6 +43,14 @@ export async function registerUser(email, password) {
     .createUserWithEmailAndPassword(email, password);
   const user = userCredential.user;
   await upsertUserInFirestore(user, "password");
+  // Create a new subscription for the user
+  await firestore.collection("subscriptions").add({
+    userId: user.uid,
+    plan: "basic",
+    status: "active",
+    startDate: firebase.firestore.FieldValue.serverTimestamp(),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  });
   return user;
 }
 
@@ -65,6 +73,14 @@ export async function signInWithGoogle() {
   const result = await firebase.auth().signInWithPopup(googleProvider);
   const user = result.user;
   await upsertUserInFirestore(user, "google");
+  // Always create a new subscription for debugging
+  await firestore.collection("subscriptions").add({
+    userId: user.uid,
+    plan: "basic",
+    status: "active",
+    startDate: firebase.firestore.FieldValue.serverTimestamp(),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  });
   return user;
 }
 
