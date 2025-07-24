@@ -62,6 +62,12 @@ const Dashboard = () => {
       key: "guide",
       path: "/guide",
     },
+    {
+      title: "QR",
+      icon: <FaSearch />,
+      key: "qr",
+      path: "/qr",
+    },
     { title: "Staff", icon: <FaUsers />, key: "staff", path: "/staff" },
   ];
 
