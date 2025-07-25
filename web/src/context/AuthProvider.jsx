@@ -6,6 +6,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  // Removed needsEmailVerification
 
   useEffect(() => {
     const unsubscribe = authService.onAuthStateChange(async (user) => {
@@ -14,6 +15,7 @@ export const AuthProvider = ({ children }) => {
       if (user) {
         const token = await user.getIdTokenResult();
         setIsAdmin(!!token.claims.admin);
+        // Removed needsEmailVerification logic
       } else {
         setIsAdmin(false);
       }
@@ -32,6 +34,7 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     isAdmin,
+    // Removed needsEmailVerification
     register,
     signIn,
     signInWithGoogle,

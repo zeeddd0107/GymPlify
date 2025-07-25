@@ -15,6 +15,7 @@ import QR from "./QR";
 function App() {
   const { user, loading } = useAuth();
   const [showRegister, setShowRegister] = useState(false);
+  // Remove all email verification state/logic
 
   // Show loading animation while checking auth status
   if (loading) {

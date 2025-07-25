@@ -12,6 +12,7 @@ const RegisterForm = ({ onSwitchToLogin }) => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const { register, signInWithGoogle } = useAuth();
 
@@ -19,8 +20,11 @@ const RegisterForm = ({ onSwitchToLogin }) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setSuccess(""); // Clear previous success messages
     try {
       await register(email, password);
+      // No email verification message needed
+      setSuccess("Registration successful! You can now log in.");
     } catch (error) {
       setError(error.message);
     } finally {
@@ -57,6 +61,11 @@ const RegisterForm = ({ onSwitchToLogin }) => {
         {error && (
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
             {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 text-green-600 font-semibold text-center">
+            {success}
           </div>
         )}
         <form onSubmit={handleSubmit}>
