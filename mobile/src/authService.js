@@ -1,5 +1,6 @@
 import { firebase, googleProvider } from "./firebase";
 import { firestore } from "./firebase";
+import { sendEmailVerification } from "firebase/auth";
 
 export async function upsertUserInFirestore(user, provider) {
   if (!user) return;
@@ -43,12 +44,21 @@ export async function registerUser(email, password) {
     .createUserWithEmailAndPassword(email, password);
   const user = userCredential.user;
   await upsertUserInFirestore(user, "password");
+  // Send email verification
+  await sendEmailVerification(user);
   // Create a new subscription for the user
+  // Get the current timestamp for startDate
+  const startDate = firebase.firestore.Timestamp.now();
+  // Calculate endDate as one month after startDate
+  const endDate = new Date(startDate.toDate());
+  endDate.setMonth(endDate.getMonth() + 1);
+  // Add the subscription document with endDate
   await firestore.collection("subscriptions").add({
     userId: user.uid,
     plan: "basic",
     status: "active",
-    startDate: firebase.firestore.FieldValue.serverTimestamp(),
+    startDate: startDate,
+    endDate: firebase.firestore.Timestamp.fromDate(endDate), // endDate is one month after startDate
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
   return user;
@@ -59,6 +69,10 @@ export async function loginUser(email, password) {
     .auth()
     .signInWithEmailAndPassword(email, password);
   const user = userCredential.user;
+  // Only allow login if email is verified
+  if (!user.emailVerified) {
+    throw new Error("Please verify your email address before logging in.");
+  }
   // Only update lastLogin, not createdAt
   await firestore.collection("users").doc(user.uid).set(
     {
@@ -74,11 +88,17 @@ export async function signInWithGoogle() {
   const user = result.user;
   await upsertUserInFirestore(user, "google");
   // Always create a new subscription for debugging
+  // Get the current timestamp for startDate
+  const startDate = firebase.firestore.Timestamp.now();
+  // Calculate endDate as one month after startDate
+  const endDate = new Date(startDate.toDate());
+  endDate.setMonth(endDate.getMonth() + 1);
   await firestore.collection("subscriptions").add({
     userId: user.uid,
     plan: "basic",
     status: "active",
-    startDate: firebase.firestore.FieldValue.serverTimestamp(),
+    startDate: startDate,
+    endDate: firebase.firestore.Timestamp.fromDate(endDate), // endDate is one month after startDate
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   });
   return user;

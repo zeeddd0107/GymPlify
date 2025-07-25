@@ -21,6 +21,7 @@ import { makeRedirectUri } from "expo-auth-session";
 import { firebase } from "@/src/firebase";
 import { firestore } from "@/src/firebase";
 import { Feather } from "@expo/vector-icons";
+import { sendEmailVerification } from "firebase/auth";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -34,6 +35,10 @@ export default function AuthScreen() {
   const [, setUserInfo] = useState(null); // To store user info after login
   const [showPassword, setShowPassword] = useState(false); // Toggles password visibility
   const router = useRouter(); // For navigation
+  const [awaitingVerification, setAwaitingVerification] = useState(false);
+  const [resent, setResent] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [timerId, setTimerId] = useState(null);
 
   // --- GOOGLE AUTHENTICATION HOOK ---
   const [_, response, promptAsync] = Google.useAuthRequest({
@@ -54,6 +59,44 @@ export default function AuthScreen() {
       getUserInfo(response.authentication.accessToken);
     }
   }, [response, getUserInfo]);
+
+  // Start a 3-minute timer after registration for email verification
+  useEffect(() => {
+    if (!awaitingVerification) return;
+    // Clear any previous timer
+    if (timerId) clearTimeout(timerId);
+    const id = setTimeout(
+      async () => {
+        const user = firebase.auth().currentUser;
+        if (user && !user.emailVerified) {
+          try {
+            // Delete user document from 'users' collection
+            await firestore.collection("users").doc(user.uid).delete();
+            // Delete all subscriptions for this user
+            const subsSnap = await firestore
+              .collection("subscriptions")
+              .where("userId", "==", user.uid)
+              .get();
+            const batch = firestore.batch();
+            subsSnap.forEach((doc) => batch.delete(doc.ref));
+            await batch.commit();
+            // Delete the Firebase Auth user
+            await user.delete();
+            setMessage("Please register again.");
+            setAwaitingVerification(false);
+            setMode("register");
+          } catch {
+            setMessage(
+              "Failed to delete unverified account and related data. Please try again.",
+            );
+          }
+        }
+      },
+      5 * 60 * 1000,
+    ); // 5 minutes
+    setTimerId(id);
+    return () => clearTimeout(id);
+  }, [awaitingVerification, timerId]);
 
   // --- AUTHENTICATION LOGIC ---
   // Handles the entire Google sign-in process after getting the token
@@ -78,11 +121,17 @@ export default function AuthScreen() {
             .where("userId", "==", fbUser.uid)
             .get();
           if (subSnap.empty) {
+            // Get the current timestamp for startDate
+            const startDate = firebase.firestore.Timestamp.now();
+            // Calculate endDate as one month after startDate
+            const endDate = new Date(startDate.toDate());
+            endDate.setMonth(endDate.getMonth() + 1);
             await firestore.collection("subscriptions").add({
               userId: fbUser.uid,
               plan: "basic",
               status: "active",
-              startDate: firebase.firestore.FieldValue.serverTimestamp(),
+              startDate: startDate,
+              endDate: firebase.firestore.Timestamp.fromDate(endDate), // endDate is one month after startDate
               createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             });
           }
@@ -97,8 +146,8 @@ export default function AuthScreen() {
           setUserInfo(userData);
         }
         router.replace("/(tabs)");
-      } catch (err) {
-        console.log("Error in Google authentication:", err);
+      } catch {
+        console.log("Error in Google authentication:");
         setMessage("Google authentication failed. Please try again.");
       }
     },
@@ -109,10 +158,15 @@ export default function AuthScreen() {
   const handleAuth = async () => {
     setLoading(true);
     setMessage("");
+    setResent(false);
     try {
       let user;
       if (mode === "register") {
         user = await registerUser(email, password);
+        // After registration, show verification screen
+        setAwaitingVerification(true);
+        setLoading(false);
+        return;
       } else {
         user = await loginUser(email, password);
       }
@@ -161,6 +215,74 @@ export default function AuthScreen() {
   );
 
   // --- MAIN RENDER ---
+  if (awaitingVerification) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loginTitle}>Verify your email</Text>
+        <Text style={styles.loginSubtitle}>
+          We've sent a verification link to your email address. Please check
+          your inbox and click the link to verify your account.
+        </Text>
+        <Pressable
+          style={[styles.loginButton, { marginTop: 24 }]}
+          onPress={async () => {
+            setChecking(true);
+            setMessage("");
+            try {
+              const user = firebase.auth().currentUser;
+              await user.reload();
+              if (user.emailVerified) {
+                setAwaitingVerification(false);
+                router.replace("/(tabs)");
+              } else {
+                setMessage("Email not verified yet. Please check your inbox.");
+              }
+            } catch {
+              setMessage(
+                "Failed to check verification status. Please try again.",
+              );
+            } finally {
+              setChecking(false);
+            }
+          }}
+          disabled={checking}
+        >
+          <Text style={styles.loginButtonText}>
+            {checking ? "Checking..." : "Continue"}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[
+            styles.loginButton,
+            { backgroundColor: "#888", marginTop: 12 },
+          ]}
+          onPress={async () => {
+            setResent(false);
+            setMessage("");
+            try {
+              const user = firebase.auth().currentUser;
+              await sendEmailVerification(user);
+              setResent(true);
+            } catch {
+              setMessage(
+                "Failed to resend verification email. Please try again later.",
+              );
+            }
+          }}
+        >
+          <Text style={styles.loginButtonText}>Resend Verification Email</Text>
+        </Pressable>
+        {resent && (
+          <Text style={{ color: "green", marginTop: 8 }}>
+            Verification email resent!
+          </Text>
+        )}
+        {message && (
+          <Text style={[styles.message, styles.errorMessage]}>{message}</Text>
+        )}
+      </View>
+    );
+  }
   return (
     <View style={styles.container}>
       {loading ? (
@@ -273,7 +395,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     padding: 24,
     backgroundColor: "#f3f4f6",
-    paddingTop: 220,
+    paddingTop: 280,
   },
   loginTitle: {
     fontSize: 40,
