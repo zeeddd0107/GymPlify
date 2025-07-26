@@ -22,6 +22,7 @@ import { firebase } from "@/src/firebase";
 import { firestore } from "@/src/firebase";
 import { Feather } from "@expo/vector-icons";
 import { sendEmailVerification } from "firebase/auth";
+import { updateProfile } from "firebase/auth";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -39,6 +40,7 @@ export default function AuthScreen() {
   const [resent, setResent] = useState(false);
   const [checking, setChecking] = useState(false);
   const [timerId, setTimerId] = useState(null);
+  const [name, setName] = useState(""); // Add name state
 
   // --- GOOGLE AUTHENTICATION HOOK ---
   const [_, response, promptAsync] = Google.useAuthRequest({
@@ -163,6 +165,15 @@ export default function AuthScreen() {
       let user;
       if (mode === "register") {
         user = await registerUser(email, password);
+        // Set displayName for email/password users
+        if (user) {
+          await updateProfile(user, { displayName: name });
+          // Also update Firestore user document with displayName
+          await firestore
+            .collection("users")
+            .doc(user.uid)
+            .set({ displayName: name }, { merge: true });
+        }
         // After registration, show verification screen
         setAwaitingVerification(true);
         setLoading(false);
@@ -303,6 +314,18 @@ export default function AuthScreen() {
 
           {/* Email Input */}
           {renderEmailInput()}
+
+          {/* Name Input (Registration only) */}
+          {mode === "register" && (
+            <TextInput
+              style={styles.input}
+              placeholder="Name"
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+              placeholderTextColor="#bdbdbd"
+            />
+          )}
 
           {/* Password Input with Eye Icon (for both modes) */}
           <View style={styles.passwordInputContainer}>
