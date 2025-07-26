@@ -192,7 +192,7 @@ const Dashboard = () => {
 
       {/* Dashboard Layout section */}
       <div
-        className={`h-screen flex-1 bg-zinc-100 space-y-6 transition-all duration-300 ${open ? "ml-72" : "ml-20"}`}
+        className={`h-screen flex-1 bg-zinc-100 space-y-2 transition-all duration-300 ${open ? "ml-72" : "ml-20"}`}
       >
         {/* Navbar section */}
         <div className="w-full h-[8ch] px-12 bg-zinc-50 shadow-md flex items-center justify-between">
@@ -222,8 +222,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Dashboard contents */}
-        <div className="w-full px-12">
+        {/* Subscriptions Table */}
+        <div className="w-full px-10">
           <Outlet />
         </div>
         {isAdmin && (
