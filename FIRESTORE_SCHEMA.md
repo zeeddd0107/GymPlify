@@ -17,6 +17,8 @@ Stores user profiles for all registered users (email/password, Google, etc).
   "displayName": "John Doe",
   "photoURL": "https://...",
   "provider": "google", // or "password"
+  "customMemberId": "MBR-00001", // Auto-generated for mobile users
+  "qrCodeValue": "abc123", // Unique QR code value
   "createdAt": <timestamp>,
   "lastLogin": <timestamp>,
   "lastLogout": <timestamp>,
@@ -173,7 +175,27 @@ Stores notifications sent to users.
 
 ---
 
-## 10. Example: Subcollections
+## 10. counters (Collection)
+Stores auto-incrementing counters for generating unique IDs.
+
+**Document ID:** `counterType` (e.g., "memberId", "subscriptionId")
+
+**Example Document:**
+```json
+{
+  "currentNumber": 42,
+  "lastUpdated": <timestamp>
+}
+```
+
+**Usage:**
+- Used to generate sequential Member IDs (MBR-00001, MBR-00002, etc.)
+- Ensures unique, human-readable IDs for mobile users
+- Automatically incremented when new users register via mobile app
+
+---
+
+## 11. Example: Subcollections
 You can nest subcollections under documents for more granular data organization.
 
 **Example:**
