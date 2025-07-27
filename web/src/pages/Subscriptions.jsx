@@ -21,6 +21,7 @@ import {
   FaChevronRight,
 } from "react-icons/fa";
 import { Listbox } from "@headlessui/react";
+import { ModalButtons } from "@/components";
 
 const Subscriptions = () => {
   const { user, isAdmin } = useAuth();
@@ -747,24 +748,11 @@ const Subscriptions = () => {
               )}
             </div>
 
-            <div className="flex justify-end space-x-2 mt-4">
-              {/* Cancel button */}
-              <button
-                onClick={handleCloseModal}
-                className="px-6 py-3 border bg-cancelButton text-white rounded-3xl hover:bg-cancelButton/80 transition-colors duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              {/* Save button */}
-              <button
-                onClick={handleSaveSubscription}
-                disabled={saving}
-                className="px-6 py-3 border bg-saveButton text-white rounded-3xl hover:bg-saveButton/90 transition-colors duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saving ? "Saving..." : "Save"}
-              </button>
-            </div>
+            <ModalButtons
+              onCancel={handleCloseModal}
+              onSave={handleSaveSubscription}
+              saving={saving}
+            />
           </div>
         </div>
       )}
