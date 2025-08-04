@@ -104,6 +104,40 @@ export default function QRCodeScreen() {
   );
 }
 
+// Call this function after a successful QR scan
+export async function recordAttendance(userId) {
+  try {
+    const today = new Date();
+    const dateString = today.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    // Check if there's already an attendance record for today
+    const attendanceRef = firestore
+      .collection("attendance")
+      .where("userId", "==", userId)
+      .where("date", "==", dateString);
+
+    const snapshot = await attendanceRef.get();
+
+    if (snapshot.empty) {
+      // No record for today, create check-in
+      await firestore.collection("attendance").add({
+        userId,
+        date: dateString,
+        checkInTime: firebase.firestore.FieldValue.serverTimestamp(),
+        checkOutTime: null,
+      });
+    } else {
+      // Record exists, update checkOutTime
+      const doc = snapshot.docs[0];
+      await firestore.collection("attendance").doc(doc.id).update({
+        checkOutTime: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+  } catch (err) {
+    console.log("Failed to record attendance:", err);
+  }
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
