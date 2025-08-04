@@ -1,46 +1,77 @@
-# GymPlify
+# GymPlify Setup Guide
 
-## Setup Instructions
+## Prerequisites
 
-After cloning this repository, you must install dependencies using Yarn. This is standard practice for all Node.js, React, and Expo projects.
+### Check Node.js Installation
 
-### 1. Install Yarn (if you don't have it)
-```sh
-yarn --version
-# If you see a version number, you're good!
-# If not, install it:
-npm install -g yarn
-```
+1. **Open CMD** and run these commands **isa-isa**:
+   ```bash
+   node -v
+   npm -v
+   ```
+   **Note** : Kailangan may lumabas na numbers sa dalawa.
 
-### 2. Install dependencies in all project directories
-From the root of your project, run:
-```sh
-yarn install
-cd web && yarn install
-cd ../mobile && yarn install
-```
+- Kapag may lumabas na version numbers → Skip to Step 2
+- Kapag wala → Install Node.js muna. Install Node.js (LTS version)
+  - Visit: https://nodejs.org/en/download
+  - Download and install the LTS version
 
-### 3. Start your projects
-- For web:
-  ```sh
-  cd web
-  yarn dev
-  ```
-- For mobile (Expo):
-  ```sh
-  cd mobile
-  yarn start
-  # or
-  npx expo start
-  ```
+### Clone the Project
 
----
+2. Punta sa folder na gusto mong paglagyan ng project sa CMD, then run:
+   git clone https://github.com/zeeddd0107/GymPlify.git
 
-**Note:**
-- You do NOT need to (and should NOT) commit `node_modules` to git. All dependencies are described in `package.json` and `yarn.lock`.
-- If you add or update dependencies, always use `yarn add <package>` or `yarn add --dev <package>`.
-- If you switch to npm, remove all `yarn.lock` files and use `npm install` instead (not recommended for this project).
+   ```bash
+   cd GymPlify
+   code .
+   ```
 
----
+3. Check project structure
+   - Press CTRL + J to open the terminal in VSCode
+   - Run:
+     ls
 
-For any issues, please open an issue or contact the maintainer.
+**Dapat may makita kayong folders: backend, mobile, web**
+
+### Install Dependencies
+
+4. Install Yarn (if wala ka pa). Do this in the GymPlify directory
+   yarn --version
+
+- Kapag may lumabas na number → OK na
+- Kapag wala → Install:
+  npm install -g yarn
+
+5. Install dependencies sa lahat ng directories
+   From project root (GymPlify):
+   yarn install
+   cd web
+   yarn install
+   cd ..
+   cd mobile
+   yarn install
+
+### Run the Projects
+
+**For Web**
+cd web
+yarn dev
+
+**Kapag may error na ganito:**
+running scripts is disabled on this system
+
+- Gawin niyo ‘to sa PowerShell:
+  Get-ExecutionPolicy
+
+* If it returns "Restricted", run:
+  Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+- Click “A” when prompted
+
+**For Mobile (Expo)** (Kahit huwag muna ito, need kasi ito ng connections sa Android Studio)
+cd mobile
+yarn start
+
+# or
+
+npx expo start
