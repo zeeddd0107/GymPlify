@@ -18,6 +18,7 @@ module.exports = {
         light: "#F8F9FA",
         dark: "#212427",
         gray: "#6C757D",
+        grayButton: "#696969",
         lightGrayText: "#434941",
         lightGray: "#E9ECEF",
       },

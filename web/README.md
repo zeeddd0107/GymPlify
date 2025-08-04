@@ -1,106 +1,166 @@
-# GymPlify Web App
+# GymPlify Web Application
 
-This is the web frontend for GymPlify, built with React and Vite.
+A comprehensive gym management system built with React, featuring subscription management, inventory tracking, and user administration.
 
-## Features
-
-- ⚡ **Vite** - Fast development server and build tool
-- ⚛️ **React 19** - Latest React with concurrent features
-- 🎨 **Tailwind CSS** - Utility-first CSS framework
-- 🧪 **Vitest** - Fast unit testing framework
-
-## Getting Started
-
-### Development
-
-```bash
-npm run dev
-```
-
-This starts the development server at `http://localhost:3000`
-
-### Building for Production
-
-```bash
-npm run build
-```
-
-This creates a production build in the `dist` directory.
-
-### Preview Production Build
-
-```bash
-npm run preview
-```
-
-This serves the production build locally for testing.
-
-### Running Tests
-
-```bash
-npm test
-```
-
-This runs the test suite using Vitest.
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 web/
 ├── src/
-│   ├── components/      # Reusable UI components
-│   │   └── index.js     # Component exports
-│   ├── context/         # React context providers
-│   │   └── index.js     # Context exports
-│   ├── hooks/           # Custom React hooks
-│   │   └── index.js     # Hook exports
-│   ├── pages/           # Page components
-│   │   ├── App.jsx      # Main application component
-│   │   ├── App.test.jsx # App component tests
-│   │   └── index.js     # Page exports
-│   ├── styles/          # CSS and styling files
-│   │   └── index.css    # Global styles with Tailwind
-│   ├── utils/           # Utility functions and helpers
-│   │   ├── test-setup.js # Test configuration
-│   │   └── index.js     # Utility exports
-│   └── index.jsx        # Application entry point
-├── config/              # Configuration files
-│   ├── vite.config.js   # Vite configuration
-│   ├── vitest.config.js # Vitest configuration
-│   ├── tailwind.config.js # Tailwind CSS configuration
-│   └── postcss.config.js # PostCSS configuration
-├── public/              # Static assets
-│   ├── favicon.ico      # Browser icon
-│   ├── manifest.json    # Web app manifest
-│   └── robots.txt       # SEO configuration
-└── index.html           # HTML template
+│   ├── components/           # Reusable UI components
+│   │   ├── buttons/         # Button components
+│   │   │   ├── Actions.jsx          # Row-level action buttons (edit/delete)
+│   │   │   ├── DeleteButton.jsx     # Delete confirmation buttons
+│   │   │   ├── EditButtons.jsx      # Edit form buttons (save/cancel)
+│   │   │   └── index.js             # Button exports
+│   │   ├── modals/          # Modal dialog components
+│   │   │   ├── DeleteModal.jsx      # Delete confirmation modal
+│   │   │   ├── EditModal.jsx        # Edit form modal
+│   │   │   └── index.js             # Modal exports
+│   │   ├── ui/              # UI-specific components
+│   │   │   ├── SubscriptionsUI.jsx      # Main subscriptions page UI
+│   │   │   ├── SubscriptionsActions.jsx # Subscription modal container
+│   │   │   ├── Navbar.jsx           # Navigation bar
+│   │   │   ├── Sidebar.jsx          # Sidebar navigation
+│   │   │   ├── FormInput.jsx        # Reusable form input
+│   │   │   └── index.js             # UI exports
+│   │   ├── forms/           # Form components
+│   │   ├── tables/          # Table components
+│   │   ├── dashboard/       # Dashboard components
+│   │   ├── hooks/           # Custom React hooks
+│   │   ├── utils/           # Utility functions
+│   │   ├── subscription/    # Subscription-specific components
+│   │   ├── inputs/          # Input components
+│   │   ├── services/        # Service layer
+│   │   └── index.js         # Main component exports
+│   ├── pages/               # Page components
+│   │   ├── Subscriptions.jsx        # Subscriptions page
+│   │   ├── Inventory.jsx            # Inventory management page
+│   │   ├── DashboardHome.jsx        # Dashboard home page
+│   │   ├── QR.jsx                   # QR code page
+│   │   ├── Admin.jsx                # Admin panel
+│   │   ├── App.jsx                  # Main app component
+│   │   └── index.js                 # Page exports
+│   ├── context/             # React context providers
+│   │   ├── AuthContext.js           # Authentication context
+│   │   ├── AuthProvider.jsx         # Auth provider component
+│   │   └── index.js                 # Context exports
+│   ├── services/            # API and service functions
+│   ├── config/              # Configuration files
+│   │   └── firebase.js              # Firebase configuration
+│   ├── styles/              # CSS and styling
+│   ├── utils/               # Utility functions
+│   └── index.jsx            # Main app entry point
+├── public/                  # Static assets
+├── config/                  # Build configuration
+│   ├── vite.config.js       # Vite configuration
+│   ├── tailwind.config.js   # Tailwind CSS configuration
+│   └── postcss.config.js    # PostCSS configuration
+├── package.json             # Dependencies and scripts
+└── README.md               # This file
 ```
 
-## Technologies Used
+## 🧩 Component Architecture
 
-- **Vite** - Build tool and dev server
-- **React** - UI library
-- **Tailwind CSS** - Styling
-- **Vitest** - Testing
-- **PostCSS** - CSS processing
-- **Firebase** - Authentication and database
-- **Axios** - HTTP client for API calls
+### Button Components (`/components/buttons/`)
 
-## Environment Variables
+#### `Actions.jsx`
+- **Purpose**: Row-level action buttons for data tables
+- **Features**: Edit and delete buttons with built-in delete confirmation
+- **Usage**: Embedded in table rows for individual item actions
 
-Create a `.env` file in the web directory with the following variables:
+#### `EditButtons.jsx`
+- **Purpose**: Form action buttons for edit operations
+- **Features**: Save and Cancel buttons with shadow effects
+- **Usage**: Used in edit modals and forms
 
-```env
-# Firebase Configuration
-VITE_FIREBASE_API_KEY=your_firebase_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
+#### `DeleteButton.jsx`
+- **Purpose**: Delete confirmation buttons
+- **Features**: Cancel (gray) and Delete (red) buttons with shadows
+- **Usage**: Used in delete confirmation modals
 
-# Backend API URL
-VITE_API_URL=http://localhost:4000
-```
+### Modal Components (`/components/modals/`)
 
-You can get these values from your Firebase project console.
+#### `EditModal.jsx`
+- **Purpose**: Reusable edit modal dialog
+- **Features**: Form container with header, content area, and action buttons
+- **Usage**: Wraps forms for editing data
+
+#### `DeleteModal.jsx`
+- **Purpose**: Delete confirmation modal with warnings
+- **Features**: Warning icon, item display, confirmation messages
+- **Usage**: Confirms destructive delete operations
+
+### UI Components (`/components/ui/`)
+
+#### `SubscriptionsUI.jsx`
+- **Purpose**: Main subscriptions page interface
+- **Features**: Data table, header, and modal integration
+- **Usage**: Complete subscriptions page layout
+
+#### `SubscriptionsActions.jsx`
+- **Purpose**: Modal container for subscription operations
+- **Features**: Edit and delete modal management
+- **Usage**: Handles subscription-specific modal logic
+
+## 🔄 Component Flow
+
+### Edit Flow:
+1. **Actions** (table row) → Edit button click
+2. **SubscriptionsActions** → Opens EditModal
+3. **EditModal** → Contains form with EditButtons
+4. **EditButtons** → Save/Cancel actions
+
+### Delete Flow:
+1. **Actions** (table row) → Delete button click
+2. **Actions** → Opens DeleteModal (built-in)
+3. **DeleteModal** → Contains DeleteButton
+4. **DeleteButton** → Confirm/Cancel actions
+
+## 🎨 Styling
+
+- **Tailwind CSS**: Utility-first CSS framework
+- **Custom Colors**: Defined in Tailwind config
+- **Shadows**: Enhanced button shadows for depth
+- **Responsive**: Mobile-first design approach
+
+## 🚀 Getting Started
+
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+2. **Start development server**:
+   ```bash
+   npm run dev
+   ```
+
+3. **Build for production**:
+   ```bash
+   npm run build
+   ```
+
+## 📝 Key Features
+
+- **Modular Architecture**: Separated concerns between buttons, modals, and UI
+- **Reusable Components**: Components can be used across different pages
+- **Consistent Styling**: Unified design system with shadows and effects
+- **Type Safety**: JSDoc comments for better development experience
+- **Performance**: Optimized rendering with proper state management
+
+## 🔧 Development Notes
+
+- **Component Comments**: All functions have simple explanatory comments
+- **File Organization**: Logical grouping by functionality
+- **Import Structure**: Clean imports using index files
+- **State Management**: React hooks for local state
+- **Error Handling**: Comprehensive error handling in delete operations
+
+## 📚 Dependencies
+
+- **React**: UI library
+- **Vite**: Build tool and dev server
+- **Tailwind CSS**: Styling framework
+- **Firebase**: Backend services
+- **React Icons**: Icon library

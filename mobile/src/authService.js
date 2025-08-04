@@ -3,7 +3,7 @@ import { firestore } from "./firebase";
 import { sendEmailVerification } from "firebase/auth";
 
 // Function to generate custom Member ID
-async function generateCustomMemberId() {
+const generateCustomMemberId = async () => {
   try {
     // Get the counter document
     const counterRef = firestore.collection("counters").doc("memberId");
@@ -29,7 +29,7 @@ async function generateCustomMemberId() {
     const timestamp = Date.now();
     return `MBR-${timestamp.toString().slice(-5)}`;
   }
-}
+};
 
 export async function upsertUserInFirestore(user, provider) {
   if (!user) return;
@@ -81,6 +81,15 @@ export async function registerUser(email, password) {
   // Send email verification
   await sendEmailVerification(user);
 
+  // Add a small delay to ensure user document is fully written
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // Get user data from Firestore to access customMemberId and displayName
+  const userDoc = await firestore.collection("users").doc(user.uid).get();
+  const userData = userDoc.data();
+
+  console.log("User data for subscription creation:", userData);
+
   // Create a new subscription for the user
   // Use server timestamp for consistency and accuracy
   const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp();
@@ -95,14 +104,20 @@ export async function registerUser(email, password) {
   const endDate = new Date(now);
   endDate.setMonth(endDate.getMonth() + 1);
 
-  batch.set(subscriptionRef, {
+  const subscriptionData = {
     userId: user.uid,
     plan: "basic",
     status: "active",
     startDate: serverTimestamp,
     endDate: firebase.firestore.Timestamp.fromDate(endDate),
     createdAt: serverTimestamp,
-  });
+    customMemberId: userData?.customMemberId || null,
+    displayName: userData?.displayName || user.email || "Unknown User",
+  };
+
+  console.log("Subscription data to be created:", subscriptionData);
+
+  batch.set(subscriptionRef, subscriptionData);
 
   await batch.commit();
   return user;
@@ -132,6 +147,9 @@ export async function signInWithGoogle() {
   const user = result.user;
   await upsertUserInFirestore(user, "google");
 
+  // Add a small delay to ensure user document is fully written
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
   // Check if user already has a subscription
   const existingSubs = await firestore
     .collection("subscriptions")
@@ -139,6 +157,12 @@ export async function signInWithGoogle() {
     .get();
 
   if (existingSubs.empty) {
+    // Get user data from Firestore to access customMemberId and displayName
+    const userDoc = await firestore.collection("users").doc(user.uid).get();
+    const userData = userDoc.data();
+
+    console.log("User data for Google subscription creation:", userData);
+
     // Create a new subscription only if one doesn't exist
     // Use server timestamp for consistency and accuracy
     const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp();
@@ -151,14 +175,20 @@ export async function signInWithGoogle() {
     const batch = firestore.batch();
     const subscriptionRef = firestore.collection("subscriptions").doc();
 
-    batch.set(subscriptionRef, {
+    const subscriptionData = {
       userId: user.uid,
       plan: "basic",
       status: "active",
       startDate: serverTimestamp,
       endDate: firebase.firestore.Timestamp.fromDate(endDate),
       createdAt: serverTimestamp,
-    });
+      customMemberId: userData?.customMemberId || null,
+      displayName: userData?.displayName || user.email || "Unknown User",
+    };
+
+    console.log("Google subscription data to be created:", subscriptionData);
+
+    batch.set(subscriptionRef, subscriptionData);
 
     await batch.commit();
   }
@@ -167,7 +197,7 @@ export async function signInWithGoogle() {
 }
 
 // Function to check if subscription is expired
-function isSubscriptionExpired(endDate) {
+const isSubscriptionExpired = (endDate) => {
   if (!endDate) return false;
   const end = endDate.toDate ? endDate.toDate() : new Date(endDate);
   const today = new Date();
@@ -183,7 +213,7 @@ function isSubscriptionExpired(endDate) {
     today.getDate(),
   );
   return endDateOnly < todayOnly;
-}
+};
 
 // Function to update expired subscriptions
 export async function updateExpiredSubscriptions() {

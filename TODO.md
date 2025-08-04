@@ -4,6 +4,14 @@ This file contains all of my TODO items, feature requests, and development tasks
 
 ---
 
+- customMemberId and displayName is not displaying in the subscriptions document unless edited
+- overflowing 'yung listbox ng status sa edit (Edit Subscription)
+- ayusin ko 'yung mga colors
+- maglagay ng recent activities (edited, updated, deleted)
+- maglagay ng lastEdited sa mga collections (subscriptions, etc..)
+- ayusin 'yung notifications sa appbar (dashboard)
+- ayusin 'yung timestamp sa database
+
 ## 🚀 Features to Implement
 
 ### High Priority

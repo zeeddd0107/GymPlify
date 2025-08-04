@@ -1,42 +1,19 @@
-import React, { useState } from "react";
-import { useAuth } from "@/context";
+import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faDumbbell, faUser, faLock } from "@fortawesome/free-solid-svg-icons";
+import { useAuthForm } from "../hooks";
+import FormInput from "../ui/FormInput";
 
 const LoginForm = ({ onSwitchToRegister }) => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const { signIn, signInWithGoogle } = useAuth();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
-
-    try {
-      await signIn(username, password);
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    setError("");
-
-    try {
-      await signInWithGoogle();
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Use the custom auth form hook for all logic
+  const {
+    formData,
+    isLoading,
+    error,
+    handleInputChange,
+    handleSubmit,
+    handleGoogleSignIn,
+  } = useAuthForm("login");
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#4361ee] to-[#3a0ca3]">
@@ -57,34 +34,23 @@ const LoginForm = ({ onSwitchToRegister }) => {
           </div>
         )}
         <form onSubmit={handleSubmit}>
-          <div className="relative mb-5">
-            <FontAwesomeIcon
-              icon={faUser}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray"
-            />
-            <input
-              type="text"
-              placeholder="Username"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full pl-12 py-3 border border-[#b1b2b3] rounded-[20px] text-base focus:border-primary focus:outline-none transition-colors"
-            />
-          </div>
-          <div className="relative mb-8">
-            <FontAwesomeIcon
-              icon={faLock}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-[#b1b2b3] rounded-[20px] text-base focus:border-primary focus:outline-none transition-colors"
-            />
-          </div>
+          <FormInput
+            type="text"
+            placeholder="Username"
+            value={formData.username}
+            onChange={(e) => handleInputChange("username", e.target.value)}
+            icon={faUser}
+            required
+          />
+          <FormInput
+            type="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={(e) => handleInputChange("password", e.target.value)}
+            icon={faLock}
+            required
+            className="mb-8"
+          />
           <button
             type="submit"
             disabled={isLoading}

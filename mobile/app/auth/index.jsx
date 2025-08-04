@@ -98,7 +98,7 @@ export default function AuthScreen() {
     ); // 5 minutes
     setTimerId(id);
     return () => clearTimeout(id);
-  }, [awaitingVerification]);
+  }, [awaitingVerification, timerId]);
 
   // --- AUTHENTICATION LOGIC ---
   // Handles the entire Google sign-in process after getting the token
