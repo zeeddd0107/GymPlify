@@ -9,7 +9,25 @@ import babelParser from "@babel/eslint-parser";
  */
 export default [
   // 🧼 Ignore build folders globally
-  { ignores: ["dist", "build", "node_modules"] },
+  {
+    ignores: [
+      "dist/**/*",
+      "build/**/*",
+      "node_modules/**/*",
+      "**/dist/**/*",
+      "**/build/**/*",
+      "**/node_modules/**/*",
+      "mobile/android/**/*",
+      "mobile/ios/**/*",
+      "web/dist/**/*",
+      "web/build/**/*",
+      "backend/dist/**/*",
+      "backend/build/**/*",
+      "**/*.min.js",
+      "**/*.bundle.js",
+      "**/*.chunk.js",
+    ],
+  },
 
   // 📦 Main config for all JS/JSX in web/
   {
