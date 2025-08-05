@@ -29,33 +29,45 @@
 3. Check project structure
    - Press CTRL + J to open the terminal in VSCode
    - Run:
-     ls
+   ```bash
+   ls
+   ```
 
 **Dapat may makita kayong folders: backend, mobile, web**
 
 ### Install Dependencies
 
 4. Install Yarn (if wala ka pa). Do this in the GymPlify directory
-   yarn --version
+
+```bash
+yarn --version
+```
 
 - Kapag may lumabas na number → OK na
 - Kapag wala → Install:
+  ```bash
   npm install -g yarn
+  ```
 
 5. Install dependencies sa lahat ng directories
    From project root (GymPlify):
+   ```bash
    yarn install
    cd web
    yarn install
    cd ..
    cd mobile
    yarn install
+   ```
 
 ### Run the Projects
 
 **For Web**
+
+```bash
 cd web
 yarn dev
+```
 
 **Kapag may error na ganito:**
 running scripts is disabled on this system
@@ -69,9 +81,14 @@ running scripts is disabled on this system
 - Click “A” when prompted
 
 **For Mobile (Expo)** (Kahit huwag muna ito, need kasi ito ng connections sa Android Studio)
+
+```bash
 cd mobile
 yarn start
+```
 
 # or
 
+```bash
 npx expo start
+```
