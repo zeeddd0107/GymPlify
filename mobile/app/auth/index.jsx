@@ -12,17 +12,17 @@ import {
   loginUser,
   registerUser,
   upsertUserInFirestore,
-} from "@/src/authService";
+} from "@/src/services/authService";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { makeRedirectUri } from "expo-auth-session";
-import { firebase } from "@/src/firebase";
-import { firestore } from "@/src/firebase";
+import { firebase, firestore } from "@/src/services/firebase";
 import { Feather } from "@expo/vector-icons";
 import { sendEmailVerification } from "firebase/auth";
 import { updateProfile } from "firebase/auth";
+import { Fonts } from "@/src/constants/Fonts";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   },
   loginTitle: {
     fontSize: 40,
-    fontWeight: "bold",
+    fontFamily: Fonts.family.bold,
     textAlign: "center",
     marginBottom: 12,
     marginTop: 12,
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     color: "#2a4eff",
-    fontWeight: "500",
+    fontFamily: Fonts.family.medium,
     fontSize: 14,
     marginVertical: 5,
   },
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     color: "white",
-    fontWeight: "bold",
+    fontFamily: Fonts.family.bold,
     fontSize: 18,
   },
   dividerContainer: {
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   },
   googleButtonText: {
     color: "#222",
-    fontWeight: "bold",
+    fontFamily: Fonts.family.bold,
     fontSize: 18,
   },
   signupContainer: {
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
   },
   signupLink: {
     color: "#2a4eff",
-    fontWeight: "bold",
+    fontFamily: Fonts.family.bold,
     fontSize: 14,
   },
   showPasswordContainer: {
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: "bold",
+    fontFamily: Fonts.family.bold,
     marginBottom: 24,
     textAlign: "center",
   },
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "white",
-    fontWeight: "bold",
+    fontFamily: Fonts.family.bold,
     fontSize: 16,
   },
   switchText: {
