@@ -55,6 +55,7 @@ yarn --version
    yarn install
    cd web
    yarn install
+   npm install react@18 react-dom@18
    cd ..
    cd mobile
    yarn install
