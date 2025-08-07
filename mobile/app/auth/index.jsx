@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Image,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   loginUser,
   registerUser,
@@ -28,6 +29,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 export default function AuthScreen() {
   // --- STATE MANAGEMENT ---
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState("login"); // Controls 'login' or 'register' mode
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -228,7 +230,7 @@ export default function AuthScreen() {
   // --- MAIN RENDER ---
   if (awaitingVerification) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top + 40 }]}>
         <Text style={styles.loginTitle}>Verify your email</Text>
         <Text style={styles.loginSubtitle}>
           We've sent a verification link to your email address. Please check
@@ -295,7 +297,7 @@ export default function AuthScreen() {
     );
   }
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 40 }]}>
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#22c55e" />
@@ -418,7 +420,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     padding: 24,
     backgroundColor: "#f3f4f6",
-    paddingTop: 280,
   },
   loginTitle: {
     fontSize: 40,

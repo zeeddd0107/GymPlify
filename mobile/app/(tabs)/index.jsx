@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { firebase } from "@/src/services/firebase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/src/constants/Colors";
 import { Fonts } from "@/src/constants/Fonts";
 import { useColorScheme } from "@/src/hooks/useColorScheme";
@@ -34,6 +35,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState("");
   const [userData, setUserData] = useState(null);
@@ -224,10 +226,6 @@ export default function HomeScreen() {
 
     return (
       <View style={[styles.card, { backgroundColor: colors.background }]}>
-        <View style={styles.cardHeader}>
-          {/* Profile section removed as requested */}
-        </View>
-
         {showQR && (
           <View style={styles.qrContainer}>
             <QRCode
@@ -567,7 +565,7 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.appBar}>
+      <View style={[styles.appBar, { paddingTop: insets.top + 10 }]}>
         {/* Top Section - Icons */}
         <View style={styles.topSection}>
           <Pressable
@@ -628,7 +626,7 @@ export default function HomeScreen() {
           ]}
         >
           {/* Header */}
-          <View style={styles.profileModalHeader}>
+          <View style={[styles.profileModalHeader, { paddingTop: insets.top + 10 }]}>
             <Pressable
               style={styles.profileModalCloseButton}
               onPress={() => setShowProfile(false)}
@@ -736,7 +734,6 @@ const styles = StyleSheet.create({
   appBar: {
     backgroundColor: "#4361EE",
     //backgroundColor: "#0f4c3a", // Dark teal background
-    paddingTop: 60,
     paddingBottom: 15,
     paddingHorizontal: 20,
   },
@@ -839,9 +836,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: "center",
   },
-  membershipStatus: {
-    marginTop: 16,
-  },
   statusRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -870,7 +864,6 @@ const styles = StyleSheet.create({
   expiryText: {
     fontFamily: Fonts.family.regular,
     fontSize: 14,
-    marginBottom: 12,
   },
   renewalButton: {
     backgroundColor: "#22c55e",
@@ -1096,7 +1089,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 60,
     paddingBottom: 20,
   },
   profileModalCloseButton: {
@@ -1114,7 +1106,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   profileOptionsContainer: {
-    marginTop: 20,
+    marginTop: 10,
   },
   profileOptionItem: {
     flexDirection: "row",

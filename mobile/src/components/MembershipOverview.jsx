@@ -80,8 +80,7 @@ export default function MembershipOverview({
 const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
-    padding: 20,
-    marginTop: 16,
+    marginTop: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -118,7 +117,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   membershipStatus: {
-    marginTop: 16,
+    marginTop: 0,
   },
   statusRow: {
     flexDirection: "row",
@@ -148,7 +147,7 @@ const styles = StyleSheet.create({
   expiryText: {
     fontFamily: Fonts.family.regular,
     fontSize: 14,
-    marginBottom: 12,
+    marginBottom: 0,
   },
   renewalButton: {
     backgroundColor: "#22c55e",
@@ -156,6 +155,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     alignSelf: "flex-start",
+    marginTop: 8,
   },
   renewalButtonText: {
     color: "white",
