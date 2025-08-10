@@ -3,18 +3,18 @@ import React from "react";
 import { Platform } from "react-native";
 
 import { HapticTab } from "@/src/components/HapticTab";
-import { IconSymbol } from "@/src/components/ui/IconSymbol";
-import TabBarBackground from "@/src/components/ui/TabBarBackground";
-import { Colors } from "@/src/constants/Colors";
-import { useColorScheme } from "@/src/hooks/useColorScheme";
+import { IconSymbol } from "@/src/components/IconSymbol";
+import TabBarBackground from "@/src/components/TabBarBackground";
+import { useTheme } from "@/src/context/useTheme";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { theme } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+        tabBarActiveTintColor: theme.tint,
+        tabBarInactiveTintColor: theme.tabIconDefault,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
@@ -22,8 +22,11 @@ export default function TabLayout() {
           ios: {
             // Use a transparent background on iOS to show the blur effect
             position: "absolute",
+            backgroundColor: theme.background,
           },
-          default: {},
+          default: {
+            backgroundColor: theme.background,
+          },
         }),
       }}
     >
@@ -39,9 +42,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: "Explore",
+          title: "Learn",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="magnifyingglass" color={color} />
+            <IconSymbol size={28} name="school" color={color} />
           ),
         }}
       />
