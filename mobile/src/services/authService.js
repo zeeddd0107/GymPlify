@@ -36,6 +36,13 @@ export async function upsertUserInFirestore(user, provider) {
   const userRef = firestore.collection("users").doc(user.uid);
   const userSnap = await userRef.get();
 
+  // Build a non-null photoURL fallback using ui-avatars
+  const fallbackPhotoURL =
+    user.photoURL ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      user.displayName || user.email || "User",
+    )}&background=0D8ABC&color=fff&bold=true`;
+
   if (!userSnap.exists) {
     // Generate custom Member ID for new users
     const customMemberId = await generateCustomMemberId();
@@ -47,7 +54,7 @@ export async function upsertUserInFirestore(user, provider) {
         displayName: user.displayName,
         role: "client",
         provider,
-        photoURL: user.photoURL,
+        photoURL: fallbackPhotoURL,
         qrCodeValue: user.uid, // Store unique QR code value
         customMemberId: customMemberId, // Store custom Member ID
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -63,7 +70,7 @@ export async function upsertUserInFirestore(user, provider) {
         email: user.email,
         provider,
         displayName: user.displayName,
-        photoURL: user.photoURL,
+        photoURL: fallbackPhotoURL,
         qrCodeValue: userSnap.data().qrCodeValue || user.uid, // Preserve or set QR code value
         lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
       },
