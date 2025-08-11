@@ -1,22 +1,20 @@
-import React from "react";
 import { View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-export function useBottomTabOverflow() {
-  const insets = useSafeAreaInsets();
-  return insets.bottom;
-}
+import { useBottomTabOverflow } from "./TabBarUtils";
 
 export default function TabBarBackground() {
+  const { bottom } = useBottomTabOverflow();
+
   return (
     <View
       style={{
         position: "absolute",
-        top: 0,
+        bottom: 0,
         left: 0,
         right: 0,
-        bottom: 0,
+        height: bottom,
         backgroundColor: "white",
+        borderTopWidth: 1,
+        borderTopColor: "#e5e7eb",
       }}
     />
   );

@@ -1,4 +1,3 @@
-import React from "react";
 import { StyleSheet, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/src/constants/Colors";
@@ -7,7 +6,7 @@ import { useColorScheme } from "@/src/hooks/useColorScheme";
 export default function FloatingActionButton({
   onPress,
   icon = "qr-code",
-  size = 56,
+  size = 60,
   position = "bottom-right",
   color = null,
 }) {

@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Alert,
   ScrollView,
   Modal,
 } from "react-native";
@@ -58,7 +57,8 @@ export default function ScheduleScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [showIntermediateConfirmation, setShowIntermediateConfirmation] = useState(false);
+  const [showIntermediateConfirmation, setShowIntermediateConfirmation] =
+    useState(false);
   const insets = useSafeAreaInsets();
 
   const currentYear = currentDate.getFullYear();
@@ -506,7 +506,9 @@ export default function ScheduleScreen() {
             </View>
 
             {/* Title */}
-            <Text style={styles.intermediateConfirmationTitle}>Confirm Booking</Text>
+            <Text style={styles.intermediateConfirmationTitle}>
+              Confirm Booking
+            </Text>
 
             {/* Session Details */}
             <View style={styles.intermediateSessionDetails}>
@@ -517,17 +519,21 @@ export default function ScheduleScreen() {
                   {selectedDate} {monthNames[currentMonth]} {currentYear}
                 </Text>
               </View>
-              
+
               <View style={styles.intermediateDetailRow}>
                 <Ionicons name="time-outline" size={20} color="#4361EE" />
                 <Text style={styles.intermediateDetailLabel}>Time:</Text>
-                <Text style={styles.intermediateDetailValue}>{selectedTime}</Text>
+                <Text style={styles.intermediateDetailValue}>
+                  {selectedTime}
+                </Text>
               </View>
 
               <View style={styles.intermediateDetailRow}>
                 <Ionicons name="location-outline" size={20} color="#4361EE" />
                 <Text style={styles.intermediateDetailLabel}>Location:</Text>
-                <Text style={styles.intermediateDetailValue}>GymPlify Studio</Text>
+                <Text style={styles.intermediateDetailValue}>
+                  GymPlify Studio
+                </Text>
               </View>
             </View>
 
@@ -546,7 +552,7 @@ export default function ScheduleScreen() {
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </Pressable>
-              
+
               <Pressable
                 style={styles.confirmBookingButton}
                 onPress={() => {
@@ -967,6 +973,23 @@ const styles = StyleSheet.create({
 
   viewScheduleButton: {
     flex: 1,
+    borderWidth: 2,
+    borderColor: "#4361EE",
+    backgroundColor: "transparent",
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  viewScheduleButtonText: {
+    color: "#4361EE",
+    fontFamily: Fonts.family.semiBold,
+    fontSize: 16,
+  },
+
+  bookAnotherButton: {
+    flex: 1,
     backgroundColor: "#4361EE",
     paddingVertical: 16,
     borderRadius: 12,
@@ -978,25 +1001,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  viewScheduleButtonText: {
-    color: "white",
-    fontFamily: Fonts.family.semiBold,
-    fontSize: 16,
-  },
-
-  bookAnotherButton: {
-    flex: 1,
-    backgroundColor: "transparent",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#4361EE",
-  },
-
   bookAnotherButtonText: {
-    color: "#4361EE",
+    color: "white",
     fontFamily: Fonts.family.semiBold,
     fontSize: 16,
   },

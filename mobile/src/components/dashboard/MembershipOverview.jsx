@@ -1,17 +1,14 @@
-import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import QRCode from "react-native-qrcode-svg";
 import { Fonts } from "@/src/constants/Fonts";
 
-export default function MembershipOverview({
-  colors,
+const MembershipOverview = ({
   membershipData,
-  showQR,
-  email,
+  colors,
   getMembershipStatusColor,
+  getDaysLeftFromSubscriptions,
   handleRenewMembership,
-}) {
+}) => {
   if (!membershipData) {
     return (
       <View style={[styles.card, { backgroundColor: colors.background }]}>
@@ -24,22 +21,11 @@ export default function MembershipOverview({
       </View>
     );
   }
+
+  const daysLeft = getDaysLeftFromSubscriptions();
+
   return (
     <View style={[styles.card, { backgroundColor: colors.background }]}>
-      <View style={styles.cardHeader} />
-      {showQR && (
-        <View style={styles.qrContainer}>
-          <QRCode
-            value={`gymplify-checkin-${email}`}
-            size={120}
-            color={colors.text}
-            backgroundColor={colors.background}
-          />
-          <Text style={[styles.qrText, { color: colors.icon }]}>
-            Show this QR code at the gym entrance
-          </Text>
-        </View>
-      )}
       <View style={styles.membershipStatus}>
         <View style={styles.statusRow}>
           <Text style={[styles.statusLabel, { color: colors.text }]}>
@@ -58,16 +44,21 @@ export default function MembershipOverview({
             <Text style={styles.statusText}>{membershipData.status}</Text>
           </View>
         </View>
-        <Text style={[styles.planText, { color: colors.text }]}>
-          {membershipData.plan}
-        </Text>
+
+        {typeof daysLeft === "number" && (
+          <Text style={[styles.daysRemainingText, { color: colors.tint }]}>
+            {daysLeft} days remaining
+          </Text>
+        )}
+
         <Text style={[styles.expiryText, { color: colors.icon }]}>
           Expires: {membershipData.expiresAt}
         </Text>
+
         {membershipData.daysUntilExpiry <= 30 && (
           <Pressable
             style={styles.renewalButton}
-            onPress={handleRenewMembership}
+            onPress={() => handleRenewMembership()}
           >
             <Text style={styles.renewalButtonText}>Renew Membership</Text>
           </Pressable>
@@ -75,49 +66,24 @@ export default function MembershipOverview({
       </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
-    marginTop: 20,
+    padding: 20,
+    marginTop: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 20,
-  },
-  loadingText: {
-    fontFamily: Fonts.family.regular,
-    fontSize: 16,
-    marginLeft: 12,
-  },
-  qrContainer: {
-    alignItems: "center",
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#f3f4f6",
-    marginTop: 16,
-  },
-  qrText: {
-    fontSize: 12,
-    marginTop: 8,
-    textAlign: "center",
-  },
   membershipStatus: {
-    marginTop: 0,
+    marginTop: 16,
   },
   statusRow: {
     flexDirection: "row",
@@ -127,7 +93,8 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontFamily: Fonts.family.semiBold,
-    fontSize: 16,
+    fontSize: 20,
+    marginBottom: 10,
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -139,15 +106,15 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.semiBold,
     fontSize: 12,
   },
-  planText: {
-    fontFamily: Fonts.family.semiBold,
-    fontSize: 16,
-    marginBottom: 4,
-  },
   expiryText: {
     fontFamily: Fonts.family.regular,
     fontSize: 14,
-    marginBottom: 0,
+    marginTop: 2,
+  },
+  daysRemainingText: {
+    fontFamily: Fonts.family.semiBold,
+    fontSize: 14,
+    marginTop: 8,
   },
   renewalButton: {
     backgroundColor: "#22c55e",
@@ -162,4 +129,17 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.semiBold,
     fontSize: 14,
   },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+  },
+  loadingText: {
+    fontFamily: Fonts.family.regular,
+    fontSize: 16,
+    marginLeft: 12,
+  },
 });
+
+export default MembershipOverview;

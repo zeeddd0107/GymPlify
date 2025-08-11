@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -41,8 +41,8 @@ export default function AuthScreen() {
   const [awaitingVerification, setAwaitingVerification] = useState(false);
   const [resent, setResent] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [timerId, setTimerId] = useState(null);
   const [name, setName] = useState(""); // Add name state
+  const verificationTimerRef = useRef(null);
 
   // --- GOOGLE AUTHENTICATION HOOK ---
   const [_, response, promptAsync] = Google.useAuthRequest({
@@ -64,11 +64,22 @@ export default function AuthScreen() {
     }
   }, [response, getUserInfo]);
 
-  // Start a 3-minute timer after registration for email verification
+  // Start a 5-minute timer after registration for email verification
   useEffect(() => {
-    if (!awaitingVerification) return;
-    // Clear any previous timer
-    if (timerId) clearTimeout(timerId);
+    if (!awaitingVerification) {
+      // If we exit verification state, clear any pending timer
+      if (verificationTimerRef.current) {
+        clearTimeout(verificationTimerRef.current);
+        verificationTimerRef.current = null;
+      }
+      return;
+    }
+
+    // Clear any previous timer before starting a new one
+    if (verificationTimerRef.current) {
+      clearTimeout(verificationTimerRef.current);
+    }
+
     const id = setTimeout(
       async () => {
         const user = firebase.auth().currentUser;
@@ -97,10 +108,17 @@ export default function AuthScreen() {
         }
       },
       5 * 60 * 1000,
-    ); // 5 minutes
-    setTimerId(id);
-    return () => clearTimeout(id);
-  }, [awaitingVerification, timerId]);
+    );
+
+    verificationTimerRef.current = id;
+
+    // Cleanup this timer when component unmounts or verification state ends
+    return () => {
+      if (id) clearTimeout(id);
+      if (verificationTimerRef.current === id)
+        verificationTimerRef.current = null;
+    };
+  }, [awaitingVerification]);
 
   // --- AUTHENTICATION LOGIC ---
   // Handles the entire Google sign-in process after getting the token
@@ -166,15 +184,42 @@ export default function AuthScreen() {
     try {
       let user;
       if (mode === "register") {
+        // Require name during registration
+        if (!name || !name.trim()) {
+          setMessage("Please enter your name.");
+          setLoading(false);
+          return;
+        }
         user = await registerUser(email, password);
-        // Set displayName for email/password users
         if (user) {
-          await updateProfile(user, { displayName: name });
-          // Also update Firestore user document with displayName
+          // Compute a default avatar URL when no photo is provided
+          const defaultPhotoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=0D8ABC&color=fff&bold=true`;
+
+          // Update Firebase Auth profile with displayName and default photo if missing
+          const profileUpdate = { displayName: name };
+          if (!user.photoURL) {
+            profileUpdate.photoURL = defaultPhotoURL;
+          }
+          await updateProfile(user, profileUpdate);
+
+          // Reload to ensure we have the latest user values
+          await user.reload();
+          const refreshedUser = firebase.auth().currentUser;
+
+          // Persist displayName and photoURL in Firestore
           await firestore
             .collection("users")
-            .doc(user.uid)
-            .set({ displayName: name }, { merge: true });
+            .doc(refreshedUser.uid)
+            .set(
+              {
+                displayName: name,
+                photoURL: refreshedUser.photoURL || defaultPhotoURL,
+              },
+              { merge: true },
+            );
+
+          // Ensure user record has non-null photoURL (updates custom fields via merge)
+          await upsertUserInFirestore(refreshedUser, "password");
         }
         // After registration, show verification screen
         setAwaitingVerification(true);
@@ -182,6 +227,20 @@ export default function AuthScreen() {
         return;
       } else {
         user = await loginUser(email, password);
+        if (user && !user.photoURL) {
+          const defaultPhotoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=0D8ABC&color=fff&bold=true`;
+          await updateProfile(user, { photoURL: defaultPhotoURL });
+          await user.reload();
+          const refreshed = firebase.auth().currentUser;
+          await firestore
+            .collection("users")
+            .doc(refreshed.uid)
+            .set(
+              { photoURL: refreshed.photoURL || defaultPhotoURL },
+              { merge: true },
+            );
+          await upsertUserInFirestore(refreshed, "password");
+        }
       }
       // Update the user's last login timestamp
       if (user) {

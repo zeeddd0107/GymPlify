@@ -1,148 +1,50 @@
+import { firestore } from "./firebase";
+
 /**
  * Dashboard Service - Handles all dashboard-related data fetching and operations
  */
 
-const mockMembershipData = {
-  status: "Active",
-  expiresAt: "2024-12-31",
-  daysUntilExpiry: 45,
-  plan: "Premium Monthly",
-  planId: "premium_monthly",
-  price: 99.99,
-  billingCycle: "monthly",
-};
-
-const mockAttendanceData = {
-  visitsThisWeek: 3,
-  visitsThisMonth: 12,
-  lastCheckIn: "2024-11-15 14:30",
-  weeklyGoal: 4,
-  monthlyGoal: 16,
-  totalVisits: 156,
-  averageVisitsPerWeek: 3.2,
-};
-
-const mockUpcomingSessions = [
-  {
-    id: 1,
-    type: "Personal Training",
-    coach: "Sarah Johnson",
-    date: "2024-11-18",
-    time: "10:00 AM",
-    duration: "60 min",
-    location: "Studio A",
-    status: "confirmed",
-  },
-  {
-    id: 2,
-    type: "Group Class",
-    coach: "Mike Chen",
-    date: "2024-11-20",
-    time: "6:00 PM",
-    duration: "45 min",
-    location: "Main Floor",
-    status: "confirmed",
-  },
-  {
-    id: 3,
-    type: "Yoga Session",
-    coach: "Emma Wilson",
-    date: "2024-11-22",
-    time: "9:00 AM",
-    duration: "90 min",
-    location: "Yoga Studio",
-    status: "pending",
-  },
-];
-
-const mockSubscriptions = [
-  {
-    id: 1,
-    name: "Personal Training Sessions",
-    remaining: 3,
-    total: 10,
-    validUntil: "2024-12-15",
-    price: 800,
-    type: "session_pack",
-  },
-  {
-    id: 2,
-    name: "Group Class Pass",
-    remaining: 8,
-    total: 12,
-    validUntil: "2024-12-31",
-    price: 120,
-    type: "class_pack",
-  },
-  {
-    id: 3,
-    name: "Spa Access",
-    remaining: 2,
-    total: 5,
-    validUntil: "2024-11-30",
-    price: 150,
-    type: "spa_pack",
-  },
-];
-
-const mockNotifications = [
-  {
-    id: 1,
-    title: "New Equipment Available",
-    message: "Try our new rowing machines in Zone A",
-    unread: true,
-    timestamp: "2 hours ago",
-    type: "announcement",
-    priority: "medium",
-  },
-  {
-    id: 2,
-    title: "Holiday Hours",
-    message: "Gym will be closed on Thanksgiving Day",
-    unread: false,
-    timestamp: "1 day ago",
-    type: "announcement",
-    priority: "high",
-  },
-  {
-    id: 3,
-    title: "Your Session is Tomorrow",
-    message: "Don't forget your personal training session with Sarah at 10 AM",
-    unread: true,
-    timestamp: "3 hours ago",
-    type: "reminder",
-    priority: "high",
-  },
-];
-
-const mockWorkoutTips = [
-  {
-    title: "💪 Workout Tip of the Day",
-    tip: "Focus on form over weight. Proper technique prevents injuries and builds strength more effectively.",
-    category: "strength",
-  },
-  {
-    title: "🏃‍♂️ Cardio Tip",
-    tip: "Start with a 5-minute warm-up to gradually increase your heart rate and prepare your muscles.",
-    category: "cardio",
-  },
-  {
-    title: "🧘‍♀️ Recovery Tip",
-    tip: "Stretch for at least 10 minutes after your workout to improve flexibility and reduce muscle soreness.",
-    category: "recovery",
-  },
-];
-
 /**
  * Fetch user's membership information
  */
-export const fetchMembershipData = async () => {
+export const fetchMembershipData = async (userId) => {
   try {
-    // TODO: Replace with actual Firebase call
-    // const doc = await firebase.firestore().collection('memberships').doc(userId).get();
-    // return doc.data();
+    // Get the user's active subscription from subscriptions collection
+    const snapshot = await firestore
+      .collection("subscriptions")
+      .where("userId", "==", userId)
+      .where("status", "==", "active")
+      .limit(1)
+      .get();
 
-    return mockMembershipData;
+    if (!snapshot.empty) {
+      const subscriptionDoc = snapshot.docs[0];
+      const subscriptionData = subscriptionDoc.data();
+
+      // Transform subscription data to membership format
+      return {
+        status: subscriptionData.status || "Active",
+        expiresAt: subscriptionData.endDate
+          ? new Date(subscriptionData.endDate.toDate())
+              .toISOString()
+              .split("T")[0]
+          : null,
+        daysUntilExpiry: subscriptionData.endDate
+          ? Math.ceil(
+              (subscriptionData.endDate.toDate() - new Date()) /
+                (1000 * 60 * 60 * 24),
+            )
+          : 0,
+        plan: subscriptionData.name || "Premium Membership",
+        planId: subscriptionData.type || "premium",
+        price: subscriptionData.price || 0,
+        billingCycle: subscriptionData.billingCycle || "monthly",
+        subscriptionId: subscriptionDoc.id,
+        ...subscriptionData,
+      };
+    }
+
+    return null;
   } catch (error) {
     console.error("Error fetching membership data:", error);
     throw error;
@@ -152,17 +54,66 @@ export const fetchMembershipData = async () => {
 /**
  * Fetch user's attendance data
  */
-export const fetchAttendanceData = async () => {
+export const fetchAttendanceData = async (userId) => {
   try {
-    // TODO: Replace with actual Firebase call
-    // const snapshot = await firebase.firestore()
-    //   .collection('attendance')
-    //   .where('userId', '==', userId)
-    //   .orderBy('timestamp', 'desc')
-    //   .limit(30)
-    //   .get();
+    const snapshot = await firestore
+      .collection("attendance")
+      .where("userId", "==", userId)
+      .limit(30)
+      .get();
 
-    return mockAttendanceData;
+    const docs = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Helper function to normalize timestamp
+    const normalizeTimestamp = (timestamp) => {
+      if (!timestamp) return new Date(0);
+      if (timestamp.toDate) return timestamp.toDate();
+      return new Date(timestamp);
+    };
+
+    // Sort in memory instead of in query to avoid index requirements
+    const sortedDocs = docs.sort((a, b) => {
+      const timeA = normalizeTimestamp(a.checkInTime || a.timestamp);
+      const timeB = normalizeTimestamp(b.checkInTime || b.timestamp);
+      return timeB.getTime() - timeA.getTime(); // Sort by most recent first
+    });
+
+    // Transform attendance data into the format the UI expects
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const visitsThisWeek = sortedDocs.filter((doc) => {
+      const checkInTime = normalizeTimestamp(doc.checkInTime || doc.timestamp);
+      return checkInTime >= oneWeekAgo;
+    }).length;
+
+    const visitsThisMonth = sortedDocs.filter((doc) => {
+      const checkInTime = normalizeTimestamp(doc.checkInTime || doc.timestamp);
+      return checkInTime >= oneMonthAgo;
+    }).length;
+
+    const lastCheckIn =
+      sortedDocs.length > 0
+        ? normalizeTimestamp(
+            sortedDocs[0].checkInTime || sortedDocs[0].timestamp,
+          ).toLocaleString()
+        : null;
+
+    return {
+      visitsThisWeek,
+      visitsThisMonth,
+      lastCheckIn,
+      weeklyGoal: 4, // Default goal, could be made configurable
+      monthlyGoal: 16, // Default goal, could be made configurable
+      totalVisits: sortedDocs.length,
+      averageVisitsPerWeek:
+        visitsThisMonth > 0 ? Math.round((visitsThisMonth / 4) * 10) / 10 : 0,
+      recentCheckIns: sortedDocs.slice(0, 10), // Keep recent check-ins for detailed view
+    };
   } catch (error) {
     console.error("Error fetching attendance data:", error);
     throw error;
@@ -172,18 +123,32 @@ export const fetchAttendanceData = async () => {
 /**
  * Fetch upcoming sessions
  */
-export const fetchUpcomingSessions = async () => {
+export const fetchUpcomingSessions = async (userId) => {
   try {
-    // TODO: Replace with actual Firebase call
-    // const snapshot = await firebase.firestore()
-    //   .collection('sessions')
-    //   .where('userId', '==', userId)
-    //   .where('date', '>=', new Date())
-    //   .orderBy('date')
-    //   .limit(5)
-    //   .get();
+    const snapshot = await firestore
+      .collection("sessions")
+      .where("userId", "==", userId)
+      .limit(10)
+      .get();
 
-    return mockUpcomingSessions;
+    const docs = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Filter and sort in memory to avoid index requirements
+    const now = new Date();
+    return docs
+      .filter((doc) => {
+        const startTime = doc.startTime || doc.date;
+        return startTime && new Date(startTime) > now;
+      })
+      .sort((a, b) => {
+        const timeA = a.startTime || a.date || 0;
+        const timeB = b.startTime || b.date || 0;
+        return new Date(timeA) - new Date(timeB);
+      })
+      .slice(0, 5);
   } catch (error) {
     console.error("Error fetching upcoming sessions:", error);
     throw error;
@@ -193,16 +158,20 @@ export const fetchUpcomingSessions = async () => {
 /**
  * Fetch active subscriptions
  */
-export const fetchActiveSubscriptions = async () => {
+export const fetchActiveSubscriptions = async (userId) => {
   try {
-    // TODO: Replace with actual Firebase call
-    // const snapshot = await firebase.firestore()
-    //   .collection('subscriptions')
-    //   .where('userId', '==', userId)
-    //   .where('status', '==', 'active')
-    //   .get();
+    const snapshot = await firestore
+      .collection("subscriptions")
+      .where("userId", "==", userId)
+      .get();
 
-    return mockSubscriptions;
+    const docs = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Filter active subscriptions in memory to avoid index requirements
+    return docs.filter((doc) => doc.status === "active");
   } catch (error) {
     console.error("Error fetching subscriptions:", error);
     throw error;
@@ -212,17 +181,27 @@ export const fetchActiveSubscriptions = async () => {
 /**
  * Fetch notifications
  */
-export const fetchNotifications = async () => {
+export const fetchNotifications = async (userId) => {
   try {
-    // TODO: Replace with actual Firebase call
-    // const snapshot = await firebase.firestore()
-    //   .collection('notifications')
-    //   .where('userId', '==', userId)
-    //   .orderBy('timestamp', 'desc')
-    //   .limit(10)
-    //   .get();
+    const snapshot = await firestore
+      .collection("notifications")
+      .where("userId", "==", userId)
+      .limit(20)
+      .get();
 
-    return mockNotifications;
+    const docs = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Sort in memory instead of in query to avoid index requirements
+    return docs
+      .sort((a, b) => {
+        const timeA = a.timestamp || 0;
+        const timeB = b.timestamp || 0;
+        return new Date(timeB) - new Date(timeA);
+      })
+      .slice(0, 10);
   } catch (error) {
     console.error("Error fetching notifications:", error);
     throw error;
@@ -230,24 +209,14 @@ export const fetchNotifications = async () => {
 };
 
 /**
- * Get workout tip of the day
- */
-export const getWorkoutTip = () => {
-  // TODO: Implement logic to get different tips based on date/user preferences
-  const today = new Date().getDate();
-  return mockWorkoutTips[today % mockWorkoutTips.length];
-};
-
-/**
- * Mark notification as read
+ * Mark a notification as read
  */
 export const markNotificationAsRead = async (notificationId) => {
   try {
-    // TODO: Replace with actual Firebase call
-    // await firebase.firestore()
-    //   .collection('notifications')
-    //   .doc(notificationId)
-    //   .update({ unread: false });
+    await firestore
+      .collection("notifications")
+      .doc(notificationId)
+      .update({ unread: false });
 
     console.log(`Marked notification ${notificationId} as read`);
   } catch (error) {
@@ -257,89 +226,74 @@ export const markNotificationAsRead = async (notificationId) => {
 };
 
 /**
- * Check in user to gym
+ * Check in to gym
  */
-export const checkInToGym = async (userId, qrData) => {
+export const checkInToGym = async (userId, location = "Main Gym") => {
   try {
     const checkInData = {
       userId,
-      timestamp: new Date().toISOString(),
-      qrData,
+      location,
+      checkInTime: firestore.FieldValue.serverTimestamp(), // Use consistent field name
+      timestamp: firestore.FieldValue.serverTimestamp(), // Keep for backward compatibility
       type: "gym_checkin",
-      location: "main_entrance",
     };
 
-    // TODO: Replace with actual Firebase call
-    // await firebase.firestore().collection('attendance').add(checkInData);
+    await firestore.collection("attendance").add(checkInData);
 
     console.log("Check-in successful:", checkInData);
-    return checkInData;
+    return true;
   } catch (error) {
-    console.error("Error checking in:", error);
+    console.error("Error during check-in:", error);
     throw error;
   }
 };
 
 /**
- * Check in user to session
+ * Check in to a session
  */
-export const checkInToSession = async (userId, sessionId, qrData) => {
+export const checkInToSession = async (userId, sessionId, sessionName) => {
   try {
     const checkInData = {
       userId,
       sessionId,
-      timestamp: new Date().toISOString(),
-      qrData,
+      sessionName,
+      timestamp: firestore.FieldValue.serverTimestamp(),
       type: "session_checkin",
     };
 
-    // TODO: Replace with actual Firebase call
-    // await firebase.firestore().collection('session_attendance').add(checkInData);
+    await firestore.collection("session_attendance").add(checkInData);
 
     console.log("Session check-in successful:", checkInData);
-    return checkInData;
+    return true;
   } catch (error) {
-    console.error("Error checking in to session:", error);
+    console.error("Error during session check-in:", error);
     throw error;
   }
 };
 
 /**
- * Renew membership
+ * Get workout tip of the day
  */
-export const renewMembership = async (userId, planId) => {
-  try {
-    // TODO: Implement payment processing and membership renewal
-    console.log(`Renewing membership for user ${userId} with plan ${planId}`);
+export const getWorkoutTip = () => {
+  // For now, return a static tip. This could be enhanced to fetch from Firebase
+  const tips = [
+    {
+      title: "💪 Workout Tip of the Day",
+      tip: "Focus on form over weight. Proper technique prevents injuries and builds strength more effectively.",
+      category: "strength",
+    },
+    {
+      title: "🏃‍♂️ Cardio Tip",
+      tip: "Start with a 5-minute warm-up to gradually increase your heart rate and prepare your muscles.",
+      category: "cardio",
+    },
+    {
+      title: "🧘‍♀️ Recovery Tip",
+      tip: "Stretch for at least 10 minutes after your workout to improve flexibility and reduce muscle soreness.",
+      category: "recovery",
+    },
+  ];
 
-    return {
-      success: true,
-      newExpiryDate: "2025-01-31",
-      planId,
-    };
-  } catch (error) {
-    console.error("Error renewing membership:", error);
-    throw error;
-  }
-};
-
-/**
- * Buy more sessions
- */
-export const buyMoreSessions = async (userId, subscriptionType, quantity) => {
-  try {
-    // TODO: Implement payment processing and session purchase
-    console.log(
-      `Buying ${quantity} more sessions of type ${subscriptionType} for user ${userId}`,
-    );
-
-    return {
-      success: true,
-      newSessions: quantity,
-      subscriptionType,
-    };
-  } catch (error) {
-    console.error("Error buying sessions:", error);
-    throw error;
-  }
+  const today = new Date().getDate();
+  return tips[today % tips.length];
 };

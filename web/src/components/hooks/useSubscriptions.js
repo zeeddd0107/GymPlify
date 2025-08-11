@@ -43,6 +43,9 @@ export const useSubscriptions = () => {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const looksLikeEmail = (text) =>
+    typeof text === "string" && text.includes("@");
+
   // Status options for custom select
   const statusOptions = [
     { id: "active", name: "Active" },
@@ -307,27 +310,33 @@ export const useSubscriptions = () => {
           ...doc.data(),
         }));
 
-        // Use the data already stored in the subscription document
-        // Only fetch user data as fallback if customMemberId or displayName are missing
+        // Enrich/Correct displayName: avoid showing emails; use user's profile name instead
         const subscriptionsWithUserData = await Promise.all(
           subscriptionsData.map(async (sub) => {
-            // If subscription already has customMemberId and displayName, use them
-            if (sub.customMemberId && sub.displayName) {
+            const needsUserFetch =
+              !sub.customMemberId ||
+              !sub.displayName ||
+              looksLikeEmail(sub.displayName);
+
+            if (!needsUserFetch) {
               return sub;
             }
 
-            // Otherwise, fetch from user document as fallback
             try {
               const userDoc = await getDoc(doc(db, "users", sub.userId));
               const userData = userDoc.data();
 
+              const cleanDisplayName =
+                userData?.displayName ||
+                userData?.name ||
+                sub.displayName ||
+                "Unknown User";
+
               return {
                 ...sub,
-                displayName:
-                  sub.displayName ||
-                  userData?.displayName ||
-                  userData?.email ||
-                  "Unknown User",
+                displayName: looksLikeEmail(cleanDisplayName)
+                  ? userData?.displayName || userData?.name || "Unknown User"
+                  : cleanDisplayName,
                 customMemberId:
                   sub.customMemberId || userData?.customMemberId || null,
               };
@@ -335,7 +344,9 @@ export const useSubscriptions = () => {
               console.error("Error fetching user data:", error);
               return {
                 ...sub,
-                displayName: sub.displayName || "Unknown User",
+                displayName: looksLikeEmail(sub.displayName)
+                  ? "Unknown User"
+                  : sub.displayName || "Unknown User",
                 customMemberId: sub.customMemberId || null,
               };
             }
