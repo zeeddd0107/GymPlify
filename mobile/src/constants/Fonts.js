@@ -1,8 +1,3 @@
-/**
- * Font configuration for the app
- * All text should use Poppins font family
- */
-
 export const Fonts = {
   // Font family
   family: {
