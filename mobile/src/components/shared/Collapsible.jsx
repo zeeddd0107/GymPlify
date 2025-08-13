@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 
-import { ThemedText } from "@/src/components/ThemedText";
-import { ThemedView } from "@/src/components/ThemedView";
-import { IconSymbol } from "@/src/components/IconSymbol";
+import { ThemedText } from "./ThemedText";
+import { ThemedView } from "./ThemedView";
+import { IconSymbol } from "./IconSymbol";
 import { Colors } from "@/src/constants/Colors";
-import { useColorScheme } from "@/src/hooks/useColorScheme";
+import { useColorScheme } from "@/src/hooks";
 
 export function Collapsible({ children, title }) {
   const [isOpen, setIsOpen] = useState(false);

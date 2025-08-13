@@ -1,4 +1,4 @@
-import { firestore } from "./firebase";
+import { firestore } from "@/src/services/firebase";
 
 /**
  * Dashboard Service - Handles all dashboard-related data fetching and operations
@@ -128,7 +128,7 @@ export const fetchUpcomingSessions = async (userId) => {
     const snapshot = await firestore
       .collection("sessions")
       .where("userId", "==", userId)
-      .limit(10)
+      .limit(20) // Increased limit since we're filtering in memory
       .get();
 
     const docs = snapshot.docs.map((doc) => ({
@@ -138,17 +138,51 @@ export const fetchUpcomingSessions = async (userId) => {
 
     // Filter and sort in memory to avoid index requirements
     const now = new Date();
-    return docs
+    console.log("Fetched sessions:", docs.length, "sessions");
+    console.log("Current time:", now);
+
+    const filteredSessions = docs
       .filter((doc) => {
-        const startTime = doc.startTime || doc.date;
-        return startTime && new Date(startTime) > now;
+        // Only include scheduled sessions
+        if (doc.status !== "scheduled") {
+          return false;
+        }
+
+        // Check for scheduledDate (from schedule screen) or startTime/date (legacy)
+        const sessionDate = doc.scheduledDate || doc.startTime || doc.date;
+        if (!sessionDate) {
+          console.log("Session", doc.id, "has no date field");
+          return false;
+        }
+
+        // Handle Firestore Timestamp objects
+        const dateToCheck = sessionDate.toDate
+          ? sessionDate.toDate()
+          : new Date(sessionDate);
+        const isUpcoming = dateToCheck > now;
+        console.log(
+          "Session",
+          doc.id,
+          "date:",
+          dateToCheck,
+          "isUpcoming:",
+          isUpcoming,
+        );
+        return isUpcoming;
       })
       .sort((a, b) => {
-        const timeA = a.startTime || a.date || 0;
-        const timeB = b.startTime || b.date || 0;
-        return new Date(timeA) - new Date(timeB);
+        const timeA = a.scheduledDate || a.startTime || a.date || 0;
+        const timeB = b.scheduledDate || b.startTime || b.date || 0;
+
+        // Handle Firestore Timestamp objects for sorting
+        const dateA = timeA.toDate ? timeA.toDate() : new Date(timeA);
+        const dateB = timeB.toDate ? timeB.toDate() : new Date(timeB);
+        return dateA - dateB;
       })
       .slice(0, 5);
+
+    console.log("Filtered upcoming sessions:", filteredSessions.length);
+    return filteredSessions;
   } catch (error) {
     console.error("Error fetching upcoming sessions:", error);
     throw error;

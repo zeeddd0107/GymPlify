@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Colors } from "../constants/Colors";
+import { Colors } from "@/src/constants/Colors";
 import { useColorScheme } from "react-native";
 import { ThemeContext } from "./ThemeContextInstance";
 

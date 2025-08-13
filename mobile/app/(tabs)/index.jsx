@@ -11,8 +11,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/src/constants/Colors";
 import { Fonts } from "@/src/constants/Fonts";
-import { useColorScheme } from "@/src/hooks/useColorScheme";
-import FloatingActionButton from "@/src/components/FloatingActionButton";
+import { useColorScheme } from "@/src/hooks";
+import { FloatingActionButton } from "@/src/components";
 import {
   MembershipOverview,
   AttendanceSummary,

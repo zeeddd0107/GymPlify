@@ -1,7 +1,7 @@
 import { StyleSheet, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/src/constants/Colors";
-import { useColorScheme } from "@/src/hooks/useColorScheme";
+import { useColorScheme } from "@/src/hooks";
 
 export default function FloatingActionButton({
   onPress,

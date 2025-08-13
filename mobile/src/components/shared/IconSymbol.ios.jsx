@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet } from "react-native";
-import { useTheme } from "../context/useTheme";
+import { useTheme } from "@/src/context";
 
 export function IconSymbol({ name, size, color, style }) {
   const { theme } = useTheme();

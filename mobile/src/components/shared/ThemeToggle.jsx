@@ -1,5 +1,5 @@
 import { TouchableOpacity, Text, StyleSheet } from "react-native";
-import { useTheme } from "../context/useTheme";
+import { useTheme } from "@/src/context";
 
 export function ThemeToggle() {
   const { isDarkMode, toggleTheme, theme } = useTheme();

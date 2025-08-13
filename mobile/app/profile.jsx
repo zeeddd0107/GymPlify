@@ -11,7 +11,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useTheme } from "@/src/context/useTheme";
+import { useTheme } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
 import { firebase } from "@/src/services/firebase";
 
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: Fonts.family.bold,
-    fontSize: 20,
+    fontSize: 22,
   },
   headerPlaceholder: {
     width: 40,

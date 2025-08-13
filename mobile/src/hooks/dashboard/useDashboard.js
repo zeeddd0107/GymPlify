@@ -5,8 +5,8 @@ import { useMembership } from "./useMembership";
 import { useAttendance } from "./useAttendance";
 import { useUpcomingSessions } from "./useUpcomingSessions";
 import { useWorkoutTip } from "./useWorkoutTip";
-import { useUserData } from "./useUserData";
-import { useNotifications } from "./useNotifications";
+import { useUserData } from "../user/useUserData";
+import { useNotifications } from "../notifications/useNotifications";
 
 export const useDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
