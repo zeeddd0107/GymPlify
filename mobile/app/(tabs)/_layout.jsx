@@ -1,11 +1,11 @@
 import { Tabs } from "expo-router";
-import React from "react";
 import { Platform } from "react-native";
 
-import { HapticTab } from "@/src/components/HapticTab";
-import { IconSymbol } from "@/src/components/IconSymbol";
-import TabBarBackground from "@/src/components/TabBarBackground";
-import { useTheme } from "@/src/context/useTheme";
+import { HapticTab } from "@/src/components";
+import { IconSymbol } from "@/src/components";
+import TabBarBackground from "@/src/components";
+import { useTheme } from "@/src/context";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function TabLayout() {
   const { theme } = useTheme();
@@ -35,7 +35,7 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
+            <MaterialIcons name="home" size={28} color={color} />
           ),
         }}
       />
@@ -48,12 +48,13 @@ export default function TabLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
-        name="schedule"
+        name="sessions"
         options={{
-          title: "Session",
+          title: "Sessions",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="calendar" color={color} />
+            <MaterialIcons name="event" size={28} color={color} />
           ),
         }}
       />

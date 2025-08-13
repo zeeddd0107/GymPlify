@@ -10,7 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme } from "@/src/context/useTheme";
+import { useTheme } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
 import { fetchNotifications } from "@/src/services/dashboardService";
 import { firebase } from "@/src/services/firebase";
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: Fonts.family.bold,
-    fontSize: 20,
+    fontSize: 22,
     flex: 1,
     textAlign: "center",
   },

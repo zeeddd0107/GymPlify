@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { useTheme } from "@/src/context/useTheme";
+import { useTheme } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
 
 export default function LearnScreen() {
@@ -41,13 +41,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontFamily: Fonts.bold,
+    fontFamily: Fonts.family.bold,
     marginBottom: 10,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
-    fontFamily: Fonts.medium,
+    fontFamily: Fonts.family.medium,
     textAlign: "center",
     lineHeight: 24,
   },

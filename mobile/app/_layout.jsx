@@ -8,7 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "react-native-reanimated";
 
-import { ThemeProvider } from "@/src/context/ThemeContext";
+import { ThemeProvider } from "@/src/context";
 
 function AppContent() {
   const [loaded] = useFonts({
@@ -35,6 +35,10 @@ function AppContent() {
             <Stack.Screen name="profile" options={{ headerShown: false }} />
             <Stack.Screen
               name="notifications"
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="create-session"
               options={{ headerShown: false }}
             />
             <Stack.Screen name="+not-found" />

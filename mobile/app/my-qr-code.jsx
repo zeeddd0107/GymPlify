@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { firebase, firestore } from "@/src/services/firebase";
 import QRCode from "react-native-qrcode-svg";
 import { Fonts } from "@/src/constants/Fonts";
-import { useTheme } from "@/src/context/useTheme";
+import { useTheme } from "@/src/context";
 
 function generateNewQrValue(uid) {
   // Generate a new unique QR value (e.g., UID + timestamp + random)
