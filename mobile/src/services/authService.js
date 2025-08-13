@@ -1,5 +1,5 @@
-import { firebase, googleProvider } from "./firebase";
-import { firestore } from "./firebase";
+import { firebase, googleProvider } from "@/src/services/firebase";
+import { firestore } from "@/src/services/firebase";
 import { sendEmailVerification } from "firebase/auth";
 
 // Function to generate custom Member ID
