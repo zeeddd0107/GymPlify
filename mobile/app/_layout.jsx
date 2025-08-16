@@ -17,7 +17,6 @@ function AppContent() {
     "Poppins-SemiBold": require("../assets/fonts/Poppins-SemiBold.ttf"),
     "Poppins-Bold": require("../assets/fonts/Poppins-Bold.ttf"),
     "Poppins-Light": require("../assets/fonts/Poppins-Light.ttf"),
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
   if (!loaded) {
@@ -32,16 +31,17 @@ function AppContent() {
           <Stack>
             <Stack.Screen name="auth/index" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" options={{ headerShown: false }} />
             <Stack.Screen name="profile" options={{ headerShown: false }} />
             <Stack.Screen
               name="notifications"
               options={{ headerShown: false }}
             />
+            <Stack.Screen name="my-qr-code" options={{ headerShown: false }} />
             <Stack.Screen
               name="create-session"
               options={{ headerShown: false }}
             />
-            <Stack.Screen name="+not-found" />
           </Stack>
           <StatusBar style="dark" />
         </NavigationThemeProvider>
