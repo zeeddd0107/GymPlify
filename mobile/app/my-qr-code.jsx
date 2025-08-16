@@ -8,7 +8,7 @@ import {
   Alert,
   Pressable,
 } from "react-native";
-import { useRouter, useNavigation } from "expo-router";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { firebase, firestore } from "@/src/services/firebase";
@@ -22,13 +22,6 @@ function generateNewQrValue(uid) {
 }
 
 export default function MyQRCodeScreen() {
-  const navigation = useNavigation();
-
-  // Hide the header for this screen
-  React.useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: false });
-  }, [navigation]);
-
   const router = useRouter();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();

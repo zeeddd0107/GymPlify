@@ -2,10 +2,11 @@ import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 
 import { HapticTab } from "@/src/components";
-import { IconSymbol } from "@/src/components";
+import AntDesign from "@expo/vector-icons/AntDesign";
 import TabBarBackground from "@/src/components";
 import { useTheme } from "@/src/context";
-import { MaterialIcons } from "@expo/vector-icons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import Entypo from "@expo/vector-icons/Entypo";
 
 export default function TabLayout() {
   const { theme } = useTheme();
@@ -35,7 +36,7 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color }) => (
-            <MaterialIcons name="home" size={28} color={color} />
+            <Entypo name="home" size={28} color={color} />
           ),
         }}
       />
@@ -44,7 +45,7 @@ export default function TabLayout() {
         options={{
           title: "Learn",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="school" color={color} />
+            <AntDesign size={24} name="play" color={color} />
           ),
         }}
       />

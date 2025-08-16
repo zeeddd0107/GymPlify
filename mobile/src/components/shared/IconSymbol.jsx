@@ -4,7 +4,7 @@ import { StyleSheet } from "react-native";
 export function IconSymbol({ name, size, color, style }) {
   // Map SF Symbol names to Ionicons names
   const iconMap = {
-    "house.fill": "home",
+    "house-damage": "home",
     magnifyingglass: "search",
     "chevron.right": "chevron-forward",
     calendar: "calendar",
