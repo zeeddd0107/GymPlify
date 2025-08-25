@@ -4,6 +4,7 @@ import { firebase } from "@/src/services/firebase";
 import {
   fetchMembershipData,
   renewMembership,
+  fetchActiveSubscriptions,
 } from "@/src/services/dashboardService";
 
 export const useMembership = () => {
@@ -17,6 +18,10 @@ export const useMembership = () => {
 
       const membership = await fetchMembershipData(user.uid);
       setMembershipData(membership);
+
+      // Also fetch subscriptions to calculate days remaining
+      const activeSubs = await fetchActiveSubscriptions(user.uid);
+      setSubscriptions(activeSubs);
     } catch (error) {
       console.error("Error fetching membership data:", error);
       Alert.alert("Error", "Failed to load membership data");
@@ -42,23 +47,25 @@ export const useMembership = () => {
   };
 
   const getMembershipStatusColor = (status) => {
-    switch (status) {
-      case "Active":
-        return "#22c55e";
-      case "Expiring Soon":
-        return "#f59e0b";
-      case "Expired":
-        return "#ef4444";
+    switch (status?.toLowerCase()) {
+      case "active":
+        return "#22c55e"; // Green
+      case "expiring soon":
+        return "#f59e0b"; // Orange
+      case "expired":
+        return "#ef4444"; // Red
+      case "cancelled":
+        return "#6b7280"; // Gray
       default:
-        return "#6b7280";
+        return "#6b7280"; // Gray for unknown status
     }
   };
 
-  // Calculate days left from subscriptions using endDate minus max(startDate, today)
+  // Calculate days left from subscriptions using endDate minus today
   const getDaysLeftFromSubscriptions = () => {
     if (!subscriptions || subscriptions.length === 0) return null;
 
-    // Map to items that have end/start (fallback to validUntil when present)
+    // Map to items that have endDate
     const mapped = subscriptions
       .map((sub) => {
         // Try to use endDate first, then fallback to validUntil
@@ -69,14 +76,7 @@ export const useMembership = () => {
         if (!endRaw) return null;
 
         const end = endRaw?.toDate ? endRaw.toDate() : new Date(endRaw);
-        const startRaw = sub.startDate;
-        const start = startRaw
-          ? startRaw?.toDate
-            ? startRaw.toDate()
-            : new Date(startRaw)
-          : null;
         const today = new Date();
-        const reference = start && start > today ? start : today;
 
         // Set both dates to start of day for accurate comparison
         const endOnly = new Date(
@@ -84,17 +84,19 @@ export const useMembership = () => {
           end.getMonth(),
           end.getDate(),
         );
-        const refOnly = new Date(
-          reference.getFullYear(),
-          reference.getMonth(),
-          reference.getDate(),
+        const todayOnly = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
         );
+
         const diffDays = Math.ceil(
-          (endOnly.getTime() - refOnly.getTime()) / (1000 * 60 * 60 * 24),
+          (endOnly.getTime() - todayOnly.getTime()) / (1000 * 60 * 60 * 24),
         );
+
         return {
           end,
-          daysLeft: Math.max(diffDays, 0),
+          daysLeft: diffDays, // Allow negative values for expired subscriptions
         };
       })
       .filter(Boolean);

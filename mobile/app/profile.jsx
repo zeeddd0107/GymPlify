@@ -66,13 +66,26 @@ export default function ProfileScreen() {
         text: "Sign Out",
         style: "destructive",
         onPress: async () => {
+          let signOutError = null;
           try {
             await firebase.auth().signOut();
-            await AsyncStorage.clear();
-            router.replace("/auth");
           } catch (error) {
+            signOutError = error;
             console.error("Error signing out:", error);
-            Alert.alert("Error", "Failed to sign out");
+          } finally {
+            try {
+              await AsyncStorage.clear();
+            } catch (error) {
+              console.warn("Failed to clear AsyncStorage:", error);
+            }
+            router.replace("/auth");
+          }
+          if (signOutError) {
+            Alert.alert(
+              "Sign-out issue",
+              signOutError?.message ||
+                "Failed to sign out from server, but local session was cleared.",
+            );
           }
         },
       },
@@ -135,9 +148,11 @@ export default function ProfileScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={theme.text} />
+          <Ionicons name="arrow-back" size={24} color={theme.textPrimary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Profile</Text>
+        <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+          Profile
+        </Text>
         <View style={styles.headerPlaceholder} />
       </View>
 
@@ -148,10 +163,12 @@ export default function ProfileScreen() {
         <View style={styles.userAvatar}>
           <Ionicons name="person" size={40} color={theme.icon} />
         </View>
-        <Text style={[styles.userName, { color: theme.text }]}>
+        <Text style={[styles.userName, { color: theme.textPrimary }]}>
           {userData?.displayName || "User"}
         </Text>
-        <Text style={[styles.userEmail, { color: theme.icon }]}>{email}</Text>
+        <Text style={[styles.userEmail, { color: theme.textSecondary }]}>
+          {email}
+        </Text>
       </View>
 
       {/* Profile Options */}
@@ -169,7 +186,10 @@ export default function ProfileScreen() {
                 <Text
                   style={[
                     styles.profileOptionText,
-                    { color: option.id === 8 ? "#FF6B6B" : theme.text },
+                    {
+                      color:
+                        option.id === 8 ? theme.textError : theme.textPrimary,
+                    },
                   ]}
                 >
                   {option.title}
@@ -177,14 +197,14 @@ export default function ProfileScreen() {
                 <Ionicons
                   name={option.icon}
                   size={20}
-                  color={option.id === 8 ? "#FF6B6B" : theme.icon}
+                  color={option.id === 8 ? theme.textError : theme.icon}
                 />
               </Pressable>
               {index < profileOptions.length - 1 && (
                 <View
                   style={[
                     styles.separator,
-                    { backgroundColor: theme.icon + "20" },
+                    { backgroundColor: theme.textTertiary + "20" },
                   ]}
                 />
               )}

@@ -10,3 +10,4 @@ export { HapticTab } from "./HapticTab";
 export { ExternalLink } from "./ExternalLink";
 export { ThemedText } from "./ThemedText";
 export { ThemedView } from "./ThemedView";
+export { default as Button } from "./Button";

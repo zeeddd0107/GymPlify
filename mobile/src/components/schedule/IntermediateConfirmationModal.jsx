@@ -43,7 +43,7 @@ const IntermediateConfirmationModal = ({
 
           {/* Title */}
           <Text style={styles.intermediateConfirmationTitle}>
-            Confirm Booking
+            Confirm Session?
           </Text>
 
           {/* Session Details */}

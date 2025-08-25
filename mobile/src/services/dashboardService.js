@@ -9,11 +9,10 @@ import { firestore } from "@/src/services/firebase";
  */
 export const fetchMembershipData = async (userId) => {
   try {
-    // Get the user's active subscription from subscriptions collection
+    // Get the user's subscriptions from subscriptions collection (not just active ones)
     const snapshot = await firestore
       .collection("subscriptions")
       .where("userId", "==", userId)
-      .where("status", "==", "active")
       .limit(1)
       .get();
 
@@ -21,27 +20,59 @@ export const fetchMembershipData = async (userId) => {
       const subscriptionDoc = snapshot.docs[0];
       const subscriptionData = subscriptionDoc.data();
 
+      // Calculate days until expiry
+      let endDate;
+      if (subscriptionData.endDate?.toDate) {
+        endDate = subscriptionData.endDate.toDate();
+      } else if (subscriptionData.endDate) {
+        endDate = new Date(subscriptionData.endDate);
+      } else {
+        endDate = new Date();
+      }
+
+      const today = new Date();
+      const daysUntilExpiry = Math.ceil(
+        (endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+      // Determine status based on expiry date and original subscription status
+      let status = subscriptionData.status || "Active";
+
+      // Override status based on expiry date if the subscription has expired
+      if (daysUntilExpiry < 0) {
+        status = "Expired";
+      } else if (daysUntilExpiry <= 3 && daysUntilExpiry >= 0) {
+        status = "Expiring Soon";
+      } else if (daysUntilExpiry > 7) {
+        status = "Active";
+      }
+
+      // Handle cancelled subscriptions
+      if (subscriptionData.status === "cancelled") {
+        status = "Cancelled";
+      }
+
       // Transform subscription data to membership format
-      return {
-        status: subscriptionData.status || "Active",
+      const result = {
+        status: status,
         expiresAt: subscriptionData.endDate
-          ? new Date(subscriptionData.endDate.toDate())
-              .toISOString()
-              .split("T")[0]
+          ? subscriptionData.endDate?.toDate
+            ? new Date(subscriptionData.endDate.toDate())
+                .toISOString()
+                .split("T")[0]
+            : new Date(subscriptionData.endDate).toISOString().split("T")[0]
           : null,
-        daysUntilExpiry: subscriptionData.endDate
-          ? Math.ceil(
-              (subscriptionData.endDate.toDate() - new Date()) /
-                (1000 * 60 * 60 * 24),
-            )
-          : 0,
+        daysUntilExpiry: daysUntilExpiry,
         plan: subscriptionData.name || "Premium Membership",
         planId: subscriptionData.type || "premium",
         price: subscriptionData.price || 0,
         billingCycle: subscriptionData.billingCycle || "monthly",
         subscriptionId: subscriptionDoc.id,
-        ...subscriptionData,
+        // Don't spread subscriptionData here as it might override our calculated status
+        // ...subscriptionData,
       };
+
+      return result;
     }
 
     return null;
@@ -107,8 +138,8 @@ export const fetchAttendanceData = async (userId) => {
       visitsThisWeek,
       visitsThisMonth,
       lastCheckIn,
-      weeklyGoal: 4, // Default goal, could be made configurable
-      monthlyGoal: 16, // Default goal, could be made configurable
+      weeklyGoal: 4,
+      monthlyGoal: 16,
       totalVisits: sortedDocs.length,
       averageVisitsPerWeek:
         visitsThisMonth > 0 ? Math.round((visitsThisMonth / 4) * 10) / 10 : 0,
@@ -204,8 +235,8 @@ export const fetchActiveSubscriptions = async (userId) => {
       ...doc.data(),
     }));
 
-    // Filter active subscriptions in memory to avoid index requirements
-    return docs.filter((doc) => doc.status === "active");
+    // Return all subscriptions, not just active ones, so we can calculate proper status
+    return docs;
   } catch (error) {
     console.error("Error fetching subscriptions:", error);
     throw error;

@@ -1,4 +1,3 @@
-import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Fonts } from "@/src/constants/Fonts";
@@ -47,6 +46,12 @@ const SessionCard = ({ session, onPress }) => {
 
   const statusColor = STATUS_COLORS[session.status] || "#B0B0B0";
   const accentColor = getWorkoutColor(session.workoutType);
+  const normalizedTitle = (session?.title || "").trim();
+  const isPlaceholderTitle = /^untitled session$/i.test(normalizedTitle);
+  const titleToShow =
+    normalizedTitle && !isPlaceholderTitle
+      ? normalizedTitle
+      : session.workoutType;
 
   return (
     <Pressable
@@ -62,7 +67,7 @@ const SessionCard = ({ session, onPress }) => {
           />
         </View>
         <View style={styles.infoContainer}>
-          <Text style={styles.workoutType}>{session.workoutType}</Text>
+          <Text style={styles.workoutType}>{titleToShow}</Text>
           <View style={styles.detailBlock}>
             <View style={styles.detailRowInline}>
               <Ionicons

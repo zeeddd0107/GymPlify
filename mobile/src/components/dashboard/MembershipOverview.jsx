@@ -1,4 +1,4 @@
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Fonts } from "@/src/constants/Fonts";
 
@@ -7,7 +7,6 @@ const MembershipOverview = ({
   colors,
   getMembershipStatusColor,
   getDaysLeftFromSubscriptions,
-  handleRenewMembership,
 }) => {
   if (!membershipData) {
     return (
@@ -45,24 +44,23 @@ const MembershipOverview = ({
           </View>
         </View>
 
-        {typeof daysLeft === "number" && (
+        {typeof daysLeft === "number" && daysLeft > 0 ? (
           <Text style={[styles.daysRemainingText, { color: colors.tint }]}>
             {daysLeft} days remaining
           </Text>
-        )}
+        ) : daysLeft === 0 ? (
+          <Text style={[styles.daysRemainingText, { color: "#ef4444" }]}>
+            Expires today
+          </Text>
+        ) : daysLeft < 0 ? (
+          <Text style={[styles.daysRemainingText, { color: "#ef4444" }]}>
+            Expired {Math.abs(daysLeft)} days ago
+          </Text>
+        ) : null}
 
         <Text style={[styles.expiryText, { color: colors.icon }]}>
           Expires: {membershipData.expiresAt}
         </Text>
-
-        {membershipData.daysUntilExpiry <= 30 && (
-          <Pressable
-            style={styles.renewalButton}
-            onPress={() => handleRenewMembership()}
-          >
-            <Text style={styles.renewalButtonText}>Renew Membership</Text>
-          </Pressable>
-        )}
       </View>
     </View>
   );
@@ -82,9 +80,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  membershipStatus: {
-    marginTop: 16,
-  },
   statusRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -94,7 +89,6 @@ const styles = StyleSheet.create({
   statusLabel: {
     fontFamily: Fonts.family.semiBold,
     fontSize: 20,
-    marginBottom: 10,
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -116,19 +110,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
   },
-  renewalButton: {
-    backgroundColor: "#22c55e",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignSelf: "flex-start",
-    marginTop: 8,
-  },
-  renewalButtonText: {
-    color: "white",
-    fontFamily: Fonts.family.semiBold,
-    fontSize: 14,
-  },
+
   loadingContainer: {
     flexDirection: "row",
     alignItems: "center",

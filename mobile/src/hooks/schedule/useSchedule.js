@@ -3,6 +3,7 @@ import { firebase, firestore } from "@/src/services/firebase";
 
 // Workout schedule configuration
 const WORKOUT_SCHEDULE = {
+  0: { type: "Rest", icon: "bed", color: "#9CA3AF" }, // Sunday
   1: { type: "Chest", icon: "fitness", color: "#FF6B6B" }, // Monday
   2: { type: "Lower Body", icon: "body", color: "#4ECDC4" }, // Tuesday
   3: { type: "Back", icon: "fitness", color: "#45B7D1" }, // Wednesday
@@ -200,6 +201,8 @@ export const useSchedule = () => {
   const [isConfirming, setIsConfirming] = useState(false);
   const [sessionType, setSessionType] = useState("group");
   const [descriptions, setDescriptions] = useState("");
+  const [sessionTitle, setSessionTitle] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [scheduledSessions, setScheduledSessions] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -271,9 +274,7 @@ export const useSchedule = () => {
       }
 
       // Validate date and time
-      if (
-        !isDateTimeValid(selectedDate, selectedTime, currentYear, currentMonth)
-      ) {
+      if (!isDateTimeValid(selectedDate, endTime, currentYear, currentMonth)) {
         setShowErrorModal(true);
         setShowIntermediateConfirmation(false);
         return;
@@ -306,7 +307,7 @@ export const useSchedule = () => {
       // Get scheduled start date
       const scheduledStartDate = getScheduledStartDate(
         selectedDate,
-        selectedTime,
+        endTime,
         currentYear,
         currentMonth,
       );
@@ -318,18 +319,21 @@ export const useSchedule = () => {
       const sessionData = {
         userId: user.uid,
         subscriptionId: subscription.id,
+        title: sessionTitle || "Untitled Session", // Add title field
         type: sessionType,
         workoutType: workoutInfo.type,
         scheduledDate:
           firebase.firestore.Timestamp.fromDate(scheduledStartDate),
-        timeSlot: selectedTime,
+        timeSlot: endTime, // Use endTime instead of selectedTime
         descriptions: descriptions || "",
         status: "scheduled",
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       };
 
-      await firestore.collection("sessions").add(sessionData);
+      console.log("Creating session with data:", sessionData);
+      const docRef = await firestore.collection("sessions").add(sessionData);
+      console.log("Session created with ID:", docRef.id);
 
       // Close intermediate confirmation and show success
       setShowIntermediateConfirmation(false);
@@ -372,6 +376,27 @@ export const useSchedule = () => {
     setSelectedTime(null);
   };
 
+  const handleDateSelectWithContext = (date, month, year) => {
+    // Create a date object for the selected date
+    const selectedDateObj = new Date(year, month, date);
+    const today = new Date();
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    );
+
+    // Check if the selected date is in the past
+    if (selectedDateObj < todayStart) {
+      return; // Don't allow selection of past dates
+    }
+
+    // Update the current context to match the selected date's month/year
+    setCurrentDate(new Date(year, month, 1));
+    setSelectedDate(date);
+    setSelectedTime(null);
+  };
+
   const handleTimeSelect = (time) => {
     if (isTimeSlotInPast(selectedDate, time, currentYear, currentMonth)) {
       return; // Don't allow selection of past time slots
@@ -380,19 +405,20 @@ export const useSchedule = () => {
     // Don't close the modal here - let user confirm their selection
   };
 
-  const handleContinue = () => {
-    if (!selectedDate || !selectedTime) {
+  const handleContinue = (title, endTime) => {
+    if (!selectedDate || !endTime) {
       setShowErrorModal(true);
       return;
     }
 
-    if (
-      !isDateTimeValid(selectedDate, selectedTime, currentYear, currentMonth)
-    ) {
+    if (!isDateTimeValid(selectedDate, endTime, currentYear, currentMonth)) {
       setShowErrorModal(true);
       return;
     }
 
+    // Store the title and endTime for use in confirmation
+    setSessionTitle(title);
+    setEndTime(endTime);
     setShowIntermediateConfirmation(true);
   };
 
@@ -435,6 +461,7 @@ export const useSchedule = () => {
     handlePrevMonth,
     handleNextMonth,
     handleDateSelect,
+    handleDateSelectWithContext,
     handleTimeSelect,
     handleContinue,
     handleConfirmBooking,
@@ -448,6 +475,8 @@ export const useSchedule = () => {
         // Reset form when confirmation modal is closed
         setSelectedDate(null);
         setSelectedTime(null);
+        setSessionTitle("");
+        setEndTime("");
         // Optionally reset type to default
         setSessionType("group");
         setDescriptions("");
@@ -461,5 +490,14 @@ export const useSchedule = () => {
     // Descriptions state
     descriptions,
     setDescriptions,
+    // Session title and end time state
+    sessionTitle,
+    setSessionTitle,
+    endTime,
+    setEndTime,
+
+    // Calendar state setters for edit functionality
+    setCurrentDate,
+    setSelectedDate,
   };
 };
