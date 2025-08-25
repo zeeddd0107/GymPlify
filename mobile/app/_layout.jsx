@@ -8,7 +8,18 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "react-native-reanimated";
 
-import { ThemeProvider } from "@/src/context";
+import { ThemeProvider, useTheme } from "@/src/context";
+
+function ThemedStatusBar() {
+  const { isDarkMode, theme } = useTheme();
+  return (
+    <StatusBar
+      style={isDarkMode ? "light" : "dark"}
+      backgroundColor={theme.background}
+      translucent={false}
+    />
+  );
+}
 
 function AppContent() {
   const [loaded] = useFonts({
@@ -42,8 +53,12 @@ function AppContent() {
               name="create-session"
               options={{ headerShown: false }}
             />
+            <Stack.Screen
+              name="edit-session"
+              options={{ headerShown: false }}
+            />
           </Stack>
-          <StatusBar style="dark" />
+          <ThemedStatusBar />
         </NavigationThemeProvider>
       </ThemeProvider>
     </SafeAreaProvider>
