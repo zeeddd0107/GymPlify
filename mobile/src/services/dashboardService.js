@@ -152,6 +152,45 @@ export const fetchAttendanceData = async (userId) => {
 };
 
 /**
+ * Fetch all attendance records for a user (no limit), sorted by most recent first
+ */
+export const fetchAllAttendanceRecords = async (userId) => {
+  try {
+    const snapshot = await firestore
+      .collection("attendance")
+      .where("userId", "==", userId)
+      .get();
+
+    const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    const normalizeTimestamp = (timestamp) => {
+      if (!timestamp) return new Date(0);
+      if (timestamp.toDate) return timestamp.toDate();
+      return new Date(timestamp);
+    };
+
+    return docs
+      .sort((a, b) => {
+        const timeA = normalizeTimestamp(a.checkInTime || a.timestamp);
+        const timeB = normalizeTimestamp(b.checkInTime || b.timestamp);
+        return timeB.getTime() - timeA.getTime();
+      })
+      .map((rec) => ({
+        ...rec,
+        checkInAt: normalizeTimestamp(rec.checkInTime || rec.timestamp),
+        // Only normalize checkout if it exists; otherwise keep it null
+        checkOutAt: (() => {
+          const raw = rec.checkOutAt || rec.checkOutTime || rec.checkoutTime;
+          return raw ? normalizeTimestamp(raw) : null;
+        })(),
+      }));
+  } catch (error) {
+    console.error("Error fetching all attendance records:", error);
+    throw error;
+  }
+};
+
+/**
  * Fetch upcoming sessions
  */
 export const fetchUpcomingSessions = async (userId) => {

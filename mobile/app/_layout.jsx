@@ -57,6 +57,10 @@ function AppContent() {
               name="edit-session"
               options={{ headerShown: false }}
             />
+            <Stack.Screen
+              name="attendance-history"
+              options={{ headerShown: false }}
+            />
           </Stack>
           <ThemedStatusBar />
         </NavigationThemeProvider>

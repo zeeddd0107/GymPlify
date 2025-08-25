@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Fonts } from "@/src/constants/Fonts";
 
@@ -6,6 +6,7 @@ const AttendanceSummary = ({
   attendanceData,
   colors,
   getProgressPercentage,
+  onPress,
 }) => {
   if (!attendanceData) {
     return (
@@ -21,7 +22,15 @@ const AttendanceSummary = ({
   }
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.background }]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="View full attendance"
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: colors.background, opacity: pressed ? 0.95 : 1 },
+      ]}
+    >
       <Text style={[styles.cardTitle, { color: colors.text }]}>
         Attendance Summary
       </Text>
@@ -71,7 +80,7 @@ const AttendanceSummary = ({
       <Text style={[styles.lastCheckIn, { color: colors.icon }]}>
         Last check-in: {attendanceData.lastCheckIn}
       </Text>
-    </View>
+    </Pressable>
   );
 };
 
