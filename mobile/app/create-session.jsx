@@ -1,4 +1,4 @@
-import React from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,47 +16,47 @@ import { useRouter } from "expo-router";
 import { useTheme } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
 import { useSchedule } from "@/src/hooks";
+import { Button } from "@/src/components/shared";
+import { useButton } from "@/src/hooks/ui";
 import {
-  WorkoutLegend,
-  Calendar,
-  TimeSelector,
-  TimePickerModal,
   ConfirmationModal,
   ErrorModal,
   IntermediateConfirmationModal,
+  CustomCalendarModal,
+  CustomTimePickerModal,
 } from "@/src/components/schedule";
 
 export default function CreateSessionScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showCustomCalendarModal, setShowCustomCalendarModal] = useState(false);
+  const [showCustomTimePickerModal, setShowCustomTimePickerModal] =
+    useState(false);
+
+  const scheduleData = useSchedule();
+  const { withLoading, loading, disabled } = useButton();
 
   const {
     // State
     selectedDate,
     selectedTime,
-    showTimePicker,
     showConfirmationModal,
     showErrorModal,
     showIntermediateConfirmation,
     isConfirming,
     currentYear,
     currentMonth,
-    calendarGrid,
 
     // Constants
-    WORKOUT_SCHEDULE,
-    TIME_SLOTS,
     monthNames,
     dayNames,
 
     // Functions
-    isWeekend,
     getWorkoutInfo,
-    handlePrevMonth,
-    handleNextMonth,
-    handleDateSelect,
-    handleTimeSelect,
+    handleDateSelectWithContext,
     handleContinue,
     handleConfirmBooking,
 
@@ -65,7 +66,6 @@ export default function CreateSessionScreen() {
     isDateTimeValid,
 
     // Setters
-    setShowTimePicker,
     setShowConfirmationModal,
     setShowErrorModal,
     setShowIntermediateConfirmation,
@@ -73,7 +73,11 @@ export default function CreateSessionScreen() {
     setSessionType,
     descriptions,
     setDescriptions,
-  } = useSchedule();
+    sessionTitle,
+    setSessionTitle,
+    endTime,
+    setEndTime,
+  } = scheduleData;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -90,8 +94,14 @@ export default function CreateSessionScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={insets.top + 60}
+        behavior={
+          isDescriptionFocused
+            ? Platform.OS === "ios"
+              ? "padding"
+              : "height"
+            : undefined
+        }
+        keyboardVerticalOffset={isDescriptionFocused ? insets.top + 10 : 0}
       >
         <ScrollView
           style={styles.scrollContainer}
@@ -102,141 +112,128 @@ export default function CreateSessionScreen() {
             Platform.OS === "ios" ? "interactive" : "on-drag"
           }
         >
-          {/* Workout Legend */}
-          <WorkoutLegend
-            workoutSchedule={WORKOUT_SCHEDULE}
-            dayNames={dayNames}
-          />
-
-          {/* Calendar Section */}
-          <Calendar
-            currentYear={currentYear}
-            currentMonth={currentMonth}
-            calendarGrid={calendarGrid}
-            selectedDate={selectedDate}
-            monthNames={monthNames}
-            isWeekend={isWeekend}
-            isDateInPast={isDateInPast}
-            onPrevMonth={handlePrevMonth}
-            onNextMonth={handleNextMonth}
-            onDateSelect={handleDateSelect}
-          />
-
-          {/* Time Selection */}
-          <View style={styles.labelRow}>
-            <Text style={styles.typeLabel}>Select a Time</Text>
+          {/* Title Input */}
+          <View style={styles.titleSection}>
+            <TextInput
+              style={styles.titleInput}
+              color={theme.titleInput}
+              placeholder="Add title"
+              placeholderTextColor={theme.textPrimary}
+              value={sessionTitle}
+              onChangeText={setSessionTitle}
+            />
           </View>
-          <TimeSelector
-            selectedDate={selectedDate}
-            selectedTime={selectedTime}
-            onTimeSelect={handleTimeSelect}
-            onShowTimePicker={() => setShowTimePicker(true)}
-            isTimeSlotInPast={isTimeSlotInPast}
-            currentYear={currentYear}
-            currentMonth={currentMonth}
-          />
 
-          {/* Session Type Selection */}
-          <View style={styles.typeSection}>
-            <Text style={styles.typeLabel}>Session Type</Text>
-            <View style={styles.typeOptions}>
-              <Pressable
-                style={[
-                  styles.typeOption,
-                  sessionType === "solo" && styles.typeOptionSelected,
-                ]}
-                onPress={() => setSessionType("solo")}
-              >
-                <Ionicons
-                  name="person-outline"
-                  size={18}
-                  color={sessionType === "solo" ? "white" : "#4361EE"}
-                />
-                <Text
-                  style={[
-                    styles.typeOptionText,
-                    sessionType === "solo" && styles.typeOptionTextSelected,
-                  ]}
-                >
-                  Solo
+          {/* Date and Time Section */}
+          <View style={styles.dateTimeSection}>
+            {/* Select Date */}
+            <Pressable
+              style={styles.dateTimeRow}
+              onPress={() => setShowCustomCalendarModal(true)}
+            >
+              <View style={styles.dateTimeInfo}>
+                <Text style={styles.dateTimeLabel}>Select Date</Text>
+                <Text style={styles.dateTimeValue}>
+                  {selectedDate
+                    ? `${dayNames[new Date(currentYear, currentMonth, selectedDate).getDay()]}, ${monthNames[currentMonth]} ${selectedDate}, ${currentYear}`
+                    : "Select date"}
                 </Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.typeOption,
-                  sessionType === "group" && styles.typeOptionSelected,
-                ]}
-                onPress={() => setSessionType("group")}
-              >
-                <Ionicons
-                  name="people-outline"
-                  size={18}
-                  color={sessionType === "group" ? "white" : "#4361EE"}
-                />
-                <Text
-                  style={[
-                    styles.typeOptionText,
-                    sessionType === "group" && styles.typeOptionTextSelected,
-                  ]}
-                >
-                  Group
+              </View>
+              <View style={styles.timeButton}>
+                <Text style={styles.timeValue}>
+                  {selectedTime ? selectedTime : ""}
                 </Text>
-              </Pressable>
-            </View>
+              </View>
+              <Ionicons
+                name="create-outline"
+                size={20}
+                color={theme.textLabel}
+              />
+            </Pressable>
+
+            {/* Select Time */}
+            <Pressable
+              style={styles.dateTimeRow}
+              onPress={() => setShowCustomTimePickerModal(true)}
+            >
+              <View style={styles.dateTimeInfo}>
+                <Text style={styles.dateTimeLabel}>Select Time</Text>
+                <Text style={styles.dateTimeValue}>
+                  {endTime || "Select time"}
+                </Text>
+              </View>
+              <Ionicons
+                name="create-outline"
+                size={20}
+                color={theme.textLabel}
+              />
+            </Pressable>
+
+            {/* Session Type Selection */}
+            <Pressable
+              style={styles.groupRow}
+              onPress={() => setShowGroupModal(true)}
+            >
+              <Ionicons
+                name={
+                  sessionType === "solo" ? "person-outline" : "people-outline"
+                }
+                size={20}
+                color={theme.textLabel}
+              />
+              <Text style={styles.groupLabel}>
+                {sessionType === "solo"
+                  ? "Solo"
+                  : sessionType === "group"
+                    ? "Group"
+                    : "Select Type"}
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={theme.textLabel}
+              />
+            </Pressable>
           </View>
 
           {/* Descriptions */}
           <View style={styles.descriptionSection}>
-            <Text style={styles.typeLabel}>Descriptions</Text>
+            <Text style={styles.dateTimeLabel}>Descriptions</Text>
+            {/* Descriptions Input*/}
             <TextInput
               style={styles.descriptionInput}
               placeholder="Add any notes (optional)"
-              placeholderTextColor="#999"
+              placeholderTextColor={theme.textPlaceholderPrimary}
               value={descriptions}
               onChangeText={setDescriptions}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
+              onFocus={() => setIsDescriptionFocused(true)}
+              onBlur={() => setIsDescriptionFocused(false)}
+            />
+          </View>
+
+          {/* Save Button - shared component */}
+          <View style={styles.addButtonContainer}>
+            <Button
+              title={loading ? "Adding..." : "Add"}
+              loading={loading}
+              disabled={disabled}
+              onPress={() =>
+                withLoading(() => handleContinue(sessionTitle, endTime))
+              }
             />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* Floating Continue Button */}
-      <View
-        style={[
-          styles.floatingContinueWrapper,
-          { bottom: Math.max(15, insets.bottom + 10) },
-        ]}
-        pointerEvents="box-none"
-        collapsable={false}
-      >
-        <Pressable style={styles.continueButton} onPress={handleContinue}>
-          <Text style={styles.continueButtonText}>Continue</Text>
-        </Pressable>
-      </View>
-
-      {/* Time Picker Modal */}
-      <TimePickerModal
-        visible={showTimePicker}
-        onClose={() => setShowTimePicker(false)}
-        selectedDate={selectedDate}
-        selectedTime={selectedTime}
-        timeSlots={TIME_SLOTS}
-        currentYear={currentYear}
-        currentMonth={currentMonth}
-        monthNames={monthNames}
-        dayNames={dayNames}
-        onTimeSelect={handleTimeSelect}
-        isTimeSlotInPast={isTimeSlotInPast}
-      />
 
       {/* Confirmation Modal */}
       <ConfirmationModal
         visible={showConfirmationModal}
         onClose={() => setShowConfirmationModal(false)}
         selectedDate={selectedDate}
-        selectedTime={selectedTime}
+        selectedTime={endTime}
         currentYear={currentYear}
         currentMonth={currentMonth}
         monthNames={monthNames}
@@ -248,7 +245,7 @@ export default function CreateSessionScreen() {
         visible={showErrorModal}
         onClose={() => setShowErrorModal(false)}
         selectedDate={selectedDate}
-        selectedTime={selectedTime}
+        selectedTime={endTime} // Use endTime instead of selectedTime
         isDateTimeValid={isDateTimeValid}
         isDateInPast={isDateInPast}
         isTimeSlotInPast={isTimeSlotInPast}
@@ -262,12 +259,112 @@ export default function CreateSessionScreen() {
         onClose={() => setShowIntermediateConfirmation(false)}
         onConfirm={handleConfirmBooking}
         selectedDate={selectedDate}
-        selectedTime={selectedTime}
+        selectedTime={endTime}
         currentYear={currentYear}
         currentMonth={currentMonth}
         monthNames={monthNames}
         getWorkoutInfo={getWorkoutInfo}
         isConfirming={isConfirming}
+      />
+
+      {/* Group Selection Modal */}
+      <Modal
+        visible={showGroupModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowGroupModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowGroupModal(false)}
+        >
+          <Pressable
+            style={styles.groupModal}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.groupModalHeader}>
+              <Text style={styles.groupModalTitle}>Select Type</Text>
+              <Pressable
+                style={styles.closeButton}
+                onPress={() => setShowGroupModal(false)}
+              >
+                <Ionicons name="close" size={24} color={theme.textLabel} />
+              </Pressable>
+            </View>
+
+            <View style={styles.groupOptions}>
+              <Pressable
+                style={styles.groupOption}
+                onPress={() => {
+                  setSessionType("solo");
+                  setShowGroupModal(false);
+                }}
+              >
+                <Ionicons
+                  name="person-outline"
+                  size={20}
+                  color={theme.iconColor}
+                />
+                <Text style={styles.groupOptionText}>Solo</Text>
+                {sessionType === "solo" && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={theme.iconColor}
+                  />
+                )}
+              </Pressable>
+
+              <Pressable
+                style={styles.groupOption}
+                onPress={() => {
+                  setSessionType("group");
+                  setShowGroupModal(false);
+                }}
+              >
+                <Ionicons
+                  name="people-outline"
+                  size={20}
+                  color={theme.iconColor}
+                />
+                <Text style={styles.groupOptionText}>Group</Text>
+                {sessionType === "group" && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={theme.iconColor}
+                  />
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Custom Calendar Modal */}
+      <CustomCalendarModal
+        visible={showCustomCalendarModal}
+        onClose={() => setShowCustomCalendarModal(false)}
+        onDateSelect={(day, month, year) => {
+          handleDateSelectWithContext(day, month, year);
+          // Don't close the modal automatically - let user keep selecting or click OK/Cancel
+        }}
+        selectedDate={selectedDate}
+        currentYear={currentYear}
+        currentMonth={currentMonth}
+        monthNames={monthNames}
+        dayNames={dayNames}
+      />
+
+      {/* Custom Time Picker Modal */}
+      <CustomTimePickerModal
+        visible={showCustomTimePickerModal}
+        onClose={() => setShowCustomTimePickerModal(false)}
+        onTimeSelect={(time) => {
+          setEndTime(time);
+          // Don't close the modal automatically - let user keep selecting
+        }}
+        selectedTime={endTime}
       />
     </View>
   );
@@ -302,50 +399,57 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    paddingBottom: 72, // Enough space for the floating button
+    paddingBottom: 0,
   },
-  typeSection: {
+  titleSection: {
+    marginHorizontal: 20,
+  },
+  titleInput: {
+    fontFamily: Fonts.family.semiBold,
+    fontSize: 24,
+    color: "#1A1A1A",
+    paddingVertical: 10,
+  },
+  dateTimeSection: {
     marginHorizontal: 20,
     marginBottom: 20,
   },
-  typeLabel: {
-    fontFamily: Fonts.family.regular,
-    fontSize: 12,
-    color: "#999",
-    marginBottom: 8,
-  },
-  typeOptions: {
+
+  dateTimeRow: {
     flexDirection: "row",
-    gap: 15,
-  },
-  labelRow: {
-    marginHorizontal: 20,
-  },
-  typeOption: {
-    flex: 1,
-    backgroundColor: "white",
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 5,
-    borderWidth: 2,
-    borderColor: "#E0E0E0",
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
   },
-  typeOptionSelected: {
-    backgroundColor: "#4361EE",
-    borderColor: "#4361EE",
+  dateTimeInfo: {
+    flex: 1,
   },
-  typeOptionText: {
-    marginLeft: 8,
-    fontFamily: Fonts.family.semiBold,
+  dateTimeLabel: {
+    fontFamily: Fonts.family.medium,
+    fontSize: 14,
+    color: "#666666",
+    marginBottom: 4,
+  },
+  dateTimeValue: {
+    fontFamily: Fonts.family.regular,
     fontSize: 16,
-    color: "#333",
+    color: "#212427",
   },
-  typeOptionTextSelected: {
-    color: "white",
+  groupRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
+  },
+  groupLabel: {
+    fontFamily: Fonts.family.medium,
+    fontSize: 16,
+    color: "#1A1A1A",
+    marginLeft: 12,
+    flex: 1,
   },
   descriptionSection: {
     marginHorizontal: 20,
@@ -355,37 +459,66 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 12,
     padding: 14,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: "#E0E0E0",
-    shadowColor: "#000",
+    shadowColor: "#E0E0E0",
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 0,
     fontFamily: Fonts.family.regular,
     fontSize: 14,
-    color: "#333",
-    minHeight: 100,
+    color: "#212427",
+    minHeight: 75,
   },
-  continueButton: {
-    backgroundColor: "#4361EE",
-    paddingVertical: 16,
-    borderRadius: 12,
+  addButtonContainer: {
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 25,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+    padding: 10,
   },
-  continueButtonText: {
-    color: "white",
+  groupModal: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 24,
+    width: "90%",
+    maxWidth: 400,
+  },
+  groupModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
+  },
+  groupModalTitle: {
     fontFamily: Fonts.family.semiBold,
-    fontSize: 18,
+    fontSize: 20,
+    color: "#1A1A1A",
   },
-  floatingContinueWrapper: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    bottom: 15,
-    zIndex: 100,
+  groupOptions: {
+    gap: 16,
+  },
+  groupOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: "#F8F9FA",
+  },
+  groupOptionText: {
+    fontFamily: Fonts.family.medium,
+    fontSize: 16,
+    color: "#1A1A1A",
+    marginLeft: 12,
+    flex: 1,
   },
 });
