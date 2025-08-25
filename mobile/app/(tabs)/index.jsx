@@ -105,6 +105,7 @@ export default function HomeScreen() {
           attendanceData={attendanceData}
           colors={colors}
           getProgressPercentage={getProgressPercentage}
+          onPress={() => router.push("/attendance-history")}
         />
         <UpcomingSessions upcomingSessions={upcomingSessions} colors={colors} />
         <WorkoutTip workoutTip={workoutTip} colors={colors} />

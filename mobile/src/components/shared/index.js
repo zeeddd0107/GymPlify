@@ -11,3 +11,4 @@ export { ExternalLink } from "./ExternalLink";
 export { ThemedText } from "./ThemedText";
 export { ThemedView } from "./ThemedView";
 export { default as Button } from "./Button";
+export { default as InfoModal } from "./InfoModal";
