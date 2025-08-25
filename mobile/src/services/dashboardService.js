@@ -138,8 +138,8 @@ export const fetchAttendanceData = async (userId) => {
       visitsThisWeek,
       visitsThisMonth,
       lastCheckIn,
-      weeklyGoal: 4, // Default goal, could be made configurable
-      monthlyGoal: 16, // Default goal, could be made configurable
+      weeklyGoal: 4,
+      monthlyGoal: 16,
       totalVisits: sortedDocs.length,
       averageVisitsPerWeek:
         visitsThisMonth > 0 ? Math.round((visitsThisMonth / 4) * 10) / 10 : 0,
