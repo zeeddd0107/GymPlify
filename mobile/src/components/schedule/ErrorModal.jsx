@@ -1,4 +1,3 @@
-import React from "react";
 import { View, Text, Pressable, Modal, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Fonts } from "@/src/constants/Fonts";
@@ -213,7 +212,7 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
   errorButtonText: {
     color: "white",
