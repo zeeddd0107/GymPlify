@@ -58,40 +58,56 @@ const UpcomingSessions = ({ upcomingSessions, colors }) => {
           ? sessionDate.toDate()
           : new Date(sessionDate);
 
-        const formattedDate = dateToDisplay.toLocaleDateString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-        });
-
         const formattedTime = dateToDisplay.toLocaleTimeString("en-US", {
           hour: "numeric",
           minute: "2-digit",
           hour12: true,
         });
 
+        const isToday =
+          dateToDisplay.toDateString() === new Date().toDateString();
+        const isTomorrow =
+          dateToDisplay.toDateString() ===
+          new Date(Date.now() + 24 * 60 * 60 * 1000).toDateString();
+
         return (
           <View key={session.id} style={styles.sessionItem}>
-            <View style={styles.sessionInfo}>
-              <Text style={[styles.sessionType, { color: colors.text }]}>
-                {session.workoutType || session.type || "Workout Session"}
-              </Text>
-              <Text style={[styles.sessionCoach, { color: colors.icon }]}>
-                {session.type === "group" ? "Group Session" : "Solo Session"}
-              </Text>
-              <Text style={[styles.sessionTime, { color: colors.icon }]}>
-                {formattedDate} at {formattedTime}
-              </Text>
-            </View>
-            <View style={styles.sessionActions}>
-              <Pressable style={styles.joinButton}>
-                <Text style={styles.joinButtonText}>Join</Text>
-              </Pressable>
-              <Pressable style={styles.cancelButton}>
-                <Text style={[styles.cancelButtonText, { color: colors.icon }]}>
-                  Cancel
+            <View style={styles.dateTimeContainer}>
+              <View style={styles.dateContainer}>
+                <Text style={[styles.dayText, { color: colors.tint }]}>
+                  {dateToDisplay.getDate()}
                 </Text>
-              </Pressable>
+                <Text style={[styles.monthText, { color: colors.icon }]}>
+                  {dateToDisplay.toLocaleDateString("en-US", {
+                    month: "short",
+                  })}
+                </Text>
+              </View>
+              <View style={styles.timeContainer}>
+                <Text style={[styles.timeText, { color: colors.text }]}>
+                  {session.title || "Workout Session"}
+                </Text>
+                <View style={styles.dateTimeInfo}>
+                  <Text style={[styles.weekdayText, { color: colors.icon }]}>
+                    {formattedTime}
+                  </Text>
+                  {(isToday || isTomorrow) && (
+                    <View
+                      style={[
+                        styles.badge,
+                        { backgroundColor: isToday ? "#22c55e" : "#f59e0b" },
+                      ]}
+                    >
+                      <Text style={styles.badgeText}>
+                        {isToday ? "Today" : "Tomorrow"}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+            <View style={styles.sessionIndicator}>
+              <View style={styles.indicatorDot} />
             </View>
           </View>
         );
@@ -103,16 +119,17 @@ const UpcomingSessions = ({ upcomingSessions, colors }) => {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
     marginTop: 16,
-    shadowColor: "#000",
+    shadowColor: "#4d4d4d",
     shadowOffset: {
       width: 0,
       height: 2,
     },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: "row",
@@ -163,52 +180,82 @@ const styles = StyleSheet.create({
   },
   sessionItem: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+    backgroundColor: "white",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#D3D3D3",
   },
-  sessionInfo: {
-    flex: 1,
-  },
-  sessionType: {
-    fontFamily: Fonts.family.semiBold,
-    fontSize: 16,
-    marginBottom: 2,
-  },
-  sessionCoach: {
-    fontFamily: Fonts.family.regular,
-    fontSize: 14,
-    marginBottom: 2,
-  },
-  sessionTime: {
-    fontFamily: Fonts.family.regular,
-    fontSize: 12,
-  },
-  sessionActions: {
+  dateTimeContainer: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
-  joinButton: {
-    backgroundColor: "#22c55e",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    marginRight: 8,
+  dateContainer: {
+    alignItems: "center",
+    marginRight: 16,
+    minWidth: 48,
+    borderWidth: 2,
+    borderColor: "#4361EE",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: "#f8fafc",
   },
-  joinButtonText: {
+  dayText: {
+    fontFamily: Fonts.family.bold,
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  monthText: {
+    fontFamily: Fonts.family.medium,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  timeContainer: {
+    alignItems: "flex-start",
+    flex: 1,
+  },
+  timeText: {
+    fontFamily: Fonts.family.semiBold,
+    fontSize: 18,
+    marginBottom: 10,
+    lineHeight: 22,
+  },
+  dateTimeInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  weekdayText: {
+    fontFamily: Fonts.family.medium,
+    fontSize: 14,
+    color: "#64748b",
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
     color: "white",
     fontFamily: Fonts.family.semiBold,
-    fontSize: 12,
+    fontSize: 11,
   },
-  cancelButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+  sessionIndicator: {
+    marginLeft: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  cancelButtonText: {
-    fontFamily: Fonts.family.regular,
-    fontSize: 12,
+  indicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#4361EE",
   },
 });
 
