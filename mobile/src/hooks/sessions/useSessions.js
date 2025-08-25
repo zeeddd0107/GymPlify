@@ -46,6 +46,12 @@ export const useSessions = () => {
         .where("userId", "==", user.uid)
         .get();
 
+      console.log("Fetched sessions count:", snapshot.docs.length);
+      console.log(
+        "Raw session docs:",
+        snapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
+      );
+
       const sessionsData = snapshot.docs
         .map((doc) => {
           const data = doc.data();
@@ -63,9 +69,17 @@ export const useSessions = () => {
             scheduledDate: data.scheduledDate,
             status: data.status,
             type: data.type || "solo",
+            title: data.title || "Untitled Session",
+            descriptions: data.descriptions || "",
           };
         })
-        .filter((session) => session.status === "scheduled")
+        .filter((session) => {
+          console.log("Session status check:", {
+            id: session.id,
+            status: session.status,
+          });
+          return session.status === "scheduled";
+        })
         .sort((a, b) => {
           const dateA = a.scheduledDate?.toDate
             ? a.scheduledDate.toDate()
@@ -76,6 +90,14 @@ export const useSessions = () => {
           return dateA - dateB;
         });
 
+      console.log(
+        "Final sessions data:",
+        sessionsData.map((s) => ({
+          id: s.id,
+          title: s.title,
+          status: s.status,
+        })),
+      );
       setSessions(sessionsData);
     } catch (error) {
       console.error("Error fetching sessions:", error);
@@ -91,6 +113,21 @@ export const useSessions = () => {
     setRefreshing(false);
   }, [fetchSessions]);
 
+  const deleteSession = useCallback(
+    async (sessionId) => {
+      try {
+        await firestore.collection("sessions").doc(sessionId).delete();
+        // Refresh the sessions list after deletion
+        await fetchSessions();
+        return { success: true };
+      } catch (error) {
+        console.error("Error deleting session:", error);
+        return { success: false, error: error.message };
+      }
+    },
+    [fetchSessions],
+  );
+
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
@@ -102,5 +139,6 @@ export const useSessions = () => {
     error,
     onRefresh,
     refetch: fetchSessions,
+    deleteSession,
   };
 };
