@@ -1,4 +1,3 @@
-import React from "react";
 import { useAuth } from "@/context";
 import { DataTable } from "@/components";
 import { SubscriptionStatusBadge } from "@/components/subscription";
@@ -28,7 +27,7 @@ const SubscriptionsUI = ({
   deleteItemName,
 }) => {
   // Get admin status from auth context
-  const { isAdmin } = useAuth();
+  const { isAdmin: _isAdmin } = useAuth();
 
   // Function to process columns and handle JSX rendering for specific column types
   const processedColumns = columns.map((column) => {
@@ -83,13 +82,8 @@ const SubscriptionsUI = ({
   return (
     <div className="h-full">
       {/* Header Section - displays page title and description */}
-      <div className="pl-1 pt-6">
-        <h1 className="text-3xl font-bold text-primary mb-2">Subscriptions</h1>
-        <p className="mb-8 text-gray-600">
-          {isAdmin
-            ? "Viewing all user subscriptions."
-            : "Viewing your subscriptions only."}
-        </p>
+      <div className="pt-5">
+        <h1 className="text-3xl font-bold text-primary mb-6">Subscriptions</h1>
       </div>
 
       {/* Data Table - displays subscriptions in table format */}
