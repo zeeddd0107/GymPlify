@@ -21,7 +21,8 @@ const Sidebar = ({
 }) => {
   return (
     <div
-      className={`${open ? "w-72 p-5" : "w-20 p-4"} bg-zinc shadow-lg h-screen pt-8 fixed top-0 left-0 z-30 duration-300 ease-in-out flex flex-col justify-between`}
+      className={`${open ? "w-72 p-5" : "w-20 p-4"} shadow-lg h-screen pt-8 fixed top-0 left-0 z-30 duration-300 ease-in-out flex flex-col justify-between`}
+      style={{ backgroundColor: "#fbfbf9" }}
     >
       <div>
         {/* Toggle button section */}
