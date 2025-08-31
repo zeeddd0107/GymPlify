@@ -1,11 +1,9 @@
-import React from "react";
+import { useAuth } from "@/context";
 import { FaBell } from "react-icons/fa";
 
-/**
- * Reusable Navbar UI Component
- * Handles the presentation of the top navigation bar
- */
-const Navbar = ({ open, title = "Dashboard" }) => {
+const Navbar = ({ open, title = "" }) => {
+  const { user } = useAuth();
+  const profileSrc = user && (user.photoURL || user.photoUrl);
   return (
     <div className="w-full h-[8ch] px-12 bg-zinc-50 shadow-md flex items-center justify-between">
       <h1
@@ -27,7 +25,7 @@ const Navbar = ({ open, title = "Dashboard" }) => {
 
         {/* Profile img */}
         <img
-          src="https://cdn.pixabay.com/photo/2016/11/21/11/17/model-1844729_640.jpg"
+          src={profileSrc}
           alt="profile img"
           className="w-11 h-11 rounded-full object-cover object-center cursor-pointer"
         />
