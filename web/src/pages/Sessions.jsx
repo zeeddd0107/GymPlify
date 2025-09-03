@@ -684,9 +684,7 @@ const Sessions = () => {
   }, []);
 
   return (
-    <div className="pt-5">
-      <h1 className="text-3xl font-bold text-primary mb-6">Sessions</h1>
-
+    <div className="py-5">
       <div className="bg-white rounded-xl shadow-lg pt-5 px-0.4">
         <div className="flex items-center justify-between">
           <button

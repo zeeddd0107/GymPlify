@@ -81,19 +81,16 @@ const SubscriptionsUI = ({
   // Main render function - displays subscriptions page with table and modals
   return (
     <div className="h-full">
-      {/* Header Section - displays page title and description */}
-      <div className="pt-5">
-        <h1 className="text-3xl font-bold text-primary mb-6">Subscriptions</h1>
-      </div>
-
       {/* Data Table - displays subscriptions in table format */}
-      <DataTable
-        columns={processedColumns}
-        data={subscriptions}
-        loading={loading}
-        emptyMessage="No subscriptions found."
-        className="h-full"
-      />
+      <div className="mt-6">
+        <DataTable
+          columns={processedColumns}
+          data={subscriptions}
+          loading={loading}
+          emptyMessage="No subscriptions found."
+          className="h-full"
+        />
+      </div>
 
       {/* Subscriptions Actions - contains edit and delete modals */}
       <SubscriptionsActions
