@@ -6,6 +6,7 @@ const {
   googleAuth,
   listUsers,
   deleteUser,
+  setAdminClaim,
 } = require("../controllers/authController");
 const isAdmin = require("../middleware/isAdmin");
 
@@ -15,9 +16,12 @@ router.post("/google", googleAuth);
 router.get("/users", listUsers);
 router.delete("/users/:uid", deleteUser);
 
-// Example admin-only route
+// Admin-only routes
 router.get("/admin/panel", isAdmin, (req, res) => {
   res.json({ message: "Welcome, admin! You have full control." });
 });
+
+// Set admin claim for a user (admin only)
+router.post("/admin/set-admin", isAdmin, setAdminClaim);
 
 module.exports = router;
