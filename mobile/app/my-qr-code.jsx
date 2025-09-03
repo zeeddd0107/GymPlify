@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import { firebase, firestore } from "@/src/services/firebase";
 import QRCode from "react-native-qrcode-svg";
 import { Fonts } from "@/src/constants/Fonts";
 import { useTheme } from "@/src/context";
+import * as FileSystem from "expo-file-system";
+import * as MediaLibrary from "expo-media-library";
 
 function generateNewQrValue(uid) {
   // Generate a new unique QR value (e.g., UID + timestamp + random)
@@ -31,6 +33,7 @@ export default function MyQRCodeScreen() {
   const [userInitial, setUserInitial] = useState("");
   const [Handle, setHandle] = useState("");
   const [regenerating, setRegenerating] = useState(false);
+  const qrRef = useRef(null);
 
   useEffect(() => {
     const fetchQr = async () => {
@@ -87,6 +90,48 @@ export default function MyQRCodeScreen() {
     setRegenerating(false);
   };
 
+  const handleDownload = async () => {
+    try {
+      if (!qrValue || !qrRef.current) {
+        Alert.alert("QR Code", "No QR code to download.");
+        return;
+      }
+
+      const permission = await MediaLibrary.requestPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission required",
+          "Please allow media library access to save the QR code.",
+        );
+        return;
+      }
+
+      // Convert QR SVG to base64 PNG
+      qrRef.current.toDataURL(async (data) => {
+        try {
+          const fileUri = FileSystem.cacheDirectory + `qr_${Date.now()}.png`;
+          await FileSystem.writeAsStringAsync(fileUri, data, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+
+          const asset = await MediaLibrary.createAssetAsync(fileUri);
+          await MediaLibrary.createAlbumAsync("Download", asset, false);
+
+          Alert.alert("Saved", "QR code has been saved to your gallery.");
+        } catch (err) {
+          console.error("Save QR error:", err);
+          Alert.alert("Error", "Failed to save the QR code.");
+        }
+      });
+    } catch (e) {
+      console.error(e);
+      Alert.alert(
+        "Error",
+        "Something went wrong while downloading the QR code.",
+      );
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
@@ -113,7 +158,11 @@ export default function MyQRCodeScreen() {
             {loading ? (
               <ActivityIndicator size="large" color={theme.tint} />
             ) : qrValue ? (
-              <QRCode value={qrValue} size={250} />
+              <QRCode
+                value={qrValue}
+                size={250}
+                getRef={(c) => (qrRef.current = c)}
+              />
             ) : (
               <Text style={[styles.noQrText, { color: theme.text }]}>
                 No QR code found.
@@ -131,6 +180,18 @@ export default function MyQRCodeScreen() {
               style={[styles.regenerateButtonText, { color: theme.background }]}
             >
               {regenerating ? "Regenerating..." : "Regenerate QR"}
+            </Text>
+          </Pressable>
+          <View style={{ height: 12 }} />
+          <Pressable
+            style={[styles.regenerateButton, { backgroundColor: theme.tint }]}
+            onPress={handleDownload}
+            disabled={loading || !qrValue}
+          >
+            <Text
+              style={[styles.regenerateButtonText, { color: theme.background }]}
+            >
+              Download QR
             </Text>
           </Pressable>
         </View>
