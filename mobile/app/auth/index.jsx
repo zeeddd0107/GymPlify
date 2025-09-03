@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.bold,
     textAlign: "center",
     marginBottom: 12,
-    marginTop: 12,
+    marginTop: 150,
   },
   loginSubtitle: {
     fontSize: 14,
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
     borderColor: "#d1d5db",
   },
   googleButtonText: {
-    color: "#222",
+    color: "#212427",
     fontFamily: Fonts.family.bold,
     fontSize: 18,
   },
