@@ -25,7 +25,7 @@ const UpcomingSessions = ({ upcomingSessions, colors }) => {
           </Text>
           <Pressable
             style={styles.bookSessionButton}
-            onPress={() => router.push("/(tabs)/schedule")}
+            onPress={() => router.push("/(tabs)/sessions")}
           >
             <Text style={styles.bookSessionButtonText}>Book Session</Text>
           </Pressable>
