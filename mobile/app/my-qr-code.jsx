@@ -19,7 +19,7 @@ import * as FileSystem from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
 
 function generateNewQrValue(uid) {
-  // Generate a new unique QR value (e.g., UID + timestamp + random)
+  // Generate a new unique QR value (ex. UID + timestamp + random)
   return `${uid}_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 }
 
