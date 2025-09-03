@@ -20,7 +20,7 @@ const Inventory = () => {
       {
         id: "INV001",
         productName: "Protein Powder - Whey Gold Standard",
-        category: "Supplements",
+        category: "Products",
         sku: "PROT-WHEY-001",
         price: 49.99,
         cost: 35.0,
@@ -50,7 +50,7 @@ const Inventory = () => {
       {
         id: "INV003",
         productName: "Pre-Workout Energy Blend",
-        category: "Supplements",
+        category: "Products",
         sku: "SUPP-PRE-003",
         price: 29.99,
         cost: 18.0,
@@ -80,7 +80,7 @@ const Inventory = () => {
       {
         id: "INV005",
         productName: "BCAA Amino Acids",
-        category: "Supplements",
+        category: "Products",
         sku: "SUPP-BCAA-005",
         price: 24.99,
         cost: 15.0,
@@ -143,24 +143,7 @@ const Inventory = () => {
     return "active";
   };
 
-  // Calculate profit margin
-  const calculateProfitMargin = (price, cost) => {
-    return (((price - cost) / price) * 100).toFixed(1);
-  };
-
-  // Format currency
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-  };
-
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString();
-  };
+  // Removed unused helpers to satisfy linter
 
   // Handle edit item
   const handleEditItem = (item) => {
@@ -184,12 +167,8 @@ const Inventory = () => {
   const columns = [
     {
       key: "sku",
-      label: "SKU",
-      render: (value) => (
-        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
-          {value}
-        </span>
-      ),
+      label: "Item Code",
+      render: (value) => <span title={value}>{value}</span>,
     },
     {
       key: "productName",
@@ -203,11 +182,11 @@ const Inventory = () => {
     },
     {
       key: "stock",
-      label: "Stock Level",
+      label: "Current Stock",
       render: (value, row) => {
         const status = getStockStatus(value, row.minStock);
         return (
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 ml-6">
             <span
               className={`font-bold ${
                 status === "out_of_stock"
@@ -225,43 +204,69 @@ const Inventory = () => {
             {status === "out_of_stock" && (
               <FaExclamationTriangle className="text-red-500 w-3 h-3" />
             )}
-            <span className="text-xs text-gray-500">/ {row.minStock} min</span>
           </div>
         );
       },
     },
+
     {
-      key: "price",
-      label: "Price",
-      render: (value, row) => (
-        <div>
-          <div className="font-bold text-gray-900">{formatCurrency(value)}</div>
-          <div className="text-xs text-green-600">
-            {calculateProfitMargin(value, row.cost)}% margin
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "supplier",
-      label: "Supplier",
-      render: (value) => <span className="text-sm text-gray-700">{value}</span>,
-    },
-    {
-      key: "location",
-      label: "Location",
-      render: (value) => (
-        <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
-          {value}
-        </span>
-      ),
-    },
-    {
-      key: "lastRestocked",
-      label: "Last Restocked",
-      render: (value) => (
-        <span className="text-sm text-gray-600">{formatDate(value)}</span>
-      ),
+      key: "status",
+      label: "Status",
+      render: (value, row) => {
+        const getStatus = (item) => {
+          const stock = item.stock;
+          const minStock = item.minStock;
+          const category = item.category;
+
+          if (category === "Products") {
+            if (stock === 0)
+              return { text: "Out of Stock", style: "bg-red-100 text-red-700" };
+            if (stock < minStock)
+              return {
+                text: "Low Stock",
+                style: "bg-yellow-100 text-yellow-700",
+              };
+            return { text: "In Stock", style: "bg-green-100 text-green-700" };
+          } else if (category === "Equipment") {
+            if (stock === 0)
+              return {
+                text: "Out of Service",
+                style: "bg-red-100 text-red-700",
+              };
+            if (stock < minStock)
+              return {
+                text: "Under Maintenance",
+                style: "bg-yellow-100 text-yellow-700",
+              };
+            return { text: "Available", style: "bg-green-100 text-green-700" };
+          } else if (category === "Machines") {
+            if (stock === 0)
+              return {
+                text: "Out of Service",
+                style: "bg-red-100 text-red-700",
+              };
+            if (stock < minStock)
+              return {
+                text: "Under Repair",
+                style: "bg-yellow-100 text-yellow-700",
+              };
+            return {
+              text: "Operational",
+              style: "bg-green-100 text-green-700",
+            };
+          }
+          return { text: "Unknown", style: "bg-gray-100 text-gray-700" };
+        };
+
+        const status = getStatus(row);
+        return (
+          <span
+            className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${status.style}`}
+          >
+            {status.text}
+          </span>
+        );
+      },
     },
     {
       key: "actions",
@@ -311,64 +316,73 @@ const Inventory = () => {
   const outOfStockItems = inventory.filter(
     (item) => getStockStatus(item.stock, item.minStock) === "out_of_stock",
   ).length;
-  const totalValue = inventory.reduce(
-    (sum, item) => sum + item.price * item.stock,
-    0,
-  );
+  // Removed unused totalValue to satisfy linter
 
   return (
     <div className="h-full">
-      <div className="pl-1 pt-6">
-        <h1 className="text-3xl font-bold text-primary mb-2">
-          Inventory Management
-        </h1>
-        <p className="mb-8 text-gray-600">
-          Track and manage your gym equipment and supplies inventory.
-        </p>
-      </div>
+      <div className="pl-1 pt-6"></div>
 
       {/* Inventory Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <FaBox className="text-blue-500 w-5 h-5 mr-3" />
-            <div>
-              <p className="text-sm text-gray-600">Total Items</p>
-              <p className="text-2xl font-bold text-gray-900">{totalItems}</p>
-            </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mb-6">
+        <div className="bg-white rounded-xl shadow p-5 flex items-center">
+          <div
+            style={{ backgroundColor: "#2196f3" }}
+            className="w-15 h-15 min-w-[60px] min-h-[60px] rounded-lg flex items-center justify-center mr-4"
+          >
+            <FaBox className="text-white text-2xl" />
+          </div>
+          <div className="stat-details">
+            <h3 className="text-2xl font-bold mb-1">{totalItems}</h3>
+            <p className="text-lightGrayText text-sm font-normal">
+              Total Items
+            </p>
           </div>
         </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <FaExclamationTriangle className="text-yellow-500 w-5 h-5 mr-3" />
-            <div>
-              <p className="text-sm text-gray-600">Low Stock</p>
-              <p className="text-2xl font-bold text-yellow-600">
-                {lowStockItems}
-              </p>
-            </div>
+        <div className="bg-white rounded-xl shadow p-5 flex items-center">
+          <div
+            style={{ backgroundColor: "#ff9800" }}
+            className="w-15 h-15 min-w-[60px] min-h-[60px] rounded-lg flex items-center justify-center mr-4"
+          >
+            <FaExclamationTriangle className="text-white text-2xl" />
+          </div>
+          <div className="stat-details">
+            <h3 className="text-2xl font-bold mb-1">{lowStockItems}</h3>
+            <p className="text-lightGrayText text-sm font-normal">Low Stock</p>
           </div>
         </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <FaExclamationTriangle className="text-red-500 w-5 h-5 mr-3" />
-            <div>
-              <p className="text-sm text-gray-600">Out of Stock</p>
-              <p className="text-2xl font-bold text-red-600">
-                {outOfStockItems}
-              </p>
-            </div>
+        <div className="bg-white rounded-xl shadow p-5 flex items-center">
+          <div
+            style={{ backgroundColor: "#f44336" }}
+            className="w-15 h-15 min-w-[60px] min-h-[60px] rounded-lg flex items-center justify-center mr-4"
+          >
+            <FaExclamationTriangle className="text-white text-2xl" />
+          </div>
+          <div className="stat-details">
+            <h3 className="text-2xl font-bold mb-1">{outOfStockItems}</h3>
+            <p className="text-lightGrayText text-sm font-normal">
+              Out of Stock
+            </p>
           </div>
         </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <FaBox className="text-green-500 w-5 h-5 mr-3" />
-            <div>
-              <p className="text-sm text-gray-600">Total Value</p>
-              <p className="text-2xl font-bold text-green-600">
-                {formatCurrency(totalValue)}
-              </p>
-            </div>
+        <div className="bg-white rounded-xl shadow p-5 flex items-center">
+          <div
+            style={{ backgroundColor: "#ff5722" }}
+            className="w-15 h-15 min-w-[60px] min-h-[60px] rounded-lg flex items-center justify-center mr-4"
+          >
+            <FaExclamationTriangle className="text-white text-2xl" />
+          </div>
+          <div className="stat-details">
+            <h3 className="text-2xl font-bold mb-1">
+              {
+                inventory.filter((item) => {
+                  const status = getStockStatus(item.stock, item.minStock);
+                  return status === "low_stock";
+                }).length
+              }
+            </h3>
+            <p className="text-lightGrayText text-sm font-normal">
+              Under Maintenance
+            </p>
           </div>
         </div>
       </div>

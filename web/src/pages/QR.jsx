@@ -140,7 +140,6 @@ const QR = () => {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold text-primary mb-4">QR</h1>
       <p>
         Scan or enter a QR code value below. Attendance will be recorded
         automatically when you press Enter.

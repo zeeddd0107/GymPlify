@@ -116,3 +116,29 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ error: "Failed to delete user." });
   }
 };
+
+// SET ADMIN CLAIM
+exports.setAdminClaim = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+
+  try {
+    // Get user by email
+    const userRecord = await admin.auth().getUserByEmail(email);
+
+    // Set admin custom claim
+    await admin.auth().setCustomUserClaims(userRecord.uid, { admin: true });
+
+    res.status(200).json({
+      message: `Admin claim set successfully for ${email}`,
+      uid: userRecord.uid,
+      email: userRecord.email,
+    });
+  } catch (error) {
+    console.error("Error setting admin claim:", error);
+    res.status(500).json({ error: "Failed to set admin claim." });
+  }
+};

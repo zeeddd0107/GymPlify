@@ -17,7 +17,6 @@ const Dashboard = () => {
   const {
     open,
     activeMenu,
-    isAdmin,
     Menus,
     handleMenuClick,
     toggleSidebar,
@@ -57,19 +56,19 @@ const Dashboard = () => {
         className={`h-screen flex-1 bg-zinc-100 space-y-2 transition-all duration-300 ${open ? "ml-72" : "ml-20"}`}
       >
         {/* Navbar section */}
-        <Navbar open={open} />
+        <Navbar
+          title={
+            activeMenu
+              ? Menus.find((menu) => menu.key === activeMenu)?.title ||
+                "Dashboard"
+              : "Dashboard"
+          }
+        />
 
         {/* Subscriptions Table */}
         <div className="w-full px-10">
           <Outlet />
         </div>
-        {isAdmin && (
-          <div className="my-4 p-4 bg-yellow-100 border border-yellow-400 rounded">
-            <a href="/admin" className="text-yellow-800 font-bold">
-              Go to Admin Panel
-            </a>
-          </div>
-        )}
       </div>
     </div>
   );

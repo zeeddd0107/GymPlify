@@ -7,6 +7,7 @@ import {
   Pressable,
   Alert,
 } from "react-native";
+
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -45,15 +46,74 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleProfileOptionPress = (option) => {
-    Alert.alert(
-      "Coming Soon",
-      `${option} functionality will be available soon.`,
-    );
-  };
+  // Removed unused handleProfileOptionPress to satisfy linter
 
   const handleMyQRCode = () => {
     router.push("/my-qr-code");
+  };
+
+  const handleLoginInformation = () => {
+    const userEmail = userData?.email || email;
+    Alert.alert(
+      "Login Information",
+      "Email: " +
+        userEmail +
+        "\n\nTo change your password, please contact support.",
+      [
+        {
+          text: "Copy Email",
+          onPress: () => {
+            // Note: Clipboard functionality requires expo-clipboard package
+            // For now, just show the email in an alert
+            Alert.alert("Email", userEmail);
+          },
+        },
+        {
+          text: "OK",
+          style: "default",
+        },
+      ],
+    );
+  };
+
+  const handleTermsAndConditions = () => {
+    Alert.alert(
+      "Terms and Conditions",
+      "By using GymPlify, you agree to our terms and conditions. Please read the full document on our website.",
+      [
+        {
+          text: "View Full Terms",
+          onPress: () => {
+            // You can implement web view or navigation to terms page
+            Alert.alert("Opening terms and conditions...");
+          },
+        },
+        {
+          text: "OK",
+          style: "default",
+        },
+      ],
+    );
+  };
+
+  const handlePrivacyPolicy = () => {
+    Alert.alert(
+      "Privacy Policy",
+      "Your privacy is important to us. We collect and use your information as described in our privacy policy.",
+      [
+        {
+          text: "View Full Policy",
+          onPress: () => {
+            // You can implement web view or navigation to privacy policy page
+            Alert.alert("Opening privacy policy...");
+          },
+        },
+        {
+          text: "OK",
+          style: "default",
+        },
+      ],
+    );
   };
 
   const handleSignOut = async () => {
@@ -95,49 +155,31 @@ export default function ProfileScreen() {
   const profileOptions = [
     {
       id: 1,
+      title: "Login Information",
+      icon: "key-outline",
+      onPress: handleLoginInformation,
+    },
+    {
+      id: 2,
       title: "My QR Code",
       icon: "qr-code-outline",
       onPress: handleMyQRCode,
     },
     {
-      id: 2,
-      title: "Account Transaction History",
-      icon: "receipt-outline",
-      onPress: () => handleProfileOptionPress("Account Transaction History"),
-    },
-    {
       id: 3,
-      title: "GymPlify Rewards",
-      icon: "star-outline",
-      onPress: () => handleProfileOptionPress("GymPlify Rewards"),
+      title: "Terms and Conditions",
+      icon: "document-text-outline",
+      onPress: handleTermsAndConditions,
     },
     {
       id: 4,
-      title: "Personal",
-      icon: "person-outline",
-      onPress: () => handleProfileOptionPress("Personal"),
+      title: "Privacy Policy",
+      icon: "shield-checkmark-outline",
+      onPress: handlePrivacyPolicy,
     },
     {
       id: 5,
-      title: "Payment Methods",
-      icon: "card-outline",
-      onPress: () => handleProfileOptionPress("Payment Methods"),
-    },
-    {
-      id: 6,
-      title: "Notifications",
-      icon: "notifications-outline",
-      onPress: () => handleProfileOptionPress("Notifications"),
-    },
-    {
-      id: 7,
-      title: "Privacy",
-      icon: "shield-outline",
-      onPress: () => handleProfileOptionPress("Privacy"),
-    },
-    {
-      id: 8,
-      title: "Sign Out",
+      title: "Logout",
       icon: "log-out-outline",
       onPress: handleSignOut,
     },
@@ -174,12 +216,12 @@ export default function ProfileScreen() {
       {/* Profile Options */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.optionsContainer}>
-          {profileOptions.map((option, index) => (
+          {profileOptions.map((option) => (
             <View key={option.id}>
               <Pressable
                 style={[
                   styles.profileOption,
-                  option.id === 8 && styles.signOutOption,
+                  option.id === 5 && styles.signOutOption,
                 ]}
                 onPress={option.onPress}
               >
@@ -188,7 +230,7 @@ export default function ProfileScreen() {
                     styles.profileOptionText,
                     {
                       color:
-                        option.id === 8 ? theme.textError : theme.textPrimary,
+                        option.id === 5 ? theme.textError : theme.textPrimary,
                     },
                   ]}
                 >
@@ -196,18 +238,10 @@ export default function ProfileScreen() {
                 </Text>
                 <Ionicons
                   name={option.icon}
-                  size={20}
-                  color={option.id === 8 ? theme.textError : theme.icon}
+                  size={24}
+                  color={option.id === 5 ? theme.textError : theme.icon}
                 />
               </Pressable>
-              {index < profileOptions.length - 1 && (
-                <View
-                  style={[
-                    styles.separator,
-                    { backgroundColor: theme.textTertiary + "20" },
-                  ]}
-                />
-              )}
             </View>
           ))}
         </View>
@@ -270,20 +304,25 @@ const styles = StyleSheet.create({
   },
   optionsContainer: {
     paddingVertical: 20,
+    paddingHorizontal: 4,
   },
   profileOption: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 4,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(0,0,0,0.01)",
+    borderRadius: 12,
+    marginVertical: 4,
   },
   signOutOption: {
     marginTop: 20,
   },
   profileOptionText: {
-    fontFamily: Fonts.family.regular,
+    fontFamily: Fonts.family.medium,
     fontSize: 16,
+    flex: 1,
   },
   separator: {
     height: 1,

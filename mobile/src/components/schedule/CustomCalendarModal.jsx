@@ -137,12 +137,12 @@ export default function CustomCalendarModal({
         showWarningMessage("Cannot select past dates");
       }
     },
-    [onDateSelect],
+    [onDateSelect, showWarningMessage],
   );
 
   const calendarGrid = useMemo(
     () => generateCalendarGrid(),
-    [currentViewYear, currentViewMonth, selectedDateInfo],
+    [currentViewYear, currentViewMonth, selectedDateInfo, generateCalendarGrid],
   );
 
   return (

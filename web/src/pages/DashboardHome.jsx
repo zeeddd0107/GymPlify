@@ -86,11 +86,11 @@ const DashboardHome = () => {
 
   return (
     <div className="-mx-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 my-6">
         {stats.map((stat, idx) => (
           <div
             key={idx}
-            className="bg-white rounded-xl shadow p-5 flex items-center transition-transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer"
+            className="bg-white rounded-xl shadow p-5 flex items-center"
           >
             <div
               style={{ backgroundColor: stat.iconBg }}
