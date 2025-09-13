@@ -19,9 +19,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "package": "com.zeeeddd.mobile"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -46,6 +44,7 @@
       "eas": {
         "projectId": "7382f853-be85-419a-a7f2-02f56e64c44b"
       }
-    }
+    },
+    "owner": "zeeeddd"
   }
 }

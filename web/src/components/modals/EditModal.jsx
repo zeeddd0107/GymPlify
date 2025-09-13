@@ -1,21 +1,6 @@
-import React from "react";
 import { FaTimes } from "react-icons/fa";
 import { EditButtons } from "@/components";
 
-/**
- * Reusable EditModal Component
- * @param {Object} props - Component props
- * @param {boolean} props.isOpen - Whether the modal is open
- * @param {Function} props.onClose - Function to close the modal
- * @param {string} props.title - Modal title (default: "Edit")
- * @param {React.ReactNode} props.children - Modal content
- * @param {Function} props.onSave - Function to save changes
- * @param {boolean} props.saving - Whether the save operation is in progress
- * @param {string} props.saveText - Text for save button (default: "Save")
- * @param {string} props.cancelText - Text for cancel button (default: "Cancel")
- * @param {boolean} props.disabled - Whether the save button should be disabled
- * @param {string} props.className - Additional CSS classes for the modal
- */
 const EditModal = ({
   isOpen,
   onClose,
@@ -27,6 +12,8 @@ const EditModal = ({
   cancelText = "Cancel",
   disabled = false,
   className = "",
+  saveButtonClassName,
+  cancelButtonClassName,
 }) => {
   // Don't render anything if modal is not open
   if (!isOpen) return null;
@@ -34,15 +21,15 @@ const EditModal = ({
   // Main render function - displays edit modal with form and buttons
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 py-[30px]"
       onClick={onClose}
     >
       <div
-        className={`bg-white rounded-lg p-7 pb-5 pt-5 w-full max-w-lg mx-4 ${className}`}
+        className={`bg-white rounded-lg w-full max-w-lg mx-4 flex flex-col max-h-full ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header with title and close button */}
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center p-7 pt-5 pb-4 border-b border-gray/20 flex-shrink-0">
           <h2 className="text-xl font-bold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
@@ -53,17 +40,23 @@ const EditModal = ({
         </div>
 
         {/* Modal Content - displays the form or content passed as children */}
-        <div className="space-y-4">{children}</div>
+        <div className="px-7 flex-1 overflow-y-auto">
+          <div className="space-y-4">{children}</div>
+        </div>
 
         {/* Modal Buttons - EditButtons component for Save/Cancel actions */}
-        <EditButtons
-          onCancel={onClose}
-          onSave={onSave}
-          saving={saving}
-          saveText={saveText}
-          cancelText={cancelText}
-          disabled={disabled}
-        />
+        <div className="px-7 pb-5 flex-shrink-0">
+          <EditButtons
+            onCancel={onClose}
+            onSave={onSave}
+            saving={saving}
+            saveText={saveText}
+            cancelText={cancelText}
+            disabled={disabled}
+            saveButtonClassName={saveButtonClassName}
+            cancelButtonClassName={cancelButtonClassName}
+          />
+        </div>
       </div>
     </div>
   );
