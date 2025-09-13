@@ -1,15 +1,6 @@
-import React from "react";
 import { MdOutlineLogout } from "react-icons/md";
 import { FaDumbbell } from "react-icons/fa6";
-import {
-  TbLayoutSidebarLeftCollapse,
-  TbLayoutSidebarLeftExpand,
-} from "react-icons/tb";
 
-/**
- * Reusable Sidebar UI Component
- * Handles the presentation of the sidebar navigation
- */
 const Sidebar = ({
   open,
   activeMenu,
@@ -25,29 +16,19 @@ const Sidebar = ({
       style={{ backgroundColor: "#fbfbf9" }}
     >
       <div>
-        {/* Toggle button section */}
+        {/* Logo and title section (click to toggle sidebar) */}
         <div
-          className={`absolute cursor-pointer -right-4 top-9 w-8 h-8 p-0.5 bg-zinc-50 border-zinc-50 border-2 rounded-full text-xl flex items-center justify-center
-            ${!open && "rotate-180"} transition-all ease-in-out duration-300`}
+          className="flex justify-center items-center cursor-pointer"
           onClick={onToggleSidebar}
         >
-          {open ? (
-            <TbLayoutSidebarLeftExpand />
-          ) : (
-            <TbLayoutSidebarLeftCollapse />
-          )}
-        </div>
-
-        {/* Logo and title section */}
-        <div className="flex justify-center gap-x-3 items-center">
           <span className="text-4xl font-bold text-primary">
             <FaDumbbell />
           </span>
-          <h1
-            className={`origin-left font-bold text-2xl duration-200 ease-in-out ${!open && "scale-0"}`}
-          >
-            GymPlify
-          </h1>
+          {open && (
+            <h1 className="ml-3 origin-left font-bold text-2xl duration-200 ease-in-out">
+              GymPlify
+            </h1>
+          )}
         </div>
 
         {/* Sidebar Navbar Items section */}
