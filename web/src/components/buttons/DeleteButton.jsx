@@ -19,16 +19,22 @@ const DeleteButton = ({
   deleteText = "Delete",
   cancelText = "Cancel",
   disabled = false,
-  cancelButtonClassName = "bg-grayButton hover:bg-grayButton/90",
-  deleteButtonClassName = "bg-cancelButton hover:bg-cancelButton/80",
+  cancelButtonClassName = "",
+  deleteButtonClassName = "",
 }) => {
+  const defaultCancel =
+    "px-6 py-3 border text-white rounded-3xl transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed shadow-xl hover:shadow-2xl bg-grayButton hover:bg-grayButton/90";
+  const defaultDelete =
+    "px-6 py-3 border text-white rounded-3xl transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed shadow-xl hover:shadow-2xl bg-cancelButton hover:bg-cancelButton/80";
+  const cancelClasses = cancelButtonClassName || defaultCancel;
+  const deleteClasses = deleteButtonClassName || defaultDelete;
   // Main render function - displays Cancel and Delete buttons with shadows
   return (
     <div className="flex justify-end space-x-2 mt-6">
       {/* Cancel button with gray background and shadow effect */}
       <button
         onClick={onCancel}
-        className={`px-6 py-3 border text-white rounded-3xl transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed shadow-xl hover:shadow-2xl ${cancelButtonClassName}`}
+        className={cancelClasses}
         disabled={deleting || disabled}
       >
         {cancelText}
@@ -37,7 +43,7 @@ const DeleteButton = ({
       <button
         onClick={onDelete}
         disabled={deleting || disabled}
-        className={`px-6 py-3 border text-white rounded-3xl transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed shadow-xl hover:shadow-2xl ${deleteButtonClassName}`}
+        className={deleteClasses}
       >
         {deleting ? "Deleting..." : deleteText}
       </button>

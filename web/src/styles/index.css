@@ -29,3 +29,10 @@ select {
   font-family: 'Poppins', 'Arial', 'sans-serif';
   cursor: pointer;
 }
+
+/* Ensure portrait videos scale correctly, including in fullscreen */
+.video-portrait,
+.video-portrait:fullscreen {
+  object-fit: contain;
+  background: #1f2937; /* match primary bg tone */
+}

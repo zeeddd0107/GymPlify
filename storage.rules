@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { return request.auth.token.admin == true; }
+
+    // Guides videos
+    match /guides/{uid}/{file=**} {
+      allow read: if isSignedIn();
+      allow write, delete: if isAdmin();
+    }
+
+    // Inventory images
+    match /inventory/{gymId}/{itemId}/{file=**} {
+      allow read: if isSignedIn();
+      allow write, delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+

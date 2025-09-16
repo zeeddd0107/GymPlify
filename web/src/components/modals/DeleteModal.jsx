@@ -79,15 +79,7 @@ const DeleteModal = ({
               <p className="text-sm text-gray-600">
                 • The {itemType} will be permanently removed from the system
               </p>
-              <p className="text-sm text-gray-600">
-                • All associated data and records will be deleted
-              </p>
-              <p className="text-sm text-gray-600">
-                • This may affect other parts of the application
-              </p>
-              <p className="text-sm text-gray-600">
-                • Please ensure you have backed up any important information
-              </p>
+              {/* Removed extra bullets per design */}
             </div>
           </div>
         </div>
@@ -107,6 +99,8 @@ const DeleteModal = ({
           deleteText={confirmText}
           cancelText={cancelText}
           disabled={disabled}
+          cancelButtonClassName="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary transition-colors text-sm"
+          deleteButtonClassName="px-5 py-2.5 rounded-xl text-white bg-red-500 hover:bg-red-600 text-sm"
         />
       </div>
     </div>

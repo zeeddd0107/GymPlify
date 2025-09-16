@@ -9,11 +9,14 @@ const EditModal = ({
   onSave,
   saving = false,
   saveText = "Save",
+  savingText,
   cancelText = "Cancel",
+  onCancel,
   disabled = false,
   className = "",
   saveButtonClassName,
   cancelButtonClassName,
+  forceEnableCancel = false,
 }) => {
   // Don't render anything if modal is not open
   if (!isOpen) return null;
@@ -47,11 +50,13 @@ const EditModal = ({
         {/* Modal Buttons - EditButtons component for Save/Cancel actions */}
         <div className="px-7 pb-5 flex-shrink-0">
           <EditButtons
-            onCancel={onClose}
+            onCancel={onCancel || onClose}
             onSave={onSave}
             saving={saving}
+            savingText={savingText}
             saveText={saveText}
             cancelText={cancelText}
+            forceEnableCancel={forceEnableCancel}
             disabled={disabled}
             saveButtonClassName={saveButtonClassName}
             cancelButtonClassName={cancelButtonClassName}

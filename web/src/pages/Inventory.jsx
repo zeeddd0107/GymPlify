@@ -5,14 +5,37 @@ import {
   FaPlus,
   FaBox,
   FaExclamationTriangle,
+  FaDumbbell,
+  FaBicycle,
+  FaShoppingBag,
+  FaRunning,
+  FaWeight,
 } from "react-icons/fa";
-import { DataTable } from "@/components";
+import { DataTable, EditModal } from "@/components";
+import {
+  addInventoryItem,
+  getInventoryItems,
+} from "@/services/inventoryService";
+import { useAuth } from "@/context";
 
 const Inventory = () => {
+  // Get current user from auth context
+  const { user } = useAuth();
+
   // State for inventory data and UI
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [newItem, setNewItem] = useState({
+    productName: "",
+    category: "Products",
+    sku: "",
+    stock: "",
+    status: "active",
+  });
+  const [itemCodePreview, setItemCodePreview] = useState("");
 
   // Sample inventory data with different structure than subscriptions
   const sampleInventoryData = useMemo(
@@ -31,6 +54,7 @@ const Inventory = () => {
         lastRestocked: "2024-01-10",
         expiryDate: "2025-06-15",
         status: "active",
+        icon: FaShoppingBag,
       },
       {
         id: "INV002",
@@ -46,6 +70,7 @@ const Inventory = () => {
         lastRestocked: "2024-01-05",
         expiryDate: null,
         status: "active",
+        icon: FaDumbbell,
       },
       {
         id: "INV003",
@@ -61,6 +86,7 @@ const Inventory = () => {
         lastRestocked: "2023-12-20",
         expiryDate: "2024-08-30",
         status: "low_stock",
+        icon: FaShoppingBag,
       },
       {
         id: "INV004",
@@ -76,6 +102,7 @@ const Inventory = () => {
         lastRestocked: "2024-01-12",
         expiryDate: null,
         status: "active",
+        icon: FaRunning,
       },
       {
         id: "INV005",
@@ -91,6 +118,7 @@ const Inventory = () => {
         lastRestocked: "2023-11-15",
         expiryDate: "2024-05-20",
         status: "out_of_stock",
+        icon: FaShoppingBag,
       },
       {
         id: "INV006",
@@ -106,23 +134,61 @@ const Inventory = () => {
         lastRestocked: "2024-01-08",
         expiryDate: null,
         status: "active",
+        icon: FaWeight,
       },
     ],
     [],
   );
 
-  // Simulate loading data
+  // Load inventory data from Firebase
   useEffect(() => {
     const loadInventory = async () => {
       setLoading(true);
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setInventory(sampleInventoryData);
-      setLoading(false);
+      try {
+        const inventoryData = await getInventoryItems();
+        // Add icon mapping for display
+        const inventoryWithIcons = inventoryData.map((item) => {
+          const categoryIcons = {
+            Products: FaShoppingBag,
+            Equipment: FaDumbbell,
+            Machines: FaRunning,
+          };
+          return {
+            ...item,
+            icon: categoryIcons[item.category] || FaBox,
+          };
+        });
+        setInventory(inventoryWithIcons);
+      } catch (error) {
+        console.error("Error loading inventory:", error);
+        // Fallback to sample data if Firebase fails
+        setInventory(sampleInventoryData);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadInventory();
   }, [sampleInventoryData]);
+
+  // Update Item Code preview when modal opens, category changes, or inventory changes
+  useEffect(() => {
+    if (showAddModal) {
+      const categoryPrefixes = {
+        Products: "PROD",
+        Equipment: "EQ",
+        Machines: "MACH",
+      };
+      const categoryCount =
+        inventory.filter((item) => item.category === newItem.category).length +
+        1;
+      const generatedCode = `${categoryPrefixes[newItem.category]}-${String(categoryCount).padStart(3, "0")}`;
+      setItemCodePreview(generatedCode);
+      console.log(
+        `Updated Item Code preview: ${generatedCode} for category: ${newItem.category}`,
+      );
+    }
+  }, [inventory, showAddModal, newItem.category]);
 
   // Filter inventory by category
   const filteredInventory =
@@ -163,21 +229,121 @@ const Inventory = () => {
     // TODO: Implement restock modal
   };
 
+  // Handle add item modal
+  const handleAddItem = () => {
+    setShowAddModal(true);
+    // Initialize Item Code preview with current inventory state
+    const categoryPrefixes = {
+      Products: "PROD",
+      Equipment: "EQ",
+      Machines: "MACH",
+    };
+    const categoryCount =
+      inventory.filter((item) => item.category === newItem.category).length + 1;
+    const generatedCode = `${categoryPrefixes[newItem.category]}-${String(categoryCount).padStart(3, "0")}`;
+    setItemCodePreview(generatedCode);
+  };
+
+  // Generate Item Code preview
+  // Removed unused generateItemCodePreview to satisfy linter
+
+  // Handle close add modal
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setNewItem({
+      productName: "",
+      category: "Products",
+      sku: "",
+      stock: "",
+      status: "active",
+    });
+    setItemCodePreview("");
+  };
+
+  // Handle save new item
+  const handleSaveNewItem = async () => {
+    if (!user) {
+      console.error("User not authenticated");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Create the item for Firebase (service will generate SKU)
+      const itemToSave = {
+        ...newItem,
+        stock: parseInt(newItem.stock),
+      };
+
+      // Add item to Firebase
+      const result = await addInventoryItem(itemToSave, user.uid);
+      const { docId, sku } = result;
+
+      // Add the new item to local state with icon
+      const categoryIcons = {
+        Products: FaShoppingBag,
+        Equipment: FaDumbbell,
+        Machines: FaRunning,
+      };
+
+      const newItemWithIcon = {
+        ...itemToSave,
+        id: docId,
+        sku: sku, // Use the SKU generated by the service
+        icon: categoryIcons[newItem.category] || FaBox,
+        minStock: 5,
+        lastRestocked: new Date().toISOString().split("T")[0],
+        expiryDate: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: user.uid,
+        updatedBy: user.uid,
+      };
+
+      setInventory((prev) => [newItemWithIcon, ...prev]);
+      handleCloseAddModal();
+    } catch (error) {
+      console.error("Error adding item:", error);
+      // You might want to show an error message to the user here
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Column definitions for inventory table - completely different from subscriptions
   const columns = [
     {
       key: "sku",
-      label: "Item Code",
-      render: (value) => <span title={value}>{value}</span>,
+      label: "ITEM",
+      render: (value, row) => {
+        const IconComponent = row.icon;
+        return (
+          <div className="flex items-center space-x-3">
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: "#4A70FF" }}
+            >
+              <IconComponent className="text-white text-lg" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-base text-gray-700">ID: #{value}</span>
+            </div>
+          </div>
+        );
+      },
     },
     {
       key: "productName",
-      label: "Product Name",
-      render: (value, row) => (
-        <div>
-          <div className="font-medium text-gray-900">{value}</div>
-          <div className="text-xs text-gray-500">{row.category}</div>
-        </div>
+      label: "NAME",
+      render: (value) => (
+        <span className="font-medium text-gray-900 text-base">{value}</span>
+      ),
+    },
+    {
+      key: "category",
+      label: "CATEGORY",
+      render: (value) => (
+        <span className="text-base text-gray-700">{value}</span>
       ),
     },
     {
@@ -186,7 +352,7 @@ const Inventory = () => {
       render: (value, row) => {
         const status = getStockStatus(value, row.minStock);
         return (
-          <div className="flex items-center space-x-2 ml-6">
+          <div className="flex items-center space-x-2 ml-12">
             <span
               className={`font-bold ${
                 status === "out_of_stock"
@@ -198,12 +364,6 @@ const Inventory = () => {
             >
               {value}
             </span>
-            {status === "low_stock" && (
-              <FaExclamationTriangle className="text-yellow-500 w-3 h-3" />
-            )}
-            {status === "out_of_stock" && (
-              <FaExclamationTriangle className="text-red-500 w-3 h-3" />
-            )}
           </div>
         );
       },
@@ -272,7 +432,7 @@ const Inventory = () => {
       key: "actions",
       label: "Actions",
       render: (value, row) => (
-        <div className="flex space-x-1">
+        <div className="flex space-x-1 -ml-3">
           <button
             className="text-blue-600 hover:text-blue-800 p-2 rounded-full hover:bg-blue-50 transition-colors"
             title="Edit item"
@@ -407,6 +567,25 @@ const Inventory = () => {
         </div>
       </div>
 
+      {/* Inventory Header */}
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Inventory Items
+          </h3>
+          <p className="text-sm text-gray-600">
+            Showing {filteredInventory.length} of {inventory.length} items
+          </p>
+        </div>
+        <button
+          onClick={handleAddItem}
+          className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors flex items-center space-x-2"
+        >
+          <FaPlus className="w-4 h-4" />
+          <span>Add Item</span>
+        </button>
+      </div>
+
       {/* Inventory Table */}
       <DataTable
         columns={columns}
@@ -414,23 +593,103 @@ const Inventory = () => {
         loading={loading}
         emptyMessage="No inventory items found."
         className="h-full"
-        headerContent={
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                Inventory Items
-              </h3>
-              <p className="text-sm text-gray-600">
-                Showing {filteredInventory.length} of {inventory.length} items
-              </p>
-            </div>
-            <button className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors flex items-center space-x-2">
-              <FaPlus className="w-4 h-4" />
-              <span>Add Item</span>
-            </button>
-          </div>
-        }
       />
+
+      {/* Add Item Modal */}
+      <EditModal
+        isOpen={showAddModal}
+        onClose={handleCloseAddModal}
+        onSave={handleSaveNewItem}
+        saving={saving}
+        title="Add New Item"
+        saveText="Add Item"
+        cancelButtonClassName="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm"
+        saveButtonClassName="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm"
+        noShadow
+        className="max-w-2xl"
+      >
+        <div className="space-y-5 mt-4">
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Product Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+              value={newItem.productName}
+              onChange={(e) =>
+                setNewItem((s) => ({ ...s, productName: e.target.value }))
+              }
+              placeholder="Enter product name"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Item Code <span className="text-red-500">*</span>
+            </label>
+            <input
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 text-gray-600 cursor-not-allowed"
+              value={itemCodePreview}
+              readOnly
+              placeholder="Auto-generated by system"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Category <span className="text-red-500">*</span>
+            </label>
+            <select
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+              value={newItem.category}
+              onChange={(e) =>
+                setNewItem((s) => ({ ...s, category: e.target.value }))
+              }
+            >
+              <option value="Products">Products</option>
+              <option value="Equipment">Equipment</option>
+              <option value="Machines">Machines</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Status <span className="text-red-500">*</span>
+            </label>
+            <select
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+              value={newItem.status}
+              onChange={(e) =>
+                setNewItem((s) => ({ ...s, status: e.target.value }))
+              }
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Current Stock <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+              value={newItem.stock}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Prevent negative values
+                if (value === "" || parseInt(value) >= 0) {
+                  setNewItem((s) => ({ ...s, stock: value }));
+                }
+              }}
+              placeholder="0"
+            />
+          </div>
+        </div>
+      </EditModal>
     </div>
   );
 };
