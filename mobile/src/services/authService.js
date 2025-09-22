@@ -259,3 +259,11 @@ export async function setLastLogout(uid) {
     { merge: true },
   );
 }
+
+export async function signOut() {
+  const user = firebase.auth().currentUser;
+  if (user) {
+    await setLastLogout(user.uid);
+  }
+  await firebase.auth().signOut();
+}

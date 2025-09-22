@@ -4,3 +4,4 @@ export * from "./notifications";
 export * from "./schedule";
 export * from "./sessions";
 export * from "./ui";
+export { useSessionTimeout } from "./useSessionTimeout";
