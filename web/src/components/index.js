@@ -9,6 +9,7 @@ export * from "./subscription";
 export * from "./utils";
 export * from "./hooks";
 export * from "./ui";
+export { SessionTimeoutWarning } from "./SessionTimeoutWarning";
 
 // Example: export { default as Button } from './Button';
 // Example: export { default as Card } from './Card';

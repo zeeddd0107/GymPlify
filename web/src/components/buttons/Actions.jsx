@@ -46,6 +46,7 @@ const Actions = ({
     const itemName =
       itemToDelete[itemNameField] ||
       itemToDelete.displayName ||
+      itemToDelete.name ||
       itemToDelete.productName ||
       itemToDelete.id ||
       "Unknown Item";

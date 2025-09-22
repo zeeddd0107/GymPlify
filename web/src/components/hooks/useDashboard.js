@@ -7,10 +7,11 @@ import { useAuth } from "@/context";
  * Handles sidebar state, menu navigation, and authentication
  */
 export const useDashboard = () => {
-  const { isAdmin, signOut } = useAuth();
+  const { isAdmin } = useAuth();
   const [open, setOpen] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const [previousActiveMenu, setPreviousActiveMenu] = useState("dashboard");
 
   // Menu configuration with navigation items
   const Menus = useMemo(
@@ -71,15 +72,28 @@ export const useDashboard = () => {
   // Get the current active menu based on the current path
   const getCurrentActiveMenu = useCallback(() => {
     const currentPath = location.pathname;
+
+    // If we're on the profile page, maintain the previous active menu
+    if (currentPath === "/profile") {
+      return previousActiveMenu;
+    }
+
+    // Otherwise, find the menu that matches the current path
     const menu = Menus.find((m) => m.path === currentPath);
     return menu ? menu.key : "dashboard";
-  }, [location.pathname, Menus]);
+  }, [location.pathname, Menus, previousActiveMenu]);
 
   const [activeMenu, setActiveMenu] = useState(getCurrentActiveMenu());
 
   // Update active menu when location changes
   useEffect(() => {
-    setActiveMenu(getCurrentActiveMenu());
+    const newActiveMenu = getCurrentActiveMenu();
+    setActiveMenu(newActiveMenu);
+
+    // Update previous active menu if we're not on the profile page
+    if (location.pathname !== "/profile") {
+      setPreviousActiveMenu(newActiveMenu);
+    }
   }, [location.pathname, getCurrentActiveMenu]);
 
   // Handle menu item click
@@ -91,16 +105,6 @@ export const useDashboard = () => {
   // Handle sidebar toggle
   const toggleSidebar = () => {
     setOpen(!open);
-  };
-
-  // Handle sign out
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      navigate("/login"); // Redirect to login after logout
-    } catch (error) {
-      console.error("Sign out error:", error);
-    }
   };
 
   return {
@@ -115,6 +119,5 @@ export const useDashboard = () => {
     // Actions
     handleMenuClick,
     toggleSidebar,
-    handleSignOut,
   };
 };

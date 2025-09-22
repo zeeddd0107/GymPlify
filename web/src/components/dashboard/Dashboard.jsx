@@ -14,14 +14,8 @@ import Navbar from "../ui/Navbar";
 
 const Dashboard = () => {
   // Use the custom dashboard hook for all logic
-  const {
-    open,
-    activeMenu,
-    Menus,
-    handleMenuClick,
-    toggleSidebar,
-    handleSignOut,
-  } = useDashboard();
+  const { open, activeMenu, Menus, handleMenuClick, toggleSidebar } =
+    useDashboard();
 
   // Map menu icons to actual components
   const getMenuIcon = (iconName) => {
@@ -47,7 +41,6 @@ const Dashboard = () => {
         menus={Menus}
         onMenuClick={handleMenuClick}
         onToggleSidebar={toggleSidebar}
-        onSignOut={handleSignOut}
         getMenuIcon={getMenuIcon}
       />
 

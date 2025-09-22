@@ -99,8 +99,8 @@ const DeleteModal = ({
           deleteText={confirmText}
           cancelText={cancelText}
           disabled={disabled}
-          cancelButtonClassName="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary transition-colors text-sm"
-          deleteButtonClassName="px-5 py-2.5 rounded-xl text-white bg-red-500 hover:bg-red-600 text-sm"
+          cancelButtonClassName="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          deleteButtonClassName="px-5 py-2.5 rounded-xl text-white bg-red-500 hover:bg-red-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </div>
     </div>

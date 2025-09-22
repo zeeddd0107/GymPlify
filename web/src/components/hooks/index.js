@@ -5,3 +5,4 @@ export { useDataTable } from "./useDataTable";
 export { useModal } from "./useModal";
 export { useSubscriptions } from "./useSubscriptions";
 export { useSubscriptionForm } from "./useSubscriptionForm";
+export { useSessionTimeout } from "../../hooks/useSessionTimeout";

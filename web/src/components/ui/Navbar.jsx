@@ -1,6 +1,7 @@
 import { useAuth } from "@/context";
-import { FaBell, FaUser, FaCrown } from "react-icons/fa";
+import { FaBell } from "react-icons/fa";
 import { useState, useEffect } from "react";
+import ProfileDropdown from "./ProfileDropdown";
 
 const Navbar = ({ title = "" }) => {
   const { user, isAdmin } = useAuth();
@@ -103,29 +104,15 @@ const Navbar = ({ title = "" }) => {
         </button>
 
         {/* Profile Section */}
-        {profileSrc && !imageError ? (
-          <img
-            src={profileSrc}
-            alt="profile img"
-            className={`w-11 h-11 rounded-full object-cover object-center cursor-pointer shadow-md ${
-              isAdmin ? "ring-2 ring-purple-500 ring-offset-2" : ""
-            }`}
-            onError={() => {
-              console.log("Profile image failed to load:", profileSrc);
-              setImageError(true);
-            }}
-          />
-        ) : (
-          <div
-            className={`w-11 h-11 rounded-full ${getAvatarColor(user)} flex items-center justify-center cursor-pointer shadow-md ${
-              isAdmin ? "ring-2 ring-purple-500 ring-offset-2" : ""
-            }`}
-          >
-            <span className="text-white font-semibold text-lg">
-              {getInitials(user)}
-            </span>
-          </div>
-        )}
+        <ProfileDropdown
+          user={user}
+          isAdmin={isAdmin}
+          profileSrc={profileSrc}
+          imageError={imageError}
+          getInitials={getInitials}
+          getAvatarColor={getAvatarColor}
+          onImageError={() => setImageError(true)}
+        />
       </div>
     </div>
   );

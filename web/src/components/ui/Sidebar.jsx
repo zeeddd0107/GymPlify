@@ -1,4 +1,3 @@
-import { MdOutlineLogout } from "react-icons/md";
 import { FaDumbbell } from "react-icons/fa6";
 
 const Sidebar = ({
@@ -7,7 +6,6 @@ const Sidebar = ({
   menus,
   onMenuClick,
   onToggleSidebar,
-  onSignOut,
   getMenuIcon,
 }) => {
   return (
@@ -46,6 +44,12 @@ const Sidebar = ({
                 paddingRight: open ? 16 : 0,
               }}
             >
+              {/* Tooltip for collapsed sidebar */}
+              {!open && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-black text-white text-sm rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                  {menu.title}
+                </div>
+              )}
               {/* Icon */}
               <div className="flex items-center justify-center w-12 text-2xl">
                 {getMenuIcon(menu.icon)}
@@ -59,34 +63,6 @@ const Sidebar = ({
               </div>
             </li>
           ))}
-        </ul>
-      </div>
-
-      {/* Logout button */}
-      <div className="pb-1">
-        <ul>
-          <li
-            className={`group relative flex items-center h-14 rounded-xl cursor-pointer transition-all ease-in-out duration-300 mt-2 hover:bg-danger`}
-            onClick={onSignOut}
-            style={{
-              paddingLeft: open ? 16 : 0,
-              paddingRight: open ? 16 : 0,
-            }}
-          >
-            <div className="flex items-center justify-center w-12 text-2xl text-danger group-hover:text-white">
-              <MdOutlineLogout />
-            </div>
-            <div
-              className={`flex-1 transition-all duration-300 text-lg text-danger group-hover:text-white ${
-                !open
-                  ? "opacity-0 w-0 overflow-hidden"
-                  : "opacity-100 w-auto ml-1.5"
-              }`}
-              style={{ minWidth: 0 }}
-            >
-              Logout
-            </div>
-          </li>
         </ul>
       </div>
     </div>
