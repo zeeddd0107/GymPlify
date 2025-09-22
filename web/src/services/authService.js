@@ -4,6 +4,10 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
+  updateProfile,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
 } from "firebase/auth";
 import { auth, googleProvider, db } from "@/config/firebase";
 import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
@@ -219,6 +223,61 @@ class AuthService {
         data: { uid },
       });
       return response.data;
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  // Update user profile
+  async updateProfile(profileData) {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error("No user is currently signed in");
+      }
+
+      // Update Firebase Auth profile
+      await updateProfile(user, {
+        displayName: profileData.displayName,
+        phoneNumber: profileData.phoneNumber,
+      });
+
+      // Update Firestore user document
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          displayName: profileData.displayName,
+          phoneNumber: profileData.phoneNumber,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      return user;
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  // Update user password
+  async updatePassword(currentPassword, newPassword) {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error("No user is currently signed in");
+      }
+
+      // Re-authenticate user with current password
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        currentPassword,
+      );
+      await reauthenticateWithCredential(user, credential);
+
+      // Update password
+      await updatePassword(user, newPassword);
+
+      return user;
     } catch (error) {
       throw new Error(error.message);
     }
