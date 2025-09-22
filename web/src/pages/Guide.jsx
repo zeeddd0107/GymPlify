@@ -19,7 +19,7 @@ const Guide = () => {
   const [viewing, setViewing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [expandedDescription, setExpandedDescription] = useState(false);
+  const [expandedInstructions, setExpandedInstructions] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [abortController, setAbortController] = useState(null);
   const [preUploaded, setPreUploaded] = useState({ url: "", path: "" });
@@ -68,6 +68,7 @@ const Guide = () => {
   const [successMessage, setSuccessMessage] = useState(
     "Guide updated successfully!",
   );
+  const [validationErrors, setValidationErrors] = useState({});
 
   // Load guides from Firebase
   useEffect(() => {
@@ -91,8 +92,10 @@ const Guide = () => {
           {
             id: "treadmill",
             title: "Treadmill Usage Guide",
-            description:
+            instructions:
               "Learn how to properly use the treadmill for maximum safety and effectiveness.",
+            sets: "3-4",
+            reps: "20-30 minutes",
             target: "Legs",
             category: "Treadmill",
             status: "Published",
@@ -103,8 +106,10 @@ const Guide = () => {
           {
             id: "weight",
             title: "Weight Training Basics",
-            description:
+            instructions:
               "Essential techniques for safe and effective weight training.",
+            sets: "3-4",
+            reps: "8-12",
             target: "Arms",
             category: "Dumbbells",
             status: "Published",
@@ -134,10 +139,11 @@ const Guide = () => {
       videoName: guide.videoName || "",
       videoSizeMB: guide.videoSizeMB || "",
     });
-    setExpandedDescription(false);
+    setExpandedInstructions(false);
     // Reset any previous pre-upload state when opening modal
     setPreUploaded({ url: "", path: "" });
     setUploadProgress(0);
+    setValidationErrors({});
   };
 
   const openCreate = () => {
@@ -146,8 +152,10 @@ const Guide = () => {
       title: "",
       target: [],
       category: "",
-      description: "",
-      status: "Draft",
+      instructions: "",
+      sets: "",
+      reps: "",
+      status: "",
       videoFile: null,
       videoName: "",
       videoSizeMB: "",
@@ -155,6 +163,7 @@ const Guide = () => {
     // Also reset pre-upload state for new create
     setPreUploaded({ url: "", path: "" });
     setUploadProgress(0);
+    setValidationErrors({});
   };
 
   const onSave = async () => {
@@ -162,6 +171,32 @@ const Guide = () => {
       alert("Please log in to save guides");
       return;
     }
+
+    // Validation
+    const errors = {};
+    if (!editing.title || editing.title.trim() === "") {
+      errors.title = "Guide Title is required";
+    }
+    if (!editing.category || editing.category === "") {
+      errors.category = "Equipment Category is required";
+    }
+    if (!editing.instructions || editing.instructions.trim() === "") {
+      errors.instructions = "Instructions are required";
+    }
+    if (!editing.status || editing.status === "") {
+      errors.status = "Status is required";
+    }
+    if (!editing.videoFile && !editing.videoUrl && !preUploaded.url) {
+      errors.video = "Video upload is required";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+
+    // Clear validation errors if validation passes
+    setValidationErrors({});
 
     console.log("Saving guide:", editing);
     console.log("User:", user);
@@ -267,7 +302,9 @@ const Guide = () => {
           title: editing.title,
           target: editing.target,
           category: editing.category,
-          description: editing.description,
+          instructions: editing.instructions,
+          sets: editing.sets,
+          reps: editing.reps,
           status: editing.status,
           createdBy: user.uid,
         });
@@ -375,8 +412,32 @@ const Guide = () => {
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
                     {g.title}
                   </h3>
+                  {(g.sets || g.reps) && (
+                    <div className="flex gap-4 mb-3">
+                      {g.sets && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            Sets:
+                          </span>
+                          <span className="text-sm font-semibold text-gray-700">
+                            {g.sets}
+                          </span>
+                        </div>
+                      )}
+                      {g.reps && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            Reps:
+                          </span>
+                          <span className="text-sm font-semibold text-gray-700">
+                            {g.reps}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <p className="text-sm text-gray-600 line-clamp-3 overflow-hidden">
-                    {g.description}
+                    {g.instructions}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 mt-5">
@@ -401,11 +462,11 @@ const Guide = () => {
 
       {viewing && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4 py-[100px]"
           onClick={() => setViewing(null)}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden"
+            className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-full overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -429,25 +490,35 @@ const Guide = () => {
                 <FaTimes className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6">
+            <div className="p-6 overflow-y-auto flex-1">
               <div className="flex items-start gap-3">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">
                     {viewing.title}
                   </h3>
-                  <div className="mt-2 flex items-center gap-2">
-                    <span
-                      className={
-                        `inline-block px-3 py-1 rounded-full text-xs font-semibold ` +
-                        (viewing.status === "Published"
-                          ? "bg-green-100 text-green-700"
-                          : viewing.status === "Draft"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-slate-100 text-slate-700")
-                      }
-                    >
-                      {viewing.status || "Draft"}
-                    </span>
+                  <div className="mt-2 space-y-2">
+                    {/* Status Row */}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={
+                          `inline-block px-3 py-1 rounded-full text-xs font-semibold ` +
+                          (viewing.status === "Published"
+                            ? "bg-green-100 text-green-700"
+                            : viewing.status === "Draft"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-slate-100 text-slate-700")
+                        }
+                      >
+                        {viewing.status || "Draft"}
+                      </span>
+                      {viewing.category && (
+                        <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-sky-50 text-sky-700">
+                          {viewing.category}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Target Workout Tags Row */}
                     {viewing.target && viewing.target.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {(Array.isArray(viewing.target)
@@ -463,18 +534,50 @@ const Guide = () => {
                         ))}
                       </div>
                     )}
-                    {viewing.category && (
-                      <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-sky-50 text-sky-700">
-                        {viewing.category}
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
-              {viewing.description && (
-                <p className="mt-4 text-sm text-gray-700 whitespace-pre-line">
-                  {viewing.description}
-                </p>
+              {(viewing.sets || viewing.reps) && (
+                <div className="mt-4">
+                  <div className="bg-[#F8F9FA] rounded-lg overflow-hidden">
+                    <div className="flex">
+                      {viewing.sets && (
+                        <div className="flex-1 p-3 border-r-2 border-gray/10 h-15 my-2">
+                          <div className="text-center">
+                            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                              Sets
+                            </div>
+                            <div className="text-lg font-semibold text-gray-900">
+                              {viewing.sets}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {viewing.reps && (
+                        <div className="flex-1 p-3 my-2">
+                          <div className="text-center">
+                            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                              Reps
+                            </div>
+                            <div className="text-lg font-semibold text-gray-900">
+                              {viewing.reps}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {viewing.instructions && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                    Instructions
+                  </h4>
+                  <p className="text-sm text-gray-700 whitespace-pre-line">
+                    {viewing.instructions}
+                  </p>
+                </div>
               )}
               <div className="mt-6 flex items-center justify-end gap-3">
                 <div className="flex items-center gap-3">
@@ -554,22 +657,22 @@ const Guide = () => {
                   <div className="text-sm text-gray-600 leading-relaxed">
                     <p
                       className={
-                        !expandedDescription
+                        !expandedInstructions
                           ? "line-clamp-3 overflow-hidden"
                           : ""
                       }
                     >
-                      {editing.description || "Provide details below."}
+                      {editing.instructions || "Provide details below."}
                     </p>
-                    {editing.description &&
-                      editing.description.length > 200 && (
+                    {editing.instructions &&
+                      editing.instructions.length > 200 && (
                         <button
                           onClick={() =>
-                            setExpandedDescription(!expandedDescription)
+                            setExpandedInstructions(!expandedInstructions)
                           }
                           className="text-sm text-primary hover:text-secondary mt-2 font-medium"
                         >
-                          {expandedDescription ? "Show less" : "Show more"}
+                          {expandedInstructions ? "Show less" : "Show more"}
                         </button>
                       )}
                   </div>
@@ -584,16 +687,28 @@ const Guide = () => {
             >
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
-                  Guide Title
+                  Guide Title <span className="text-red-500">*</span>
                 </label>
                 <input
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 transition-colors ${
+                    validationErrors.title
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                      : "border-slate-200 focus:border-primary focus:ring-primary/30"
+                  }`}
                   value={editing.title}
-                  onChange={(e) =>
-                    setEditing((s) => ({ ...s, title: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    setEditing((s) => ({ ...s, title: e.target.value }));
+                    if (validationErrors.title) {
+                      setValidationErrors((prev) => ({ ...prev, title: null }));
+                    }
+                  }}
                   placeholder="Enter guide title"
                 />
+                {validationErrors.title && (
+                  <p className="text-xs text-red-500 mt-1 italic">
+                    {validationErrors.title}
+                  </p>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
@@ -609,6 +724,7 @@ const Guide = () => {
                       "Legs",
                       "Core",
                       "Full Body",
+                      "Cardio",
                     ].map((t) => (
                       <label
                         key={t}
@@ -643,67 +759,147 @@ const Guide = () => {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
-                  Equipment Category
+                  Equipment Category <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 transition-colors ${
+                    validationErrors.category
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                      : "border-slate-200 focus:border-primary focus:ring-primary/30"
+                  }`}
                   value={editing.category ?? ""}
-                  onChange={(e) =>
-                    setEditing((s) => ({ ...s, category: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    setEditing((s) => ({ ...s, category: e.target.value }));
+                    if (validationErrors.category) {
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        category: null,
+                      }));
+                    }
+                  }}
                 >
                   <option value="" disabled>
                     Select Equipment Category
                   </option>
                   {[
-                    "Machine",
-                    "Treadmill",
-                    "Dumbbells",
-                    "Rowing Machine",
-                    "Elliptical",
-                    "Kettlebell",
-                    "Barbell",
-                    "Bodyweight",
+                    "Free Weights",
+                    "Benches & Racks",
+                    "Plate-Loaded Machines (Hammer Strength–style)",
+                    "Selectorized Weight Machines (Pin-Loaded)",
+                    "Cable Machines",
+                    "Bodyweight/Assisted Machines",
+                    "Leg & Glute Specialty Machines",
+                    "Cardio Machines",
+                    "Other Strength/Functional Training Tools",
                   ].map((c) => (
                     <option key={c} value={c}>
                       {c}
                     </option>
                   ))}
                 </select>
+                {validationErrors.category && (
+                  <p className="text-xs text-red-500 mt-1 italic">
+                    {validationErrors.category}
+                  </p>
+                )}
               </div>
               <div className="space-y-1 -mb-2">
                 <label className="text-sm font-medium text-gray-700">
-                  Description
+                  Instructions <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 transition-colors ${
+                    validationErrors.instructions
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                      : "border-slate-200 focus:border-primary focus:ring-primary/30"
+                  }`}
                   rows={2}
-                  value={editing.description}
-                  onChange={(e) =>
-                    setEditing((s) => ({ ...s, description: e.target.value }))
-                  }
-                  placeholder="Enter detailed description"
+                  value={editing.instructions}
+                  onChange={(e) => {
+                    setEditing((s) => ({ ...s, instructions: e.target.value }));
+                    if (validationErrors.instructions) {
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        instructions: null,
+                      }));
+                    }
+                  }}
+                  placeholder="Enter detailed instructions"
                 />
+                {validationErrors.instructions && (
+                  <p className="text-xs text-red-500 mt-1 italic">
+                    {validationErrors.instructions}
+                  </p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">
+                    Sets
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+                    value={editing.sets || ""}
+                    onChange={(e) =>
+                      setEditing((s) => ({ ...s, sets: e.target.value }))
+                    }
+                    placeholder="e.g., 3-4"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">
+                    Reps
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+                    value={editing.reps || ""}
+                    onChange={(e) =>
+                      setEditing((s) => ({ ...s, reps: e.target.value }))
+                    }
+                    placeholder="e.g., 8-12"
+                  />
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
-                  Status
+                  Status <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition-colors"
+                  className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 transition-colors ${
+                    validationErrors.status
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                      : "border-slate-200 focus:border-primary focus:ring-primary/30"
+                  }`}
                   value={editing.status}
-                  onChange={(e) =>
-                    setEditing((s) => ({ ...s, status: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    setEditing((s) => ({ ...s, status: e.target.value }));
+                    if (validationErrors.status) {
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        status: null,
+                      }));
+                    }
+                  }}
                 >
+                  <option value="" disabled>
+                    Select Status
+                  </option>
                   <option>Published</option>
                   <option>Draft</option>
                   {editing?.id && <option>Archive</option>}
                 </select>
+                {validationErrors.status && (
+                  <p className="text-xs text-red-500 mt-1 italic">
+                    {validationErrors.status}
+                  </p>
+                )}
               </div>
               <div className="space-y-3">
                 <label className="text-sm font-medium text-gray-700">
-                  {editing.id ? "Replace Video" : "Upload Video"}
+                  {editing.id ? "Replace Video" : "Upload Video"}{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <div className="space-y-2">
                   <div className="relative">
@@ -724,6 +920,13 @@ const Guide = () => {
                             videoName: file.name,
                             videoSizeMB: (file.size / (1024 * 1024)).toFixed(1),
                           }));
+                          // Clear video validation error when file is selected
+                          if (validationErrors.video) {
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              video: null,
+                            }));
+                          }
                         }
                       }}
                     />
@@ -763,6 +966,11 @@ const Guide = () => {
                     </div>
                   )}
                 </div>
+                {validationErrors.video && (
+                  <p className="text-xs text-red-500 mt-1 italic">
+                    {validationErrors.video}
+                  </p>
+                )}
               </div>
             </div>
           </div>
