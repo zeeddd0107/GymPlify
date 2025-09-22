@@ -9,7 +9,6 @@ import {
   Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
@@ -19,7 +18,6 @@ import { SessionCard, SessionDetailModal } from "@/src/components";
 export default function SessionsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
   const [selectedSession, setSelectedSession] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [showWorkoutSchedulePopup, setShowWorkoutSchedulePopup] =
@@ -73,23 +71,12 @@ export default function SessionsScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={theme.text} />
-          </Pressable>
+        <View style={styles.header}>
+          <View style={styles.headerSide} />
           <Text style={[styles.headerTitle, { color: theme.text }]}>
             Sessions
           </Text>
-          <Pressable
-            style={styles.infoButton}
-            onPress={() => setShowWorkoutSchedulePopup(true)}
-          >
-            <Ionicons
-              name="information-circle-outline"
-              size={24}
-              color={theme.text}
-            />
-          </Pressable>
+          <View style={styles.headerSide} />
         </View>
 
         <View style={styles.loadingContainer}>
@@ -104,23 +91,12 @@ export default function SessionsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={theme.text} />
-        </Pressable>
+      <View style={styles.header}>
+        <View style={styles.headerSide} />
         <Text style={[styles.headerTitle, { color: theme.text }]}>
           Sessions
         </Text>
-        <Pressable
-          style={styles.infoButton}
-          onPress={() => setShowWorkoutSchedulePopup(true)}
-        >
-          <Ionicons
-            name="information-circle-outline"
-            size={24}
-            color={theme.text}
-          />
-        </Pressable>
+        <View style={styles.headerSide} />
       </View>
 
       <ScrollView
@@ -302,28 +278,26 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    paddingTop: 50,
+    paddingBottom: 16,
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  backButton: {
+  headerSide: {
     width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
   },
   headerTitle: {
-    fontFamily: Fonts.family.semiBold,
-    fontSize: 22,
-  },
-  infoButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
+    fontFamily: Fonts.family.bold,
+    fontSize: 20,
+    flex: 1,
+    textAlign: "center",
   },
   scrollContainer: {
     flex: 1,
