@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Fonts } from "@/src/constants/Fonts";
+import { StatusBar } from "expo-status-bar";
 
 export default function CustomCalendarModal({
   visible,
@@ -28,7 +29,7 @@ export default function CustomCalendarModal({
   const fadeAnim = useState(new Animated.Value(0))[0];
 
   // Generate calendar grid for the current month
-  const generateCalendarGrid = () => {
+  const generateCalendarGrid = useCallback(() => {
     const firstDay = new Date(currentViewYear, currentViewMonth, 1);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
@@ -68,7 +69,7 @@ export default function CustomCalendarModal({
     }
 
     return calendar;
-  };
+  }, [currentViewYear, currentViewMonth, selectedDateInfo]);
 
   const handlePrevMonth = useCallback(() => {
     const today = new Date();
@@ -142,7 +143,7 @@ export default function CustomCalendarModal({
 
   const calendarGrid = useMemo(
     () => generateCalendarGrid(),
-    [currentViewYear, currentViewMonth, selectedDateInfo, generateCalendarGrid],
+    [generateCalendarGrid],
   );
 
   return (
@@ -151,8 +152,9 @@ export default function CustomCalendarModal({
       transparent={true}
       animationType="none"
       onRequestClose={onClose}
-      statusBarTranslucent={false}
+      statusBarTranslucent
     >
+      <StatusBar style="light" backgroundColor="rgba(0,0,0,0.8)" animated />
       <Pressable style={styles.modalOverlay} onPress={onClose}>
         <Pressable
           style={styles.modalContainer}
@@ -260,7 +262,7 @@ export default function CustomCalendarModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
     justifyContent: "center",
     alignItems: "center",
     padding: 15,

@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, Pressable, Modal, StyleSheet, Alert } from "react-native";
+import { StatusBar, setStatusBarStyle } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { Fonts } from "@/src/constants/Fonts";
 
@@ -12,6 +13,14 @@ const SessionDetailModal = ({
 }) => {
   console.log("SessionDetailModal received session:", session);
   console.log("Session ID in modal:", session?.id);
+
+  useEffect(() => {
+    if (visible) {
+      setStatusBarStyle("light", true);
+    } else {
+      setStatusBarStyle("dark", true);
+    }
+  }, [visible]);
 
   if (!session) return null;
 
@@ -85,7 +94,11 @@ const SessionDetailModal = ({
       transparent={true}
       animationType="fade"
       onRequestClose={onClose}
+      statusBarTranslucent
+      onShow={() => setStatusBarStyle("light", true)}
+      onDismiss={() => setStatusBarStyle("dark", true)}
     >
+      <StatusBar style="light" backgroundColor="rgba(0,0,0,0.8)" animated />
       <Pressable style={styles.modalOverlay} onPress={onClose}>
         <Pressable
           style={styles.confirmationModal}
@@ -178,7 +191,7 @@ const SessionDetailModal = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
     justifyContent: "flex-end",
   },
   confirmationModal: {

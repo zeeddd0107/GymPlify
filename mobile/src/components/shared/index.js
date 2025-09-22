@@ -12,3 +12,5 @@ export { ThemedText } from "./ThemedText";
 export { ThemedView } from "./ThemedView";
 export { default as Button } from "./Button";
 export { default as InfoModal } from "./InfoModal";
+export { default as VideoThumbnail } from "./VideoThumbnail";
+export { SessionTimeoutWarning } from "./SessionTimeoutWarning";

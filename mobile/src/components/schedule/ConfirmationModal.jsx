@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, Pressable, Modal, StyleSheet } from "react-native";
+import { StatusBar, setStatusBarStyle } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Fonts } from "@/src/constants/Fonts";
@@ -21,13 +22,25 @@ const ConfirmationModal = ({
     router.push("/(tabs)/sessions"); // Navigate to Sessions tab
   };
 
+  useEffect(() => {
+    if (visible) {
+      setStatusBarStyle("light", true);
+    } else {
+      setStatusBarStyle("dark", true);
+    }
+  }, [visible]);
+
   return (
     <Modal
       visible={visible}
       transparent={true}
       animationType="fade"
       onRequestClose={onClose}
+      statusBarTranslucent
+      onShow={() => setStatusBarStyle("light", true)}
+      onDismiss={() => setStatusBarStyle("dark", true)}
     >
+      <StatusBar style="light" backgroundColor="rgba(0,0,0,0.8)" animated />
       <Pressable style={styles.modalOverlay} onPress={onClose}>
         <Pressable
           style={styles.confirmationModal}
@@ -100,7 +113,7 @@ const ConfirmationModal = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
     justifyContent: "flex-end",
   },
   confirmationModal: {
