@@ -1,8 +1,8 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import authService from "@/services/authService";
 
-const INACTIVITY_TIMEOUT = 60 * 1000; // 60 seconds for testing
-const SESSION_WARNING_TIME = 30 * 1000; // Show warning 30 seconds before timeout (at 30 seconds)
+const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+const SESSION_WARNING_TIME = 30 * 1000; // Show warning 30 seconds before timeout (at 14 minutes 30 seconds)
 
 export const useSessionTimeout = (user) => {
   const timeoutRef = useRef(null);
@@ -44,7 +44,7 @@ export const useSessionTimeout = (user) => {
     if (!user) return;
 
     console.log(
-      "Session timeout: Setting timeout for 60 seconds (warning at 30 seconds)",
+      "Session timeout: Setting timeout for 15 minutes (warning at 14 minutes 30 seconds)",
     );
 
     // Clear existing timeouts
@@ -65,16 +65,16 @@ export const useSessionTimeout = (user) => {
     showWarningRef.current = false;
     setShowWarning(false);
 
-    // Set warning timeout (30 seconds before 60 seconds = 30 seconds)
+    // Set warning timeout (30 seconds before 15 minutes = 14 minutes 30 seconds)
     warningTimeoutRef.current = setTimeout(() => {
       console.log(
-        "Session timeout: Warning triggered after 30 seconds of inactivity",
+        "Session timeout: Warning triggered after 14 minutes 30 seconds of inactivity",
       );
       showWarningRef.current = true;
       setShowWarning(true);
     }, INACTIVITY_TIMEOUT - SESSION_WARNING_TIME);
 
-    // Set logout timeout (60 seconds)
+    // Set logout timeout (15 minutes)
     timeoutRef.current = setTimeout(() => {
       console.log(
         "Session timeout: Auto-logout due to inactivity (backup timeout)",

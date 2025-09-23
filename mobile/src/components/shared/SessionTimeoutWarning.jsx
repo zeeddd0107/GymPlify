@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { View, Text, TouchableOpacity, Modal, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -10,45 +10,21 @@ export const SessionTimeoutWarning = ({
   onExtend,
   onLogout,
 }) => {
-  const [displayTime, setDisplayTime] = useState(timeRemaining);
-
-  // Update display time every second for countdown
-  useEffect(() => {
-    if (!visible) return;
-
-    const interval = setInterval(() => {
-      setDisplayTime((prev) => Math.max(0, prev - 1000));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [visible]);
-
   // Handle auto-logout when countdown reaches 0
   useEffect(() => {
-    if (!visible || displayTime > 0) return;
+    if (!visible || timeRemaining > 0) return;
 
     console.log(
       "SessionTimeoutWarning: Countdown expired, auto-logout triggered",
     );
-    console.log("SessionTimeoutWarning: displayTime:", displayTime);
+    console.log("SessionTimeoutWarning: timeRemaining:", timeRemaining);
     onLogout();
-  }, [visible, displayTime, onLogout]);
-
-  // Reset display time when timeRemaining changes, but only if warning is visible
-  useEffect(() => {
-    if (visible) {
-      console.log(
-        "SessionTimeoutWarning: timeRemaining changed to:",
-        timeRemaining,
-      );
-      setDisplayTime(timeRemaining);
-    }
-  }, [timeRemaining, visible]);
+  }, [visible, timeRemaining, onLogout]);
 
   if (!visible) return null;
 
-  const minutes = Math.floor(displayTime / (60 * 1000));
-  const seconds = Math.floor((displayTime % (60 * 1000)) / 1000);
+  const minutes = Math.floor(timeRemaining / (60 * 1000));
+  const seconds = Math.floor((timeRemaining % (60 * 1000)) / 1000);
 
   return (
     <Modal

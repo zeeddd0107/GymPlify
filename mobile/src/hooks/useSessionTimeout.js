@@ -4,7 +4,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const INACTIVITY_TIMEOUT = 60 * 1000; // 15 minutes in milliseconds
+const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minute in milliseconds (for testing)
 const SESSION_WARNING_TIME = 30 * 1000; // Show warning 30 seconds before timeout (at 14 minutes 30 seconds)
 
 export const useSessionTimeout = () => {
@@ -57,7 +57,7 @@ export const useSessionTimeout = () => {
       );
       logoutNow();
     }, INACTIVITY_TIMEOUT);
-  }, [user, showWarning, logoutNow, timeRemaining]);
+  }, [user, showWarning, logoutNow]);
 
   const updateActivity = useCallback(() => {
     // Only update activity if user is authenticated and app is active
@@ -69,12 +69,12 @@ export const useSessionTimeout = () => {
     console.log("Session timeout: User activity detected, resetting timeout");
     lastActivityRef.current = Date.now();
     resetTimeout();
-  }, [user, resetTimeout, showWarning]);
+  }, [user, showWarning]);
 
   const extendSession = useCallback(() => {
     setShowWarning(false);
     resetTimeout();
-  }, [resetTimeout]);
+  }, []);
 
   const logoutNow = useCallback(async () => {
     console.log("Session timeout: Logout Now button clicked");
