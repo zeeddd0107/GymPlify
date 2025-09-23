@@ -259,6 +259,22 @@ class AuthService {
     }
   }
 
+  // Get user data from Firestore
+  async getUserData(uid) {
+    try {
+      const userRef = doc(db, "users", uid);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        return userSnap.data();
+      } else {
+        throw new Error("User document not found");
+      }
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  }
+
   // Update user password
   async updatePassword(currentPassword, newPassword) {
     try {

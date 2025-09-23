@@ -19,12 +19,15 @@ import {
 } from "react-icons/fa";
 
 const ProfileSettings = () => {
-  const { user, updateProfile, updatePassword, isAdmin, signOut } = useAuth();
+  const { user, updateProfile, updatePassword, isAdmin, signOut, getUserData } =
+    useAuth();
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [userData, setUserData] = useState(null);
+  const [userDataLoading, setUserDataLoading] = useState(true);
 
   // Profile data states
   const [profileData, setProfileData] = useState({
@@ -59,22 +62,85 @@ const ProfileSettings = () => {
     securityAlerts: true,
   });
 
-  // Initialize profile data from user
+  // Fetch user data from Firestore
   useEffect(() => {
-    if (user) {
-      setProfileData({
-        displayName: user.displayName || "Alexa Rawles",
-        email: user.email || "alexarawles@gmail.com",
-        phone: user.phoneNumber || "",
-        username:
-          user.displayName?.toLowerCase().replace(/\s+/g, "") || "alexarawles",
-        role: isAdmin ? "Administrator" : "User",
-        memberSince: "January 15, 2023",
-        lastLogin: "December 15, 2023 at 2:30 PM",
-      });
-      setImagePreview(user.photoURL || null);
-    }
-  }, [user, isAdmin]);
+    const fetchUserData = async () => {
+      if (user) {
+        try {
+          setUserDataLoading(true);
+          const firestoreUserData = await getUserData(user.uid);
+          setUserData(firestoreUserData);
+
+          // Format dates
+          const formatDate = (timestamp) => {
+            if (!timestamp) return "Not available";
+            const date = timestamp.toDate
+              ? timestamp.toDate()
+              : new Date(timestamp);
+            return date.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            });
+          };
+
+          const formatDateTime = (timestamp) => {
+            if (!timestamp) return "Not available";
+            const date = timestamp.toDate
+              ? timestamp.toDate()
+              : new Date(timestamp);
+            return date.toLocaleString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            });
+          };
+
+          setProfileData({
+            displayName:
+              firestoreUserData.displayName || user.displayName || "",
+            email: firestoreUserData.email || user.email || "",
+            phone: firestoreUserData.phoneNumber || user.phoneNumber || "",
+            username:
+              firestoreUserData.displayName
+                ?.toLowerCase()
+                .replace(/\s+/g, "") ||
+              user.displayName?.toLowerCase().replace(/\s+/g, "") ||
+              "",
+            role:
+              firestoreUserData.role === "admin"
+                ? "Administrator"
+                : firestoreUserData.role === "staff"
+                  ? "Staff"
+                  : "User",
+            memberSince: formatDate(firestoreUserData.createdAt),
+            lastLogin: formatDateTime(firestoreUserData.lastLogin),
+          });
+          setImagePreview(firestoreUserData.photoURL || user.photoURL || null);
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+          // Fallback to Firebase Auth data if Firestore fails
+          setProfileData({
+            displayName: user.displayName || "",
+            email: user.email || "",
+            phone: user.phoneNumber || "",
+            username: user.displayName?.toLowerCase().replace(/\s+/g, "") || "",
+            role: isAdmin ? "Administrator" : "User",
+            memberSince: "Not available",
+            lastLogin: "Not available",
+          });
+          setImagePreview(user.photoURL || null);
+        } finally {
+          setUserDataLoading(false);
+        }
+      }
+    };
+
+    fetchUserData();
+  }, [user, isAdmin, getUserData]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -131,17 +197,49 @@ const ProfileSettings = () => {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setProfileData({
-      displayName: user?.displayName || "Alexa Rawles",
-      email: user?.email || "alexarawles@gmail.com",
-      phone: user?.phoneNumber || "",
-      username:
-        user?.displayName?.toLowerCase().replace(/\s+/g, "") || "alexarawles",
-      role: isAdmin ? "Administrator" : "User",
-      memberSince: "January 15, 2023",
-      lastLogin: "December 15, 2023 at 2:30 PM",
-    });
-    setImagePreview(user?.photoURL || null);
+    if (userData) {
+      setProfileData({
+        displayName: userData.displayName || user?.displayName || "",
+        email: userData.email || user?.email || "",
+        phone: userData.phoneNumber || user?.phoneNumber || "",
+        username:
+          userData.displayName?.toLowerCase().replace(/\s+/g, "") ||
+          user?.displayName?.toLowerCase().replace(/\s+/g, "") ||
+          "",
+        role:
+          userData.role === "admin"
+            ? "Administrator"
+            : userData.role === "staff"
+              ? "Staff"
+              : "User",
+        memberSince: userData.createdAt
+          ? new Date(
+              userData.createdAt.toDate
+                ? userData.createdAt.toDate()
+                : userData.createdAt,
+            ).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          : "Not available",
+        lastLogin: userData.lastLogin
+          ? new Date(
+              userData.lastLogin.toDate
+                ? userData.lastLogin.toDate()
+                : userData.lastLogin,
+            ).toLocaleString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "Not available",
+      });
+    }
+    setImagePreview(userData?.photoURL || user?.photoURL || null);
     setProfileImage(null);
   };
 
@@ -307,165 +405,179 @@ const ProfileSettings = () => {
               {/* Profile Information Tab */}
               {activeTab === "profile" && (
                 <div>
-                  {/* User Header Section */}
-                  <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-6">
-                        {/* Profile Avatar */}
-                        <div className="relative">
-                          <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                            {imagePreview ? (
-                              <img
-                                src={imagePreview}
-                                alt="Profile"
-                                className="w-full h-full object-cover"
+                  {userDataLoading && (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      <span className="ml-3 text-gray-600">
+                        Loading profile data...
+                      </span>
+                    </div>
+                  )}
+                  {!userDataLoading && (
+                    <>
+                      {/* User Header Section */}
+                      <div className="mb-8">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-6">
+                            {/* Profile Avatar */}
+                            <div className="relative">
+                              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                                {imagePreview ? (
+                                  <img
+                                    src={imagePreview}
+                                    alt="Profile"
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <FaUser className="text-3xl text-gray-400" />
+                                )}
+                              </div>
+                              <label className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full cursor-pointer hover:bg-primary/90 transition-colors shadow-md">
+                                <FaCamera className="text-sm" />
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleImageUpload}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+
+                            {/* User Info */}
+                            <div>
+                              <h2 className="text-2xl font-bold text-gray-900 mb-1">
+                                {profileData.displayName}
+                              </h2>
+                              <p className="text-gray-600 text-sm">
+                                {profileData.email}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Edit Button */}
+                          <button
+                            onClick={() => setIsEditing(true)}
+                            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold"
+                          >
+                            Edit Profile
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Profile Information Section */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Left Column */}
+                        <div className="space-y-6">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Full Name
+                            </label>
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                name="displayName"
+                                value={profileData.displayName}
+                                onChange={handleInputChange}
+                                className="w-full px-3 py-2 border border-gray/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-gray-900"
+                                placeholder="Your Full Name"
                               />
                             ) : (
-                              <FaUser className="text-3xl text-gray-400" />
+                              <p className="text-gray-600">
+                                {profileData.displayName}
+                              </p>
                             )}
                           </div>
-                          <label className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full cursor-pointer hover:bg-primary/90 transition-colors shadow-md">
-                            <FaCamera className="text-sm" />
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleImageUpload}
-                              className="hidden"
-                            />
-                          </label>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Username
+                            </label>
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                name="username"
+                                value={profileData.username}
+                                onChange={handleInputChange}
+                                className="w-full px-3 py-2 border border-gray/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-gray-900"
+                                placeholder="Your Username"
+                              />
+                            ) : (
+                              <p className="text-gray-600">
+                                {profileData.username}
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Role
+                            </label>
+                            <p className="text-gray-600">{profileData.role}</p>
+                          </div>
+
+                          <div>
+                            <button
+                              onClick={handleSignOut}
+                              className="px-6 py-2 bg-danger text-white rounded-lg hover:bg-danger/90 transition-colors font-semibold"
+                            >
+                              <FaSignOutAlt className="inline mr-2" />
+                              Logout
+                            </button>
+                          </div>
                         </div>
 
-                        {/* User Info */}
-                        <div>
-                          <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                            {profileData.displayName}
-                          </h2>
-                          <p className="text-gray-600 text-sm">
-                            {profileData.email}
-                          </p>
+                        {/* Right Column */}
+                        <div className="space-y-6">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Email Address
+                            </label>
+                            <p className="text-gray-600">{profileData.email}</p>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Member Since
+                            </label>
+                            <p className="text-gray-600">
+                              {profileData.memberSince}
+                            </p>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Last Login
+                            </label>
+                            <p className="text-gray-600">
+                              {profileData.lastLogin}
+                            </p>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Edit Button */}
-                      <button
-                        onClick={() => setIsEditing(true)}
-                        className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold"
-                      >
-                        Edit Profile
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Profile Information Section */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Left Column */}
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Full Name
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            name="displayName"
-                            value={profileData.displayName}
-                            onChange={handleInputChange}
-                            className="w-full px-3 py-2 border border-gray/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-gray-900"
-                            placeholder="Your Full Name"
-                          />
-                        ) : (
-                          <p className="text-gray-600">
-                            {profileData.displayName}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Username
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            name="username"
-                            value={profileData.username}
-                            onChange={handleInputChange}
-                            className="w-full px-3 py-2 border border-gray/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-gray-900"
-                            placeholder="Your Username"
-                          />
-                        ) : (
-                          <p className="text-gray-600">
-                            {profileData.username}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Role
-                        </label>
-                        <p className="text-gray-600">{profileData.role}</p>
-                      </div>
-
-                      <div>
-                        <button
-                          onClick={handleSignOut}
-                          className="px-6 py-2 bg-danger text-white rounded-lg hover:bg-danger/90 transition-colors font-semibold"
-                        >
-                          <FaSignOutAlt className="inline mr-2" />
-                          Logout
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Right Column */}
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Email Address
-                        </label>
-                        <p className="text-gray-600">{profileData.email}</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Member Since
-                        </label>
-                        <p className="text-gray-600">
-                          {profileData.memberSince}
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Last Login
-                        </label>
-                        <p className="text-gray-600">{profileData.lastLogin}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons for Editing */}
-                  {isEditing && (
-                    <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray/50">
-                      <button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        disabled={loading}
-                        className="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <FaTimes className="inline mr-2" />
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveProfile}
-                        disabled={loading}
-                        className="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm disabled:opacity-50"
-                      >
-                        <FaSave className="inline mr-2" />
-                        {loading ? "Saving..." : "Save Changes"}
-                      </button>
-                    </div>
+                      {/* Action Buttons for Editing */}
+                      {isEditing && (
+                        <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray/50">
+                          <button
+                            type="button"
+                            onClick={handleCancelEdit}
+                            disabled={loading}
+                            className="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <FaTimes className="inline mr-2" />
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSaveProfile}
+                            disabled={loading}
+                            className="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm disabled:opacity-50"
+                          >
+                            <FaSave className="inline mr-2" />
+                            {loading ? "Saving..." : "Save Changes"}
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}

@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = (profileData) => authService.updateProfile(profileData);
   const updatePassword = (currentPassword, newPassword) =>
     authService.updatePassword(currentPassword, newPassword);
+  const getUserData = (uid) => authService.getUserData(uid);
 
   const value = {
     user,
@@ -53,6 +54,7 @@ export const AuthProvider = ({ children }) => {
     deleteUser,
     updateProfile,
     updatePassword,
+    getUserData,
     isAuthenticated: authService.isAuthenticated(),
   };
 
