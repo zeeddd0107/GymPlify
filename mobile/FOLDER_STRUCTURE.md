@@ -32,7 +32,7 @@ This document explains the purpose and organization of each folder in the GymPli
 ### Core App Files
 
 - **`_layout.jsx`** - Root layout component for the entire app
-- **`+not-found.jsx`** - 404 error page component
+- **`[...catch-all].jsx`** - Catch-all route for unmatched URLs (loading screen)
 
 ### Main Features
 

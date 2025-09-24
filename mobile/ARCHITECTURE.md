@@ -56,7 +56,7 @@ app/
 ├── profile.jsx                    # User profile screen
 ├── my-qr-code.jsx                # QR code display screen
 ├── notifications.jsx              # Notifications screen
-├── +not-found.jsx                 # 404 error screen
+├── [...catch-all].jsx              # Catch-all route for unmatched URLs
 └── auth/                          # Authentication screens
     └── index.jsx                 # Login/Register screen
 ```

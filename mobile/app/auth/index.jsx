@@ -167,9 +167,16 @@ export default function AuthScreen() {
           await AsyncStorage.setItem("@user", JSON.stringify(userData));
           setUserInfo(userData);
         }
-        router.replace("/(tabs)");
-      } catch {
-        console.log("Error in Google authentication:");
+        // Navigate to home screen
+        try {
+          router.replace("/(tabs)");
+        } catch (navError) {
+          console.log("Navigation error:", navError);
+          // Fallback navigation
+          router.push("/(tabs)");
+        }
+      } catch (error) {
+        console.log("Error in Google authentication:", error);
         setMessage("Google authentication failed. Please try again.");
       }
     },

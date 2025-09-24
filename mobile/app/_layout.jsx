@@ -49,7 +49,7 @@ function AppContent() {
                 />
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen
-                  name="+not-found"
+                  name="[...catch-all]"
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen name="profile" options={{ headerShown: false }} />
