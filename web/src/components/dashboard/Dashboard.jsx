@@ -10,6 +10,7 @@ import {
 import { GiWeightLiftingUp } from "react-icons/gi";
 import { useDashboard } from "../hooks";
 import Sidebar from "../ui/Sidebar";
+import BottomNavigation from "../ui/BottomNavigation";
 import Navbar from "../ui/Navbar";
 
 const Dashboard = () => {
@@ -34,7 +35,7 @@ const Dashboard = () => {
 
   return (
     <div className="w-full flex">
-      {/* Sidebar section */}
+      {/* Sidebar section - only visible on lg screens and above */}
       <Sidebar
         open={open}
         activeMenu={activeMenu}
@@ -46,7 +47,9 @@ const Dashboard = () => {
 
       {/* Dashboard Layout section */}
       <div
-        className={`h-screen flex-1 bg-zinc-100 space-y-2 transition-all duration-300 ${open ? "ml-72" : "ml-20"}`}
+        className={`h-screen flex-1 bg-zinc-100 space-y-2 transition-all duration-300 ${
+          open ? "lg:ml-72" : "lg:ml-20"
+        }`}
       >
         {/* Navbar section */}
         <Navbar
@@ -58,11 +61,19 @@ const Dashboard = () => {
           }
         />
 
-        {/* Subscriptions Table */}
-        <div className="w-full px-10">
+        {/* Main content with bottom padding for mobile navigation */}
+        <div className="w-full px-4 lg:px-10 pb-20 lg:pb-0">
           <Outlet />
         </div>
       </div>
+
+      {/* Bottom Navigation - only visible on screens smaller than lg */}
+      <BottomNavigation
+        activeMenu={activeMenu}
+        menus={Menus}
+        onMenuClick={handleMenuClick}
+        getMenuIcon={getMenuIcon}
+      />
     </div>
   );
 };
