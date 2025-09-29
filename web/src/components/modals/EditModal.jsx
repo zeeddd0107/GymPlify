@@ -1,5 +1,5 @@
 import { FaTimes } from "react-icons/fa";
-import { EditButtons } from "@/components";
+import { SaveCancelButtons } from "@/components";
 
 const EditModal = ({
   isOpen,
@@ -16,7 +16,9 @@ const EditModal = ({
   className = "",
   saveButtonClassName,
   cancelButtonClassName,
-  forceEnableCancel = false,
+  maxWidth = "max-w-lg", // Default max width
+  maxHeight = "max-h-[90vh]", // Default max height with margin
+  noShadow = false,
 }) => {
   // Don't render anything if modal is not open
   if (!isOpen) return null;
@@ -24,39 +26,42 @@ const EditModal = ({
   // Main render function - displays edit modal with form and buttons
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 py-[30px]"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 py-4 sm:py-8 md:py-4 lg:py-6"
       onClick={onClose}
     >
       <div
-        className={`bg-white rounded-lg w-full max-w-lg mx-4 flex flex-col max-h-full ${className}`}
+        className={`bg-white rounded-lg w-full ${maxWidth} mx-4 flex flex-col ${maxHeight} ${
+          noShadow ? "" : "shadow-2xl"
+        } ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header with title and close button */}
-        <div className="flex justify-between items-center p-7 pt-5 pb-4 border-b border-gray/20 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+        <div className="flex justify-between items-center px-6 py-4 sm:p-6 md:px-7 md:py-4 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-gray/20 flex-shrink-0">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 pr-2">
+            {title}
+          </h2>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-black/5 rounded-full transition-colors"
+            className="p-2 sm:p-2.5 text-gray-900 hover:text-gray-600 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all duration-200 ease-in-out group flex-shrink-0"
           >
-            <FaTimes className="w-5 h-5" />
+            <FaTimes className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform duration-200" />
           </button>
         </div>
 
         {/* Modal Content - displays the form or content passed as children */}
-        <div className="px-7 flex-1 overflow-y-auto">
-          <div className="space-y-4">{children}</div>
+        <div className="px-6 sm:px-6 md:px-7 flex-1 overflow-y-auto">
+          <div className="space-y-3 sm:space-y-4 md:space-y-5">{children}</div>
         </div>
 
-        {/* Modal Buttons - EditButtons component for Save/Cancel actions */}
-        <div className="px-7 pb-5 flex-shrink-0">
-          <EditButtons
+        {/* Modal Buttons - SaveCancelButtons component for Save/Cancel actions */}
+        <div className="px-4 mb-1 sm:mb-0 sm:px-6 md:px-7 pt-4 sm:pt-5 pb-4 sm:pb-6 flex-shrink-0">
+          <SaveCancelButtons
             onCancel={onCancel || onClose}
             onSave={onSave}
             saving={saving}
             savingText={savingText}
             saveText={saveText}
             cancelText={cancelText}
-            forceEnableCancel={forceEnableCancel}
             disabled={disabled}
             saveButtonClassName={saveButtonClassName}
             cancelButtonClassName={cancelButtonClassName}
