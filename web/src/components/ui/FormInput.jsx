@@ -2,10 +2,6 @@ import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 
-/**
- * Reusable Form Input UI Component
- * Handles consistent styling and behavior for form inputs
- */
 const FormInput = ({
   type = "text",
   placeholder,
@@ -26,11 +22,11 @@ const FormInput = ({
   };
 
   return (
-    <div className={`relative mb-5 ${className}`}>
+    <div className={`relative mb-2 ${className}`}>
       {icon && (
         <FontAwesomeIcon
           icon={icon}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-gray"
+          className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"
         />
       )}
       <input
@@ -40,12 +36,12 @@ const FormInput = ({
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className={`w-full py-3 border rounded-[20px] text-base focus:outline-none transition-colors ${
+        className={`w-full py-3 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 placeholder:font-normal placeholder:text-gray-400 ${
           icon ? "pl-12" : "pl-4"
-        } ${isPasswordField ? "pr-12" : ""} ${
+        } ${isPasswordField ? "pr-12" : "pr-4"} ${
           error
-            ? "border-red-400 focus:border-red-500"
-            : "border-[#b1b2b3] focus:border-primary"
+            ? "border-red-500 focus:border-red-500"
+            : "border-gray-300 focus:border-primary"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
         {...props}
       />

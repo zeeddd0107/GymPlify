@@ -28,14 +28,14 @@ const ProfileDropdown = ({
         <img
           src={profileSrc}
           alt="profile img"
-          className={`w-11 h-11 rounded-full object-cover object-center cursor-pointer shadow-md transition-transform hover:scale-105 ${
+          className={`w-11 h-11 rounded-full object-cover object-center cursor-pointer shadow-md transition-transform ${
             isAdmin ? "ring-2 ring-purple-500 ring-offset-2" : ""
           }`}
           onError={handleImageError}
         />
       ) : (
         <div
-          className={`w-11 h-11 rounded-full ${getAvatarColor(user)} flex items-center justify-center cursor-pointer shadow-md transition-transform hover:scale-105 ${
+          className={`w-11 h-11 rounded-full ${getAvatarColor(user)} flex items-center justify-center cursor-pointer shadow-md transition-transform  ${
             isAdmin ? "ring-2 ring-purple-500 ring-offset-2" : ""
           }`}
         >

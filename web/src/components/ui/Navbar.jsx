@@ -1,12 +1,15 @@
 import { useAuth } from "@/context";
-import { FaBell } from "react-icons/fa";
 import { useState, useEffect } from "react";
 import ProfileDropdown from "./ProfileDropdown";
+import NotificationDropdown from "./NotificationDropdown";
+import { useNotifications } from "../hooks";
 
 const Navbar = ({ title = "" }) => {
   const { user, isAdmin } = useAuth();
   const [profileSrc, setProfileSrc] = useState(null);
   const [imageError, setImageError] = useState(false);
+  const { notifications, markAsRead, markAllAsRead, deleteNotification } =
+    useNotifications();
 
   // Enhanced profile picture detection for Google users
   const getProfilePicture = (user) => {
@@ -87,21 +90,19 @@ const Navbar = ({ title = "" }) => {
   });
 
   return (
-    <div className="w-full h-[8ch] px-12 bg-zinc-50 shadow-md flex items-center justify-between">
+    <div className="w-full h-[8ch] px-8 bg-zinc-50 shadow-md flex items-center justify-between sticky top-0 z-20">
       <h1 className="font-bold text-2xl text-[#4361EE]">
         {title || "Dashboard"}
       </h1>
 
       <div className="flex items-center gap-x-8">
-        {/* Notification */}
-        <button className="relative">
-          <div className="w-5 h-5 bg-zinc-50 flex items-center justify-center absolute -top-1.5 -right-2.5 rounded-full p-0.5">
-            <span className="bg-red-600 text-white rounded-full w-full h-full flex items-center justify-center text-xs">
-              3
-            </span>
-          </div>
-          <FaBell className="text-xl" />
-        </button>
+        {/* Notification Dropdown */}
+        <NotificationDropdown
+          notifications={notifications}
+          onMarkAsRead={markAsRead}
+          onMarkAllAsRead={markAllAsRead}
+          onDelete={deleteNotification}
+        />
 
         {/* Profile Section */}
         <ProfileDropdown
