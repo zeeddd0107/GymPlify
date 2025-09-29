@@ -14,6 +14,12 @@ export const useAuthForm = (formType = "login") => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({
+    username: "",
+    password: "",
+    email: "",
+    confirmPassword: "",
+  });
 
   const { signIn, signUp, signInWithGoogle } = useAuth();
 
@@ -23,39 +29,54 @@ export const useAuthForm = (formType = "login") => {
       ...prev,
       [field]: value,
     }));
-    // Clear error when user starts typing
+    // Clear errors when user starts typing
     if (error) {
       setError("");
+    }
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        [field]: "",
+      }));
     }
   };
 
   // Validate form data
   const validateForm = () => {
+    const newFieldErrors = {
+      username: "",
+      password: "",
+      email: "",
+      confirmPassword: "",
+    };
+    let hasErrors = false;
+
     if (!formData.username?.trim()) {
-      setError("Username is required");
-      return false;
+      newFieldErrors.username = "Email is required";
+      hasErrors = true;
     }
 
     if (!formData.password?.trim()) {
-      setError("Password is required");
-      return false;
+      newFieldErrors.password = "Password is required";
+      hasErrors = true;
     }
 
     if (formType === "register") {
       if (!formData.email?.trim()) {
-        setError("Email is required");
-        return false;
+        newFieldErrors.email = "Email is required";
+        hasErrors = true;
       }
 
       if (formData.password !== formData.confirmPassword) {
-        setError("Passwords do not match");
-        return false;
+        newFieldErrors.confirmPassword = "Passwords do not match";
+        hasErrors = true;
       }
+    }
 
-      if (formData.password.length < 6) {
-        setError("Password must be at least 6 characters");
-        return false;
-      }
+    setFieldErrors(newFieldErrors);
+
+    if (hasErrors) {
+      return false;
     }
 
     return true;
@@ -116,6 +137,7 @@ export const useAuthForm = (formType = "login") => {
     formData,
     isLoading,
     error,
+    fieldErrors,
 
     // Actions
     handleInputChange,
