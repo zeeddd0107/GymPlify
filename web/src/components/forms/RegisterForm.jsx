@@ -46,33 +46,35 @@ const RegisterForm = ({ onSwitchToLogin }) => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-primary to-[#3a0ca3]">
-      <div className="bg-white rounded-2xl shadow-2xl w-[400px] p-10 text-center">
-        <div className="flex items-center justify-center mb-5">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-primary to-[#3a0ca3] px-4 sm:px-6 lg:px-8">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[400px] p-6 sm:p-8 md:p-10 text-center">
+        <div className="flex items-center justify-center mb-4 sm:mb-5">
           <FontAwesomeIcon
             icon={faDumbbell}
-            className="text-[2.5rem] text-primary mr-2.5"
+            className="text-[2rem] sm:text-[2.5rem] text-primary mr-2 sm:mr-2.5"
           />
-          <h1 className="text-[2rem] font-bold text-primary font-main">
+          <h1 className="text-[1.5rem] sm:text-[2rem] font-bold text-primary font-main">
             GymPlify
           </h1>
         </div>
-        <h2 className="mb-8 text-[1.5rem] font-bold text-gray-800">Register</h2>
+        <h2 className="mb-6 sm:mb-8 text-[1.25rem] sm:text-[1.5rem] font-bold text-gray-800">
+          Register
+        </h2>
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm sm:text-base">
             {error}
           </div>
         )}
         {success && (
-          <div className="mb-4 text-green-600 font-semibold text-center">
+          <div className="mb-4 text-green-600 font-semibold text-center text-sm sm:text-base">
             {success}
           </div>
         )}
         <form onSubmit={handleSubmit}>
-          <div className="relative mb-5">
+          <div className="relative mb-4 sm:mb-5">
             <FontAwesomeIcon
               icon={faEnvelope}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray"
+              className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray text-sm sm:text-base"
             />
             <input
               type="email"
@@ -80,13 +82,13 @@ const RegisterForm = ({ onSwitchToLogin }) => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-[#b1b2b3] rounded-[20px] text-base focus:border-primary focus:outline-none transition-colors"
+              className="w-full pl-10 sm:pl-12 pr-4 py-2.5 sm:py-3 border border-[#b1b2b3] rounded-[20px] text-sm sm:text-base focus:border-primary focus:outline-none transition-colors"
             />
           </div>
-          <div className="relative mb-5">
+          <div className="relative mb-4 sm:mb-5">
             <FontAwesomeIcon
               icon={faLock}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray"
+              className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray text-sm sm:text-base"
             />
             <input
               type="password"
@@ -94,22 +96,24 @@ const RegisterForm = ({ onSwitchToLogin }) => {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-[#b1b2b3] rounded-[20px] text-base focus:border-primary focus:outline-none transition-colors"
+              className="w-full pl-10 sm:pl-12 pr-4 py-2.5 sm:py-3 border border-[#b1b2b3] rounded-[20px] text-sm sm:text-base focus:border-primary focus:outline-none transition-colors"
             />
           </div>
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 bg-primary text-white rounded-[20px] font-medium text-base transition-colors hover:bg-[#3a0ca3] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2.5 sm:py-3 bg-primary text-white rounded-[20px] font-medium text-sm sm:text-base transition-colors hover:bg-[#3a0ca3] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? "Processing..." : "Register"}
           </button>
         </form>
 
         {/* Divider */}
-        <div className="my-6 flex items-center">
+        <div className="my-4 sm:my-6 flex items-center">
           <div className="flex-1 border-t border-gray-300"></div>
-          <span className="px-4 text-gray-500 text-sm">or</span>
+          <span className="px-3 sm:px-4 text-gray-500 text-xs sm:text-sm">
+            or
+          </span>
           <div className="flex-1 border-t border-gray-300"></div>
         </div>
 
@@ -118,9 +122,12 @@ const RegisterForm = ({ onSwitchToLogin }) => {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={isLoading}
-          className="w-full py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-[20px] font-medium text-base transition-colors hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          className="w-full py-2.5 sm:py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-[20px] font-medium text-sm sm:text-base transition-colors hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
-          <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+          <svg
+            className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"
+            viewBox="0 0 24 24"
+          >
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -141,12 +148,14 @@ const RegisterForm = ({ onSwitchToLogin }) => {
           {isLoading ? "Processing..." : "Continue with Google"}
         </button>
 
-        <div className="mt-6 text-center">
-          <span className="text-gray-600">Already have an account? </span>
+        <div className="mt-4 sm:mt-6 text-center">
+          <span className="text-gray-600 text-sm sm:text-base">
+            Already have an account?{" "}
+          </span>
           <button
             type="button"
             onClick={onSwitchToLogin}
-            className="text-primary font-medium hover:underline ml-1"
+            className="text-primary font-medium hover:underline ml-1 text-sm sm:text-base"
           >
             Sign In
           </button>
