@@ -5,6 +5,7 @@ import {
   showDeleteSuccess,
   showDeleteError,
 } from "../utils/DeleteUtils";
+import { deleteInventoryItem } from "@/services/inventoryService";
 import { DeleteModal } from "@/components";
 
 /**
@@ -70,21 +71,23 @@ const Actions = ({
         return;
       }
 
-      // If collection name provided, use built-in Firestore delete
+      // If collection name provided, use appropriate delete function
       if (collectionName && itemToDelete.id) {
-        await deleteDocument(
-          collectionName,
-          itemToDelete.id,
-          (deletedId) => {
+        // Use specialized delete function for inventory items
+        if (collectionName === "inventory") {
+          try {
+            await deleteInventoryItem(itemToDelete.id, itemToDelete);
             // Success callback - show success message and close modal
-            showDeleteSuccess(itemToDelete.itemName, itemType);
             if (onDeleteSuccess) {
-              onDeleteSuccess(deletedId, itemToDelete);
+              // If custom success handler provided, use it instead of default alert
+              onDeleteSuccess(itemToDelete.id, itemToDelete);
+            } else {
+              // Only show default alert if no custom handler provided
+              showDeleteSuccess(itemToDelete.itemName, itemType);
             }
             setDeleteModalOpen(false);
             setItemToDelete(null);
-          },
-          (error) => {
+          } catch (error) {
             // Error callback - show error message and close modal
             showDeleteError(error, itemType);
             if (onDeleteError) {
@@ -92,8 +95,35 @@ const Actions = ({
             }
             setDeleteModalOpen(false);
             setItemToDelete(null);
-          },
-        );
+          }
+        } else {
+          // Use generic delete for other collections
+          await deleteDocument(
+            collectionName,
+            itemToDelete.id,
+            (deletedId) => {
+              // Success callback - show success message and close modal
+              if (onDeleteSuccess) {
+                // If custom success handler provided, use it instead of default alert
+                onDeleteSuccess(deletedId, itemToDelete);
+              } else {
+                // Only show default alert if no custom handler provided
+                showDeleteSuccess(itemToDelete.itemName, itemType);
+              }
+              setDeleteModalOpen(false);
+              setItemToDelete(null);
+            },
+            (error) => {
+              // Error callback - show error message and close modal
+              showDeleteError(error, itemType);
+              if (onDeleteError) {
+                onDeleteError(error, itemToDelete);
+              }
+              setDeleteModalOpen(false);
+              setItemToDelete(null);
+            },
+          );
+        }
       } else {
         console.warn(
           "No delete function provided and no collection name specified",
