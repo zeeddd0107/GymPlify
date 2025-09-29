@@ -60,7 +60,11 @@ const Staff = () => {
       {
         key: "displayName",
         label: "Name",
-        render: (_v, row) => row.displayName || row.name || row.email || "—",
+        render: (_v, row) => (
+          <span className="break-words whitespace-normal">
+            {row.displayName || row.name || row.email || "—"}
+          </span>
+        ),
       },
       { key: "email", label: "Email" },
       {

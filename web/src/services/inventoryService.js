@@ -9,6 +9,7 @@ import {
   query,
   orderBy,
   serverTimestamp,
+  writeBatch,
 } from "firebase/firestore";
 import {
   ref,
@@ -70,12 +71,11 @@ export const addInventoryItem = async (itemData, userId, imageFile = null) => {
       Machines: "MACH",
     };
 
-    // Get existing items to count category items
-    const existingItems = await getDocs(inventoryRef);
-    const categoryCount =
-      existingItems.docs.filter(
-        (doc) => doc.data().category === itemData.category,
-      ).length + 1;
+    // Use counter document for efficient category counting
+    const counterRef = doc(db, "counters", "inventory");
+    const counterDoc = await getDoc(counterRef);
+    const currentCount = counterDoc.data()?.[itemData.category] || 0;
+    const categoryCount = currentCount + 1;
 
     const generatedInventoryCode = `${categoryPrefixes[itemData.category]}-${String(categoryCount).padStart(3, "0")}`;
 
@@ -92,30 +92,57 @@ export const addInventoryItem = async (itemData, userId, imageFile = null) => {
       updatedBy: userId,
     };
 
-    // Add the item first to get the document ID
-    const docRef = await addDoc(inventoryRef, firebaseItemData);
-
-    // If there's an image file, upload it and update the document
+    // If there's an image file, upload it in parallel with document creation
     if (imageFile) {
       try {
-        const imageUrl = await uploadInventoryImage(imageFile, itemData.name);
-        await updateDoc(docRef, { imagePath: imageUrl });
+        // Start both operations in parallel
+        const [docRef, imageUrl] = await Promise.all([
+          addDoc(inventoryRef, firebaseItemData),
+          uploadInventoryImage(imageFile, itemData.name),
+        ]);
+
+        // Update document with image path and counter in a batch
+        const batch = writeBatch(db);
+        batch.update(docRef, { imagePath: imageUrl });
+        batch.set(
+          counterRef,
+          { [itemData.category]: categoryCount },
+          { merge: true },
+        );
+        await batch.commit();
+
         return {
           docId: docRef.id,
           inventoryCode: generatedInventoryCode,
           imagePath: imageUrl,
         };
       } catch (imageError) {
-        console.error(
-          "Error uploading image, but item was created:",
-          imageError,
-        );
-        // Item was created successfully, just without image
-        return { docId: docRef.id, inventoryCode: generatedInventoryCode };
-      }
-    }
+        console.error("Error uploading image:", imageError);
+        // Still create the item without image
+        const docRef = await addDoc(inventoryRef, firebaseItemData);
 
-    return { docId: docRef.id, inventoryCode: generatedInventoryCode };
+        // Update counter
+        await updateDoc(counterRef, { [itemData.category]: categoryCount });
+
+        return {
+          docId: docRef.id,
+          inventoryCode: generatedInventoryCode,
+          imagePath: null,
+        };
+      }
+    } else {
+      // No image - create document and update counter in parallel
+      const [docRef] = await Promise.all([
+        addDoc(inventoryRef, firebaseItemData),
+        updateDoc(counterRef, { [itemData.category]: categoryCount }),
+      ]);
+
+      return {
+        docId: docRef.id,
+        inventoryCode: generatedInventoryCode,
+        imagePath: null,
+      };
+    }
   } catch (error) {
     console.error("Error adding inventory item:", error);
     throw error;
@@ -185,13 +212,32 @@ export const updateInventoryItem = async (
       updatedBy: userId,
     };
 
-    // If there's a new image file, upload it and update the imagePath
+    // If there's a new image file, handle image operations in parallel
     if (imageFile) {
       try {
-        const imageUrl = await uploadInventoryImage(
-          imageFile,
-          itemNameForUpload,
-        );
+        // Start image operations in parallel
+        const [imageUrl] = await Promise.all([
+          uploadInventoryImage(imageFile, itemNameForUpload),
+          // Delete old image if it exists
+          currentData.imagePath
+            ? (async () => {
+                try {
+                  const url = new URL(currentData.imagePath);
+                  const pathMatch = url.pathname.match(/\/o\/(.+)/);
+
+                  if (pathMatch) {
+                    const storagePath = decodeURIComponent(pathMatch[1]);
+                    const oldImageRef = ref(storage, storagePath);
+                    await deleteObject(oldImageRef);
+                    console.log("Old image deleted from storage:", storagePath);
+                  }
+                } catch (deleteError) {
+                  console.warn("Error deleting old image:", deleteError);
+                }
+              })()
+            : Promise.resolve(),
+        ]);
+
         firebaseUpdateData.imagePath = imageUrl;
       } catch (imageError) {
         console.error("Error uploading new image:", imageError);
@@ -221,9 +267,22 @@ export const deleteInventoryItem = async (itemId, itemData = null) => {
     if (itemData && itemData.imagePath) {
       try {
         // Extract the storage path from the download URL
-        const imageRef = ref(storage, itemData.imagePath);
-        await deleteObject(imageRef);
-        console.log("Image deleted from storage:", itemData.imagePath);
+        // Firebase Storage URLs have the format: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}?alt=media&token={token}
+        const url = new URL(itemData.imagePath);
+        const pathMatch = url.pathname.match(/\/o\/(.+)/);
+
+        if (pathMatch) {
+          // Decode the path (it's URL encoded)
+          const storagePath = decodeURIComponent(pathMatch[1]);
+          const imageRef = ref(storage, storagePath);
+          await deleteObject(imageRef);
+          console.log("Image deleted from storage:", storagePath);
+        } else {
+          console.warn(
+            "Could not extract storage path from URL:",
+            itemData.imagePath,
+          );
+        }
       } catch (imageError) {
         console.error("Error deleting image from storage:", imageError);
         // Continue with document deletion even if image deletion fails
