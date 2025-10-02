@@ -1,5 +1,6 @@
 import React from "react";
 import { PaginationControls } from "@/components";
+import { FaInbox, FaClipboardList, FaUsers } from "react-icons/fa";
 
 /**
  * Reusable DataTable Component
@@ -94,11 +95,45 @@ const DataTable = ({
 
   // Empty state
   if (data.length === 0) {
+    // Determine icon based on empty message content
+    const getEmptyStateIcon = () => {
+      const message = emptyMessage.toLowerCase();
+      if (message.includes("attendance") || message.includes("record")) {
+        return <FaClipboardList className="w-16 h-16 text-gray-300" />;
+      } else if (message.includes("subscription")) {
+        return <FaUsers className="w-16 h-16 text-gray-300" />;
+      } else {
+        return <FaInbox className="w-16 h-16 text-gray-300" />;
+      }
+    };
+
     return (
       <div
-        className={`text-center text-gray-500 text-base sm:text-lg p-4 sm:p-6 ${className}`}
+        className={`flex flex-col items-center justify-center py-16 px-6 bg-white rounded-xl shadow-lg ${className}`}
       >
-        {emptyMessage}
+        {/* Icon */}
+        <div className="mb-6">{getEmptyStateIcon()}</div>
+
+        {/* Message */}
+        <div className="text-center">
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">
+            No Data Available
+          </h3>
+          <p className="text-gray-500 text-base max-w-md">{emptyMessage}</p>
+        </div>
+
+        {/* Decorative elements */}
+        <div className="mt-8 flex space-x-2">
+          <div className="w-2 h-2 bg-gray-200 rounded-full animate-pulse"></div>
+          <div
+            className="w-2 h-2 bg-gray-200 rounded-full animate-pulse"
+            style={{ animationDelay: "0.2s" }}
+          ></div>
+          <div
+            className="w-2 h-2 bg-gray-200 rounded-full animate-pulse"
+            style={{ animationDelay: "0.4s" }}
+          ></div>
+        </div>
       </div>
     );
   }

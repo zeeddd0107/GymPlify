@@ -101,20 +101,6 @@ const DatePicker = ({
     });
   };
 
-  // Helper function to determine text size based on date length
-  const getDateTextSize = (dateString) => {
-    if (!dateString) return "text-sm";
-    const formattedDate = formatDate(dateString);
-    return formattedDate.length <= 16 ? "text-base" : "text-sm";
-  };
-
-  // Helper function to determine padding based on text size
-  const getDatePadding = (dateString) => {
-    if (!dateString) return "py-2";
-    const formattedDate = formatDate(dateString);
-    return formattedDate.length <= 16 ? "py-2" : "py-2.5";
-  };
-
   // Handle opening date picker
   const handleOpenDatePicker = (isStartDatePicker) => {
     if (isStartDatePicker) {
@@ -162,10 +148,10 @@ const DatePicker = ({
         <button
           type="button"
           onClick={() => handleOpenDatePicker(true)}
-          className={`w-full px-3 ${startDate ? getDatePadding(startDate) : "py-2"} border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-saveButton focus:border-transparent bg-white text-left flex justify-between items-center ${showStartDatePicker ? "ring-1 ring-saveButton border-saveButton" : ""}`}
+          className={`w-full py-3 px-4 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 bg-white text-left flex justify-between items-center ${showStartDatePicker ? "border-primary" : "border-gray-300 focus:border-primary"}`}
         >
           <span
-            className={`${startDate ? "text-gray-900" : "text-gray-500"} ${startDate ? getDateTextSize(startDate) : "text-sm"} truncate`}
+            className={`${startDate ? "text-gray-900" : "text-gray-400"} text-base truncate`}
           >
             {startDate ? formatDate(startDate) : "Select start date"}
           </span>
@@ -181,10 +167,10 @@ const DatePicker = ({
         <button
           type="button"
           onClick={() => handleOpenDatePicker(false)}
-          className={`w-full px-3 ${endDate ? getDatePadding(endDate) : "py-2"} border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-saveButton focus:border-transparent bg-white text-left flex justify-between items-center ${showEndDatePicker ? "ring-1 ring-saveButton border-saveButton" : ""}`}
+          className={`w-full py-3 px-4 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 bg-white text-left flex justify-between items-center ${showEndDatePicker ? "border-primary" : "border-gray-300 focus:border-primary"}`}
         >
           <span
-            className={`${endDate ? "text-gray-900" : "text-gray-500"} ${endDate ? getDateTextSize(endDate) : "text-sm"} truncate`}
+            className={`${endDate ? "text-gray-900" : "text-gray-400"} text-base truncate`}
           >
             {endDate ? formatDate(endDate) : "Select end date"}
           </span>

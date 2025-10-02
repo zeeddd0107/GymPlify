@@ -19,6 +19,7 @@ const EditModal = ({
   maxWidth = "max-w-lg", // Default max width
   maxHeight = "max-h-[90vh]", // Default max height with margin
   noShadow = false,
+  zIndex = "z-50", // Default z-index
 }) => {
   // Don't render anything if modal is not open
   if (!isOpen) return null;
@@ -26,7 +27,18 @@ const EditModal = ({
   // Main render function - displays edit modal with form and buttons
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 py-4 sm:py-8 md:py-4 lg:py-6"
+      className={`fixed bg-black bg-opacity-50 flex items-center justify-center ${zIndex}`}
+      style={{
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        margin: 0,
+        padding: 0,
+        width: "100vw",
+        height: "100vh",
+        position: "fixed",
+      }}
       onClick={onClose}
     >
       <div
