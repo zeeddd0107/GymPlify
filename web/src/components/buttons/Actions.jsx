@@ -65,9 +65,22 @@ const Actions = ({
     try {
       // If custom delete function provided, use it
       if (onDelete) {
-        await onDelete(itemToDelete);
-        setDeleteModalOpen(false);
-        setItemToDelete(null);
+        try {
+          await onDelete(itemToDelete);
+          // Call success callback if provided
+          if (onDeleteSuccess) {
+            onDeleteSuccess(itemToDelete.id, itemToDelete);
+          }
+          setDeleteModalOpen(false);
+          setItemToDelete(null);
+        } catch (error) {
+          // Call error callback if provided
+          if (onDeleteError) {
+            onDeleteError(error, itemToDelete);
+          }
+          setDeleteModalOpen(false);
+          setItemToDelete(null);
+        }
         return;
       }
 
