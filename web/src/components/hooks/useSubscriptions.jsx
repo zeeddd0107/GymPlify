@@ -43,6 +43,17 @@ export const useSubscriptions = () => {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Toast notification state
+  const [toast, setToast] = useState({
+    isVisible: false,
+    message: "",
+    type: "success",
+  });
+
   const looksLikeEmail = (text) =>
     typeof text === "string" && text.includes("@");
 
@@ -125,9 +136,21 @@ export const useSubscriptions = () => {
         customMemberId: "",
         displayName: "",
       });
+
+      // Show success toast notification
+      setToast({
+        isVisible: true,
+        message: `Subscription for ${editFormData.displayName} has been updated successfully!`,
+        type: "success",
+      });
     } catch (error) {
       console.error("Error updating subscription:", error);
-      alert("Failed to update subscription. Please try again.");
+      // Show error toast notification
+      setToast({
+        isVisible: true,
+        message: "Failed to update subscription. Please try again.",
+        type: "error",
+      });
     } finally {
       setSaving(false);
     }
@@ -153,6 +176,11 @@ export const useSubscriptions = () => {
       ...prev,
       ...newData,
     }));
+  };
+
+  // Function to close toast notification
+  const handleCloseToast = () => {
+    setToast((prev) => ({ ...prev, isVisible: false }));
   };
 
   // Function to update expired subscriptions in database
@@ -189,9 +217,26 @@ export const useSubscriptions = () => {
   };
 
   // Handle delete success
-  const handleDeleteSuccess = (deletedId) => {
+  const handleDeleteSuccess = (deletedId, deletedItem) => {
     // Remove the deleted subscription from local state
     setSubscriptions((prev) => prev.filter((sub) => sub.id !== deletedId));
+
+    // Show success toast notification
+    setToast({
+      isVisible: true,
+      message: `Subscription for ${deletedItem?.displayName || deletedItem?.itemName || "Unknown"} has been deleted successfully!`,
+      type: "success",
+    });
+  };
+
+  // Handle delete error
+  const handleDeleteError = () => {
+    // Show error toast notification
+    setToast({
+      isVisible: true,
+      message: "Failed to delete subscription. Please try again.",
+      type: "error",
+    });
   };
 
   // Handle opening delete modal
@@ -225,7 +270,7 @@ export const useSubscriptions = () => {
   };
 
   // Column definitions for the DataTable
-  const columns = [
+  const getColumns = (onDeleteSuccess, onDeleteError) => [
     {
       key: "memberId",
       label: "Member ID",
@@ -282,7 +327,8 @@ export const useSubscriptions = () => {
         itemType: "subscription",
         editTitle: "Edit subscription",
         deleteTitle: "Delete subscription",
-        onDeleteSuccess: handleDeleteSuccess,
+        onDeleteSuccess: onDeleteSuccess,
+        onDeleteError: onDeleteError,
       }),
     },
   ];
@@ -382,7 +428,7 @@ export const useSubscriptions = () => {
     saving,
     deleting,
     statusOptions,
-    columns,
+    getColumns,
 
     // Actions
     handleEditClick,
@@ -393,5 +439,12 @@ export const useSubscriptions = () => {
     handleCloseDeleteModal,
     handleConfirmDelete,
     handleDeleteSuccess,
+    handleDeleteError,
+    toast,
+    handleCloseToast,
+    currentPage,
+    pageSize,
+    setCurrentPage,
+    setPageSize,
   };
 };

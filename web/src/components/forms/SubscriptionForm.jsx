@@ -1,5 +1,5 @@
 import React from "react";
-import { CustomListBox, LabeledInput, DatePicker } from "@/components";
+import { CustomListBox, FormInput, FormSelect, DatePicker } from "@/components";
 
 /**
  * Reusable subscription form component for editing subscriptions
@@ -26,41 +26,57 @@ const SubscriptionForm = ({ formData, onFormDataChange, statusOptions }) => {
 
   return (
     <div className="space-y-4">
-      {/* Member Info (Read-only) */}
+      {/* Member Info */}
       <div className="grid grid-cols-2 gap-4">
-        <LabeledInput
-          label="Member ID"
-          value={formData.customMemberId || ""}
-          inputProps={{ readOnly: true }}
-        />
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-gray-700">Member ID</label>
+          <FormInput
+            type="text"
+            value={formData.customMemberId || ""}
+            readOnly={true}
+            placeholder="Auto-generated"
+          />
+        </div>
 
-        <LabeledInput
-          label="Member Name"
-          value={formData.displayName || ""}
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-gray-700">
+            Member Name <span className="text-red-500">*</span>
+          </label>
+          <FormInput
+            type="text"
+            value={formData.displayName || ""}
+            onChange={(e) => {
+              onFormDataChange({
+                ...formData,
+                displayName: e.target.value,
+              });
+            }}
+            placeholder="Enter member name"
+            required={true}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-sm font-medium text-gray-700">
+          Status <span className="text-red-500">*</span>
+        </label>
+        <FormSelect
+          value={formData.status || ""}
           onChange={(e) => {
             onFormDataChange({
               ...formData,
-              displayName: e.target.value,
+              status: e.target.value,
             });
           }}
+          options={statusOptions.map((option) => ({
+            value: option.id,
+            label: option.name,
+          }))}
+          placeholder="Select Status"
+          required={true}
         />
       </div>
-
-      <CustomListBox
-        label="Status"
-        options={statusOptions}
-        selectedValue={
-          statusOptions.find((status) => status.id === formData.status) ||
-          statusOptions[0]
-        }
-        onChange={(selectedStatus) => {
-          onFormDataChange({
-            ...formData,
-            status: selectedStatus.id,
-          });
-        }}
-        placeholder="Select Status"
-      />
 
       {/* DatePicker Component */}
       <DatePicker
