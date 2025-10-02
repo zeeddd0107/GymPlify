@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { DataTable, FilterSelect, EditModal } from "@/components";
+import {
+  DataTable,
+  FilterSelect,
+  EditModal,
+  ToastNotification,
+  StatusBadge,
+} from "@/components";
 import Actions from "@/components/buttons/Actions";
 import {
   FaUsers,
@@ -51,19 +57,6 @@ const formatDate = (date) =>
     day: "numeric",
   });
 
-const statusBadge = {
-  approved: (
-    <span className="inline-block px-3 py-1 rounded-full text-sm font-bold bg-green-100 text-green-700">
-      Checked in
-    </span>
-  ),
-  rejected: (
-    <span className="inline-block px-3 py-1 rounded-full text-sm font-bold bg-red-100 text-red-700">
-      Checked out
-    </span>
-  ),
-};
-
 const DashboardHome = () => {
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState([]);
@@ -82,6 +75,13 @@ const DashboardHome = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  // Toast notification state
+  const [toast, setToast] = useState({
+    isVisible: false,
+    message: "",
+    type: "success",
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -106,7 +106,7 @@ const DashboardHome = () => {
             id: rawSessionId
               ? String(rawSessionId).slice(0, 5).toUpperCase()
               : "-",
-            fullId: rawSessionId || "-",
+            fullId: doc.id, // Use the actual document ID for updates
             name: a.userInfo?.displayName || a.userInfo?.name || "-",
             time: checkIn ? formatTime(checkIn) : "-",
             checkOut: checkOut ? formatTime(checkOut) : "-",
@@ -118,6 +118,9 @@ const DashboardHome = () => {
             status: checkOut ? "rejected" : "approved", // checked out vs checked in
             _checkInDate: checkIn,
             _checkOutDate: checkOut,
+            userInfo: a.userInfo, // Preserve the full userInfo object
+            userId: a.userId, // Preserve userId
+            qrValue: a.qrValue, // Preserve qrValue
           };
         });
         setRows(data);
@@ -196,23 +199,23 @@ const DashboardHome = () => {
     return isSameDay(refDate, cd);
   };
 
+  // Convert time strings to HH:MM format for time inputs
+  const formatTimeForInput = (timeStr) => {
+    if (!timeStr || timeStr === "-") return "";
+    // If it's already in HH:MM format, return as is
+    if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
+    // Try to parse common time formats
+    const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})/);
+    if (timeMatch) {
+      const hours = timeMatch[1].padStart(2, "0");
+      const minutes = timeMatch[2];
+      return `${hours}:${minutes}`;
+    }
+    return "";
+  };
+
   // Edit functions
   const handleEdit = (item) => {
-    // Convert time strings to HH:MM format for time inputs
-    const formatTimeForInput = (timeStr) => {
-      if (!timeStr || timeStr === "-") return "";
-      // If it's already in HH:MM format, return as is
-      if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
-      // Try to parse common time formats
-      const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})/);
-      if (timeMatch) {
-        const hours = timeMatch[1].padStart(2, "0");
-        const minutes = timeMatch[2];
-        return `${hours}:${minutes}`;
-      }
-      return "";
-    };
-
     // Convert date string to YYYY-MM-DD format for date input
     const formatDateForInput = (dateStr) => {
       if (!dateStr || dateStr === "-") return "";
@@ -222,7 +225,11 @@ const DashboardHome = () => {
       try {
         const date = new Date(dateStr);
         if (!isNaN(date.getTime())) {
-          return date.toISOString().split("T")[0];
+          // Use local date components to avoid timezone issues
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const day = String(date.getDate()).padStart(2, "0");
+          return `${year}-${month}-${day}`;
         }
       } catch {
         // If parsing fails, return empty string
@@ -244,16 +251,66 @@ const DashboardHome = () => {
     setEditingItem(null);
   };
 
+  // Delete function
+  const handleDelete = async (item) => {
+    // Import the attendance service
+    const { deleteAttendanceRecord } = await import(
+      "@/services/attendanceService"
+    );
+
+    // Delete the record from Firebase
+    await deleteAttendanceRecord(item.fullId);
+
+    // Remove from local state
+    setRows((prev) => prev.filter((row) => row.id !== item.id));
+  };
+
   const handleSaveEdit = async () => {
     if (!editingItem) return;
 
     setSaving(true);
     try {
-      // TODO: Implement actual save functionality
-      console.log("Saving edited item:", editingItem);
+      // Import the attendance service
+      const { updateAttendanceRecord } = await import(
+        "@/services/attendanceService"
+      );
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Find the original record to get the document ID
+      const originalRecord = rows.find((row) => row.id === editingItem.id);
+      if (!originalRecord) {
+        throw new Error("Original record not found");
+      }
+
+      // Create updated timestamps
+      const checkInDateTime = new Date(
+        `${editingItem.date}T${editingItem.time}`,
+      );
+      const checkOutDateTime = editingItem.checkOut
+        ? new Date(`${editingItem.date}T${editingItem.checkOut}`)
+        : null;
+
+      // Preserve existing userInfo and only update the name fields
+      const existingUserInfo = originalRecord.userInfo || {};
+      const updateData = {
+        checkInTime: checkInDateTime,
+        checkOutTime: checkOutDateTime,
+        userInfo: {
+          ...existingUserInfo, // Preserve all existing userInfo fields
+          displayName: editingItem.name,
+          name: editingItem.name,
+        },
+      };
+
+      // Only update checkInTime if the time field was actually changed
+      // Preserve the original checkInTime if only checkout time is being edited
+      if (editingItem.time === formatTimeForInput(originalRecord.time)) {
+        // Time field wasn't changed, preserve original checkInTime
+        updateData.checkInTime =
+          originalRecord._checkInDate || originalRecord.checkInTime;
+      }
+
+      // Update the record in Firebase
+      await updateAttendanceRecord(originalRecord.fullId, updateData);
 
       // Update the rows with edited data
       setRows((prev) =>
@@ -262,10 +319,13 @@ const DashboardHome = () => {
             ? {
                 ...row,
                 name: editingItem.name,
-                time: editingItem.time,
-                checkOut: editingItem.checkOut,
-                date: editingItem.date,
-                status: editingItem.status,
+                time: formatTime(checkInDateTime),
+                checkOut: checkOutDateTime ? formatTime(checkOutDateTime) : "-",
+                date: formatDate(checkInDateTime),
+                status: editingItem.checkOut ? "rejected" : "approved",
+                userInfo: updateData.userInfo, // Update with preserved userInfo
+                _checkInDate: checkInDateTime,
+                _checkOutDate: checkOutDateTime,
               }
             : row,
         ),
@@ -273,8 +333,21 @@ const DashboardHome = () => {
 
       setEditModalOpen(false);
       setEditingItem(null);
+
+      // Show success toast notification
+      setToast({
+        isVisible: true,
+        message: `Attendance record for ${editingItem.name} has been updated successfully!`,
+        type: "success",
+      });
     } catch (error) {
       console.error("Error saving edit:", error);
+      // Show error toast notification
+      setToast({
+        isVisible: true,
+        message: "Failed to update attendance record. Please try again.",
+        type: "error",
+      });
     } finally {
       setSaving(false);
     }
@@ -330,7 +403,7 @@ const DashboardHome = () => {
       width: "w-[13.33%]", // 80% / 6 = 13.33%
       render: (value, row) => (
         <div className="flex items-center justify-start">
-          {statusBadge[row.status]}
+          <StatusBadge status={row.status} />
         </div>
       ),
     },
@@ -342,13 +415,26 @@ const DashboardHome = () => {
         <Actions
           item={row}
           onEdit={handleEdit}
-          onDelete={(item) => {
-            console.log("Delete item:", item);
-            // TODO: Implement delete functionality
-          }}
+          onDelete={handleDelete}
           collectionName="attendance"
           itemNameField="name"
-          itemType="attendance record"
+          itemType="Attendance Record"
+          onDeleteSuccess={(deletedId, deletedItem) => {
+            // Show success toast notification
+            setToast({
+              isVisible: true,
+              message: `Attendance record for ${deletedItem?.name || "Unknown"} has been deleted successfully!`,
+              type: "success",
+            });
+          }}
+          onDeleteError={() => {
+            // Show error toast notification
+            setToast({
+              isVisible: true,
+              message: "Failed to delete attendance record. Please try again.",
+              type: "error",
+            });
+          }}
         />
       ),
     },
@@ -395,70 +481,73 @@ const DashboardHome = () => {
 
       {/* Leave/Permission Table Card */}
       <div className="bg-white rounded-xl pt-6">
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-2">
-            <div className="flex items-center border-[1.5px] border-gray/50 rounded-2xl px-4 py-3 w-full sm:w-72 bg-gray-50 mx-6 focus-within:border-2 focus-within:border-blue-500">
-              <input
-                type="text"
-                placeholder="Search..."
-                className="bg-transparent outline-none flex-1 text-sm placeholder:font-normal placeholder:text-gray-400"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <svg
-                className="w-4 h-4 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+        {/* Only show filters when there's data */}
+        {rows.length > 0 && (
+          <div className="mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-2">
+              <div className="flex items-center border-2 border-gray/50 rounded-2xl px-4 py-3 w-full sm:w-72 bg-gray-50 mx-6 focus-within:border-blue-500">
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="bg-transparent outline-none flex-1 text-sm placeholder:font-normal placeholder:text-gray-400"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
-              </svg>
-            </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto mx-6">
-              <FilterSelect
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                options={[
-                  { value: "all", label: "All" },
-                  { value: "in", label: "Checked in" },
-                  { value: "out", label: "Checked out" },
-                ]}
-              />
+                <svg
+                  className="w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                  />
+                </svg>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto mx-6">
+                <FilterSelect
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  options={[
+                    { value: "all", label: "All" },
+                    { value: "in", label: "Checked in" },
+                    { value: "out", label: "Checked out" },
+                  ]}
+                />
 
-              <input
-                type="date"
-                className="border border-gray-300 rounded-md px-3 py-3 text-sm focus:outline-none focus:border-primary w-auto min-w-[140px]"
-                value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-              />
+                <input
+                  type="date"
+                  className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary w-auto min-w-[140px]"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                />
+              </div>
             </div>
           </div>
-          <DataTable
-            columns={columns}
-            data={filteredData}
-            loading={loading}
-            emptyMessage="No records found."
-            className="h-full"
-            pagination={{
-              enabled: true,
-              pageSize: pageSize,
-              currentPage: currentPage,
-              totalItems: filteredData.length,
-              showPageSizeSelector: true,
-              pageSizeOptions: [5, 10, 20, 50],
-            }}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={(newPageSize) => {
-              setPageSize(newPageSize);
-              setCurrentPage(1); // Reset to first page when page size changes
-            }}
-          />
-        </div>
+        )}
+        <DataTable
+          columns={columns}
+          data={filteredData}
+          loading={loading}
+          emptyMessage="No records found."
+          className="h-full"
+          pagination={{
+            enabled: true,
+            pageSize: pageSize,
+            currentPage: currentPage,
+            totalItems: filteredData.length,
+            showPageSizeSelector: true,
+            pageSizeOptions: [5, 10, 20, 50],
+          }}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newPageSize) => {
+            setPageSize(newPageSize);
+            setCurrentPage(1); // Reset to first page when page size changes
+          }}
+        />
       </div>
 
       {/* Edit Modal */}
@@ -476,15 +565,7 @@ const DashboardHome = () => {
       >
         {editingItem && (
           <div className="space-y-4">
-            <div className="space-y-1 mt-3">
-              <label className="text-sm font-medium text-gray-700">ID</label>
-              <input
-                type="text"
-                value={editingItem.id || ""}
-                disabled={true}
-                className="w-full py-3 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 pl-4 pr-4 opacity-50 cursor-not-allowed"
-              />
-            </div>
+            <div className="mt-3"></div>
 
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">
@@ -575,6 +656,16 @@ const DashboardHome = () => {
           </div>
         )}
       </EditModal>
+
+      {/* Toast Notification */}
+      <ToastNotification
+        isVisible={toast.isVisible}
+        onClose={() => setToast((prev) => ({ ...prev, isVisible: false }))}
+        message={toast.message}
+        type={toast.type}
+        duration={4000}
+        position="top-right"
+      />
     </div>
   );
 };

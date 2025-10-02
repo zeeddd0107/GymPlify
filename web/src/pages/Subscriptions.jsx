@@ -13,13 +13,21 @@ const Subscriptions = () => {
     saving,
     deleting,
     statusOptions,
-    columns,
+    getColumns,
     handleSaveSubscription,
     handleCloseModal,
     handleFormDataChange,
     handleCloseDeleteModal,
     handleConfirmDelete,
+    handleDeleteSuccess,
+    handleDeleteError,
     deletingSubscription,
+    toast,
+    handleCloseToast,
+    currentPage,
+    pageSize,
+    setCurrentPage,
+    setPageSize,
   } = useSubscriptions();
 
   return (
@@ -32,13 +40,24 @@ const Subscriptions = () => {
       saving={saving}
       deleting={deleting}
       statusOptions={statusOptions}
-      columns={columns}
+      columns={getColumns(handleDeleteSuccess, handleDeleteError)}
       onSaveSubscription={handleSaveSubscription}
       onCloseModal={handleCloseModal}
       onFormDataChange={handleFormDataChange}
       onCloseDeleteModal={handleCloseDeleteModal}
       onConfirmDelete={handleConfirmDelete}
+      onDeleteSuccess={handleDeleteSuccess}
+      onDeleteError={handleDeleteError}
       deleteItemName={deletingSubscription?.displayName}
+      toast={toast}
+      onCloseToast={handleCloseToast}
+      currentPage={currentPage}
+      pageSize={pageSize}
+      onPageChange={setCurrentPage}
+      onPageSizeChange={(newPageSize) => {
+        setPageSize(newPageSize);
+        setCurrentPage(1); // Reset to first page when page size changes
+      }}
     />
   );
 };
