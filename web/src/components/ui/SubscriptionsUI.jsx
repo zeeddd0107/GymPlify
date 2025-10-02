@@ -1,6 +1,5 @@
 import { useAuth } from "@/context";
-import { DataTable } from "@/components";
-import { SubscriptionStatusBadge } from "@/components/subscription";
+import { DataTable, StatusBadge } from "@/components";
 import { Actions } from "@/components/buttons";
 import { getSubscriptionStatus } from "@/components/utils";
 import SubscriptionsActions from "./SubscriptionsActions";
@@ -24,7 +23,15 @@ const SubscriptionsUI = ({
   onFormDataChange,
   onCloseDeleteModal,
   onConfirmDelete,
+  onDeleteSuccess,
+  onDeleteError,
   deleteItemName,
+  toast,
+  onCloseToast,
+  currentPage,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
 }) => {
   // Get admin status from auth context
   const { isAdmin: _isAdmin } = useAuth();
@@ -43,15 +50,13 @@ const SubscriptionsUI = ({
               case "memberId":
                 // Display member ID with tooltip
                 return <span title={result.title}>{result.value}</span>;
-              case "status":
+              case "status": {
                 // Display subscription status badge
-                return (
-                  <SubscriptionStatusBadge
-                    status={result.status}
-                    subscription={result.subscription}
-                    getSubscriptionStatus={getSubscriptionStatus}
-                  />
-                );
+                const actualStatus = getSubscriptionStatus
+                  ? getSubscriptionStatus(result.subscription)
+                  : result.status;
+                return <StatusBadge status={actualStatus} />;
+              }
               case "actions":
                 // Display action buttons (edit/delete) for each row
                 return (
@@ -63,7 +68,8 @@ const SubscriptionsUI = ({
                     itemType={result.itemType}
                     editTitle={result.editTitle}
                     deleteTitle={result.deleteTitle}
-                    onDeleteSuccess={result.onDeleteSuccess}
+                    onDeleteSuccess={onDeleteSuccess}
+                    onDeleteError={onDeleteError}
                   />
                 );
               default:
@@ -89,6 +95,16 @@ const SubscriptionsUI = ({
           loading={loading}
           emptyMessage="No subscriptions found."
           className="h-full"
+          pagination={{
+            enabled: true,
+            pageSize: pageSize,
+            currentPage: currentPage,
+            totalItems: subscriptions.length,
+            showPageSizeSelector: true,
+            pageSizeOptions: [5, 10, 20, 50],
+          }}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
         />
       </div>
 
@@ -107,6 +123,8 @@ const SubscriptionsUI = ({
         onFormDataChange={onFormDataChange}
         deleteItemName={deleteItemName}
         deleteItemType="subscription"
+        toast={toast}
+        onCloseToast={onCloseToast}
       />
     </div>
   );

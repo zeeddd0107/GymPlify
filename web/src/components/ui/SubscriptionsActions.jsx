@@ -1,4 +1,4 @@
-import { EditModal, SubscriptionForm } from "@/components";
+import { EditModal, SubscriptionForm, ToastNotification } from "@/components";
 import { DeleteModal } from "@/components/modals";
 
 /**
@@ -19,6 +19,8 @@ const SubscriptionsActions = ({
   onFormDataChange,
   deleteItemName,
   deleteItemType = "subscription",
+  toast,
+  onCloseToast,
 }) => {
   // Main render function - displays both edit and delete modals
   return (
@@ -49,6 +51,16 @@ const SubscriptionsActions = ({
         deleting={deleting}
         confirmText="Delete"
         cancelText="Cancel"
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        isVisible={toast?.isVisible || false}
+        onClose={onCloseToast}
+        message={toast?.message || ""}
+        type={toast?.type || "success"}
+        duration={4000}
+        position="top-right"
       />
     </>
   );

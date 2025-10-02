@@ -66,6 +66,26 @@ const StatusBadge = ({ status, className = "", size = "md" }) => {
           text: "Cancelled",
           style: "bg-red-100 text-red-700",
         };
+      case "approved":
+        return {
+          text: "Checked in",
+          style: "bg-green-100 text-green-700",
+        };
+      case "rejected":
+        return {
+          text: "Checked out",
+          style: "bg-red-100 text-red-700",
+        };
+      case "expired":
+        return {
+          text: "Expired",
+          style: "bg-red-100 text-red-700",
+        };
+      case "suspended":
+        return {
+          text: "Suspended",
+          style: "bg-yellow-100 text-yellow-700",
+        };
       default:
         return {
           text: status || "Unknown",
