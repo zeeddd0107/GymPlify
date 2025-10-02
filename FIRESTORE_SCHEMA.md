@@ -175,7 +175,31 @@ Stores notifications sent to users.
 
 ---
 
-## 10. counters (Collection)
+## 10. attendance (Collection)
+Stores gym attendance records for users.
+
+**Document ID:** `attendanceId` (auto-generated)
+
+**Example Document:**
+```json
+{
+  "userId": "abc123", // Reference to users.uid
+  "checkInTime": <timestamp>,
+  "checkOutTime": <timestamp>, // Optional, null if still checked in
+  "userInfo": {
+    "displayName": "John Doe",
+    "name": "John Doe",
+    "email": "john@example.com"
+  },
+  "qrValue": "abc123_timestamp_random", // QR code value used for check-in
+  "createdAt": <timestamp>,
+  "updatedAt": <timestamp>
+}
+```
+
+---
+
+## 11. counters (Collection)
 Stores auto-incrementing counters for generating unique IDs.
 
 **Document ID:** `counterType` (e.g., "memberId", "subscriptionId")
@@ -195,7 +219,7 @@ Stores auto-incrementing counters for generating unique IDs.
 
 ---
 
-## 11. Example: Subcollections
+## 12. Example: Subcollections
 You can nest subcollections under documents for more granular data organization.
 
 **Example:**
