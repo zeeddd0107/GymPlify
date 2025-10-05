@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -29,7 +29,7 @@ export default function ProfileScreen() {
     loadUserData();
   }, [authUser, authLoading, loadUserData]);
 
-  const loadUserData = useCallback(async () => {
+  const loadUserData = async () => {
     try {
       console.log("🔍 Profile - loadUserData called");
       console.log("🔍 Profile - authLoading:", authLoading);
@@ -74,7 +74,7 @@ export default function ProfileScreen() {
     } catch (error) {
       console.error("Error loading user data:", error);
     }
-  }, [authLoading, authUser]);
+  };
 
   // Removed unused handleProfileOptionPress to satisfy linter
 

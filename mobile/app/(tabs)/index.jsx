@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 0,
+    paddingHorizontal: 20,
   },
   scrollViewFullscreen: {
     paddingTop: 20, // Add some top padding when no header
