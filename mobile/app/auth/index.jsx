@@ -28,6 +28,16 @@ import { Fonts } from "@/src/constants/Fonts";
 WebBrowser.maybeCompleteAuthSession();
 
 export default function AuthScreen() {
+  console.log("🔐 AuthScreen: Component rendered");
+
+  // Track component lifecycle
+  useEffect(() => {
+    console.log("🔐 AuthScreen: Component mounted");
+    return () => {
+      console.log("🔐 AuthScreen: Component unmounting");
+    };
+  }, []);
+
   // --- STATE MANAGEMENT ---
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState("login"); // Controls 'login' or 'register' mode
@@ -125,6 +135,7 @@ export default function AuthScreen() {
   const getUserInfo = useCallback(
     async (token) => {
       if (!token) return;
+      console.log("🔐 AuthScreen: Google authentication started");
       try {
         // Sign in to Firebase with the Google credential
         const credential = firebase.auth.GoogleAuthProvider.credential(
@@ -132,31 +143,13 @@ export default function AuthScreen() {
           token,
         );
         await firebase.auth().signInWithCredential(credential);
+        console.log("🔐 AuthScreen: Google Firebase authentication successful");
 
         // Create or update the user in Firestore
         const fbUser = firebase.auth().currentUser;
         if (fbUser) {
           await upsertUserInFirestore(fbUser, "google");
-          // Create a subscription if one doesn't exist
-          const subSnap = await firestore
-            .collection("subscriptions")
-            .where("userId", "==", fbUser.uid)
-            .get();
-          if (subSnap.empty) {
-            // Get the current timestamp for startDate
-            const startDate = firebase.firestore.Timestamp.now();
-            // Calculate endDate as one month after startDate
-            const endDate = new Date(startDate.toDate());
-            endDate.setMonth(endDate.getMonth() + 1);
-            await firestore.collection("subscriptions").add({
-              userId: fbUser.uid,
-              plan: "basic",
-              status: "active",
-              startDate: startDate,
-              endDate: firebase.firestore.Timestamp.fromDate(endDate), // endDate is one month after startDate
-              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            });
-          }
+          // Google authentication completed - no automatic subscription creation
           // Store user data on the device for local access
           const userData = {
             id: fbUser.uid,
@@ -168,10 +161,13 @@ export default function AuthScreen() {
           setUserInfo(userData);
         }
         // Navigate to home screen
+        console.log(
+          "🔐 AuthScreen: Google authentication complete, navigating to dashboard",
+        );
         try {
           router.replace("/(tabs)");
         } catch (navError) {
-          console.log("Navigation error:", navError);
+          console.log("🔐 AuthScreen: Navigation error:", navError);
           // Fallback navigation
           router.push("/(tabs)");
         }
@@ -185,6 +181,10 @@ export default function AuthScreen() {
 
   // Handles email/password login and registration
   const handleAuth = async () => {
+    console.log("🔐 AuthScreen: handleAuth called", {
+      mode,
+      email: email.substring(0, 3) + "***",
+    });
     setLoading(true);
     setMessage("");
     setResent(false);
@@ -197,8 +197,12 @@ export default function AuthScreen() {
           setLoading(false);
           return;
         }
+        console.log("🔐 AuthScreen: Starting registration process");
         user = await registerUser(email, password);
         if (user) {
+          console.log(
+            "🔐 AuthScreen: Registration successful, updating profile",
+          );
           // Compute a default avatar URL when no photo is provided
           const defaultPhotoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=0D8ABC&color=fff&bold=true`;
 
@@ -227,12 +231,26 @@ export default function AuthScreen() {
 
           // Ensure user record has non-null photoURL (updates custom fields via merge)
           await upsertUserInFirestore(refreshedUser, "password");
+
+          // Store user data in AsyncStorage for immediate access
+          const userData = {
+            id: refreshedUser.uid,
+            email: refreshedUser.email,
+            name: name, // Use the name from registration form
+            picture: refreshedUser.photoURL,
+          };
+          await AsyncStorage.setItem("@user", JSON.stringify(userData));
+          setUserInfo(userData);
         }
         // After registration, show verification screen
+        console.log(
+          "🔐 AuthScreen: Registration complete, showing verification screen",
+        );
         setAwaitingVerification(true);
         setLoading(false);
         return;
       } else {
+        console.log("🔐 AuthScreen: Starting login process");
         user = await loginUser(email, password);
         if (user && !user.photoURL) {
           const defaultPhotoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=0D8ABC&color=fff&bold=true`;
@@ -258,8 +276,12 @@ export default function AuthScreen() {
           { merge: true },
         );
       }
+      console.log(
+        "🔐 AuthScreen: Authentication successful, navigating to dashboard",
+      );
       router.replace("/(tabs)");
     } catch (err) {
+      console.log("🔐 AuthScreen: Authentication failed", err.message);
       setMessage(err.message);
     } finally {
       setLoading(false);

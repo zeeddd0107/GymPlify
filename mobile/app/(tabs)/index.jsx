@@ -6,6 +6,7 @@ import {
   Pressable,
   RefreshControl,
 } from "react-native";
+import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +20,7 @@ import {
   UpcomingSessions,
   WorkoutTip,
 } from "@/src/components/dashboard";
+import SubscriptionPlans from "@/src/components/dashboard/SubscriptionPlans";
 import { useDashboard } from "@/src/hooks";
 
 export default function HomeScreen() {
@@ -38,6 +40,8 @@ export default function HomeScreen() {
     notifications,
     // eslint-disable-next-line no-unused-vars
     subscriptions,
+    hasActiveSubscription,
+    isDataLoaded,
     onRefresh,
     getGreeting,
     handleRenewMembership,
@@ -46,8 +50,37 @@ export default function HomeScreen() {
     getProgressPercentage,
   } = useDashboard();
 
+  // Add loading state to prevent flash of SubscriptionPlans
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Manage initial loading state
+  useEffect(() => {
+    // If data is loaded, we're no longer in initial load
+    if (isDataLoaded) {
+      setIsInitialLoad(false);
+    }
+  }, [isDataLoaded]);
+
+  // Add a timeout to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      // console.log("🏠 HomeScreen - Loading timeout reached, showing content");
+      setIsInitialLoad(false);
+    }, 5000); // 5 second timeout
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Debug logging to see what's happening
+  // console.log("🏠 HomeScreen Debug:");
+  // console.log("  - hasActiveSubscription:", hasActiveSubscription);
+  // console.log("  - membershipData:", membershipData);
+  // console.log("  - isInitialLoad:", isInitialLoad);
+  // console.log("  - Will show:", isInitialLoad ? "Loading..." : (hasActiveSubscription ? "Home Dashboard" : "Subscription Plans"));
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Always show app bar for logged-in users */}
       <View style={[styles.appBar, { paddingTop: insets.top + 10 }]}>
         {/* Top Section - Icons */}
         <View style={styles.topSection}>
@@ -92,29 +125,55 @@ export default function HomeScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <MembershipOverview
-          membershipData={membershipData}
-          showQR={showQR}
-          email={email}
-          colors={colors}
-          getMembershipStatusColor={getMembershipStatusColor}
-          getDaysLeftFromSubscriptions={getDaysLeftFromSubscriptions}
-          handleRenewMembership={handleRenewMembership}
-        />
-        <AttendanceSummary
-          attendanceData={attendanceData}
-          colors={colors}
-          getProgressPercentage={getProgressPercentage}
-          onPress={() => router.push("/attendance-history")}
-        />
-        <UpcomingSessions upcomingSessions={upcomingSessions} colors={colors} />
-        <WorkoutTip workoutTip={workoutTip} colors={colors} />
+        {isInitialLoad ? (
+          // Show loading state during initial load to prevent flash
+          <View style={styles.loadingContainer}>
+            <Text style={[styles.loadingText, { color: colors.text }]}>
+              Loading...
+            </Text>
+          </View>
+        ) : hasActiveSubscription ? (
+          // Show home dashboard for users with active subscription
+          <>
+            <MembershipOverview
+              membershipData={membershipData}
+              showQR={showQR}
+              email={email}
+              colors={colors}
+              getMembershipStatusColor={getMembershipStatusColor}
+              getDaysLeftFromSubscriptions={getDaysLeftFromSubscriptions}
+              handleRenewMembership={handleRenewMembership}
+            />
+            <AttendanceSummary
+              attendanceData={attendanceData}
+              colors={colors}
+              getProgressPercentage={getProgressPercentage}
+              onPress={() => router.push("/attendance-history")}
+            />
+            <UpcomingSessions
+              upcomingSessions={upcomingSessions}
+              colors={colors}
+            />
+            <WorkoutTip workoutTip={workoutTip} colors={colors} />
+          </>
+        ) : (
+          // Show subscription plans for users without active subscription
+          <SubscriptionPlans
+            colors={colors}
+            onSelectPlan={(plan) => {
+              console.log("Selected plan:", plan);
+              // TODO: Implement subscription purchase logic
+            }}
+          />
+        )}
       </ScrollView>
 
-      <FloatingActionButton
-        onPress={() => router.push("/my-qr-code")}
-        icon="qr-code"
-      />
+      {hasActiveSubscription && (
+        <FloatingActionButton
+          onPress={() => router.push("/my-qr-code")}
+          icon="qr-code"
+        />
+      )}
     </View>
   );
 }
@@ -159,7 +218,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
+  },
+  scrollViewFullscreen: {
+    paddingTop: 20, // Add some top padding when no header
+    paddingHorizontal: 0, // Remove horizontal padding for fullscreen
   },
 
   notificationBadge: {
@@ -278,5 +341,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
     textAlign: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 100,
+  },
+  loadingText: {
+    fontFamily: Fonts.family.medium,
+    fontSize: 18,
   },
 });

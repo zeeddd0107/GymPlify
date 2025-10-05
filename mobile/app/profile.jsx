@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -12,7 +12,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useTheme } from "@/src/context";
+import { useTheme, useAuth } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
 import { firebase } from "@/src/services/firebase";
 
@@ -20,31 +20,61 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const { user: authUser, loading: authLoading } = useAuth();
 
   const [userData, setUserData] = useState(null);
   const [email, setEmail] = useState("");
 
   useEffect(() => {
     loadUserData();
-  }, []);
+  }, [authUser, authLoading, loadUserData]);
 
-  const loadUserData = async () => {
+  const loadUserData = useCallback(async () => {
     try {
-      const userEmail = await AsyncStorage.getItem("userEmail");
-      setEmail(userEmail || "");
+      console.log("🔍 Profile - loadUserData called");
+      console.log("🔍 Profile - authLoading:", authLoading);
+      console.log("🔍 Profile - authUser:", authUser);
 
-      const user = firebase.auth().currentUser;
-      if (user) {
-        setUserData({
-          email: user.email,
-          displayName: user.displayName,
-          uid: user.uid,
-        });
+      // Don't load if authentication is still loading
+      if (authLoading) {
+        console.log(
+          "🔍 Profile - Authentication still loading, skipping profile data load",
+        );
+        return;
       }
+
+      // Don't load if no authenticated user
+      if (!authUser) {
+        console.log(
+          "🔍 Profile - No authenticated user, skipping profile data load",
+        );
+        setUserData(null);
+        setEmail("");
+        return;
+      }
+
+      console.log(
+        "🔍 Profile - Loading profile data for user:",
+        authUser.email,
+      );
+
+      // Use authentication context data
+      setUserData({
+        email: authUser.email,
+        displayName: authUser.name,
+        uid: authUser.id,
+      });
+      setEmail(authUser.email || "");
+
+      console.log("🔍 Profile - Profile data loaded:", {
+        email: authUser.email,
+        displayName: authUser.name,
+        uid: authUser.id,
+      });
     } catch (error) {
       console.error("Error loading user data:", error);
     }
-  };
+  }, [authLoading, authUser]);
 
   // Removed unused handleProfileOptionPress to satisfy linter
 

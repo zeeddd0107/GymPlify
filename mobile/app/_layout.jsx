@@ -10,6 +10,7 @@ import "react-native-reanimated";
 
 import { ThemeProvider, useTheme, AuthProvider } from "@/src/context";
 import { SessionTimeoutWrapper } from "@/src/components/shared/SessionTimeoutWrapper";
+import AuthGuard from "@/src/components/shared/AuthGuard";
 
 function ThemedStatusBar() {
   const { isDarkMode, theme } = useTheme();
@@ -32,7 +33,6 @@ function AppContent() {
   });
 
   if (!loaded) {
-    // Async font loading only occurs in development.
     return null;
   }
 
@@ -42,46 +42,57 @@ function AppContent() {
         <AuthProvider>
           <SessionTimeoutWrapper>
             <NavigationThemeProvider value={DefaultTheme}>
-              <Stack>
-                <Stack.Screen
-                  name="auth/index"
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="[...catch-all]"
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen name="profile" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="notifications"
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                  name="my-qr-code"
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                  name="create-session"
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                  name="edit-session"
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                  name="attendance-history"
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                  name="equipment-detail"
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                  name="equipment-info"
-                  options={{ headerShown: false }}
-                />
-              </Stack>
+              {/* AuthGuard decides whether to send user to login or tabs */}
+              <AuthGuard>
+                <Stack
+                  initialRouteName="(tabs)" // default is tabs if logged in
+                >
+                  <Stack.Screen
+                    name="auth/index"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="(tabs)"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="[...catch-all]"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="profile"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="notifications"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="my-qr-code"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="create-session"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="edit-session"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="attendance-history"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="equipment-detail"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="equipment-info"
+                    options={{ headerShown: false }}
+                  />
+                </Stack>
+              </AuthGuard>
               <ThemedStatusBar />
             </NavigationThemeProvider>
           </SessionTimeoutWrapper>
