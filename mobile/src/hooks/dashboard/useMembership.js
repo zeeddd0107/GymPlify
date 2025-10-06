@@ -1,42 +1,98 @@
 import { useState } from "react";
 import { Alert } from "react-native";
-import { firebase } from "@/src/services/firebase";
 import {
   fetchMembershipData,
   renewMembership,
   fetchActiveSubscriptions,
 } from "@/src/services/dashboardService";
+import { getUserActiveSubscription } from "@/src/services/subscriptionService";
+import { useAuth } from "@/src/context";
 
 export const useMembership = () => {
   const [membershipData, setMembershipData] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
+  const { user: authUser, loading: authLoading } = useAuth();
 
   const fetchMembershipDataHook = async () => {
     try {
-      const user = firebase.auth().currentUser;
-      if (!user) return;
+      console.log("🔍 useMembership - fetchMembershipDataHook called");
+      console.log("🔍 useMembership - authLoading:", authLoading);
+      console.log("🔍 useMembership - authUser:", authUser);
+      console.log("🔍 useMembership - authUser type:", typeof authUser);
+      console.log(
+        "🔍 useMembership - authUser keys:",
+        authUser ? Object.keys(authUser) : "null",
+      );
+      console.log("🔍 useMembership - authUser.id:", authUser?.id);
 
-      const membership = await fetchMembershipData(user.uid);
+      // Don't fetch if authentication is still loading
+      if (authLoading) {
+        console.log(
+          "🔍 useMembership - Authentication still loading, skipping membership data fetch",
+        );
+        return;
+      }
+
+      // Don't fetch if no authenticated user
+      if (!authUser) {
+        console.log(
+          "🔍 useMembership - No authenticated user, skipping membership data fetch",
+        );
+        return;
+      }
+
+      // Don't fetch if user ID is not available
+      if (!authUser.id) {
+        console.log(
+          "🔍 useMembership - No user ID available, skipping membership data fetch",
+        );
+        return;
+      }
+
+      console.log(
+        "🔍 useMembership - Fetching membership data for user:",
+        authUser.email,
+      );
+
+      // Try to get active subscription from new system first
+      const activeSubscription = await getUserActiveSubscription(authUser.id);
+      if (activeSubscription) {
+        console.log(
+          "🔍 useMembership - Found active subscription:",
+          activeSubscription.id,
+        );
+        setMembershipData(activeSubscription);
+        return;
+      }
+
+      console.log(
+        "🔍 useMembership - No active subscription found, trying fallback system",
+      );
+
+      // Fallback to old system
+      const membership = await fetchMembershipData(authUser.id);
       setMembershipData(membership);
 
       // Also fetch subscriptions to calculate days remaining
-      const activeSubs = await fetchActiveSubscriptions(user.uid);
+      const activeSubs = await fetchActiveSubscriptions(authUser.id);
       setSubscriptions(activeSubs);
+
+      console.log("🔍 useMembership - Membership data fetch completed");
     } catch (error) {
       console.error("Error fetching membership data:", error);
-      Alert.alert("Error", "Failed to load membership data");
+      // Don't show alert for missing membership data since it's expected for new users
+      // Alert.alert("Error", "Failed to load membership data");
     }
   };
 
   const handleRenewMembership = async () => {
     try {
-      const user = firebase.auth().currentUser;
-      if (!user) {
+      if (!authUser) {
         Alert.alert("Error", "Please log in to renew membership");
         return;
       }
 
-      const result = await renewMembership(user.uid, membershipData.planId);
+      const result = await renewMembership(authUser.id, membershipData.planId);
       if (result.success) {
         Alert.alert("Success", "Membership renewed successfully!");
         fetchMembershipDataHook(); // Refresh data
@@ -63,6 +119,40 @@ export const useMembership = () => {
 
   // Calculate days left from subscriptions using endDate minus today
   const getDaysLeftFromSubscriptions = () => {
+    // First try to get days left from the active subscription (membershipData)
+    if (membershipData && membershipData.endDate) {
+      try {
+        const end = membershipData.endDate.toDate
+          ? membershipData.endDate.toDate()
+          : new Date(membershipData.endDate);
+        const today = new Date();
+
+        // Set both dates to start of day for accurate comparison
+        const endOnly = new Date(
+          end.getFullYear(),
+          end.getMonth(),
+          end.getDate(),
+        );
+        const todayOnly = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
+        );
+
+        const diffDays = Math.ceil(
+          (endOnly.getTime() - todayOnly.getTime()) / (1000 * 60 * 60 * 24),
+        );
+
+        return diffDays;
+      } catch (error) {
+        console.error(
+          "Error calculating days left from membershipData:",
+          error,
+        );
+      }
+    }
+
+    // Fallback to subscriptions array
     if (!subscriptions || subscriptions.length === 0) return null;
 
     // Map to items that have endDate
