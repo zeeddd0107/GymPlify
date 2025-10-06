@@ -6,4 +6,5 @@ export { useModal } from "./useModal";
 export { useSubscriptions } from "./useSubscriptions";
 export { useSubscriptionForm } from "./useSubscriptionForm";
 export { useNotifications } from "./useNotifications";
+export { usePendingSubscriptions } from "./usePendingSubscriptions";
 export { useSessionTimeout } from "../../hooks/useSessionTimeout";
