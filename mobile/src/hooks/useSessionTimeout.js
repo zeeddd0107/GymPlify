@@ -57,7 +57,7 @@ export const useSessionTimeout = () => {
       );
       logoutNow();
     }, INACTIVITY_TIMEOUT);
-  }, [user, showWarning, logoutNow]);
+  }, [user, showWarning, logoutNow, timeRemaining]);
 
   const updateActivity = useCallback(() => {
     // Only update activity if user is authenticated and app is active
@@ -69,12 +69,12 @@ export const useSessionTimeout = () => {
     console.log("Session timeout: User activity detected, resetting timeout");
     lastActivityRef.current = Date.now();
     resetTimeout();
-  }, [user, showWarning]);
+  }, [user, showWarning, resetTimeout]);
 
   const extendSession = useCallback(() => {
     setShowWarning(false);
     resetTimeout();
-  }, []);
+  }, [resetTimeout]);
 
   const logoutNow = useCallback(async () => {
     console.log("Session timeout: Logout Now button clicked");
