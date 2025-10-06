@@ -88,45 +88,8 @@ export async function registerUser(email, password) {
   // Send email verification
   await sendEmailVerification(user);
 
-  // Add a small delay to ensure user document is fully written
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  // Get user data from Firestore to access customMemberId and displayName
-  const userDoc = await firestore.collection("users").doc(user.uid).get();
-  const userData = userDoc.data();
-
-  console.log("User data for subscription creation:", userData);
-
-  // Create a new subscription for the user
-  // Use server timestamp for consistency and accuracy
-  const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp();
-
-  // Calculate endDate as one month after startDate
-  // We'll use a batch write to ensure both timestamps are consistent
-  const batch = firestore.batch();
-  const subscriptionRef = firestore.collection("subscriptions").doc();
-
-  // Get current date for endDate calculation
-  const now = new Date();
-  const endDate = new Date(now);
-  endDate.setMonth(endDate.getMonth() + 1);
-
-  const subscriptionData = {
-    userId: user.uid,
-    plan: "basic",
-    status: "active",
-    startDate: serverTimestamp,
-    endDate: firebase.firestore.Timestamp.fromDate(endDate),
-    createdAt: serverTimestamp,
-    customMemberId: userData?.customMemberId || null,
-    displayName: userData?.displayName || user.email || "Unknown User",
-  };
-
-  console.log("Subscription data to be created:", subscriptionData);
-
-  batch.set(subscriptionRef, subscriptionData);
-
-  await batch.commit();
+  // User registration completed - no automatic subscription creation
+  console.log("User registration completed successfully");
   return user;
 }
 
@@ -154,52 +117,8 @@ export async function signInWithGoogle() {
   const user = result.user;
   await upsertUserInFirestore(user, "google");
 
-  // Add a small delay to ensure user document is fully written
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  // Check if user already has a subscription
-  const existingSubs = await firestore
-    .collection("subscriptions")
-    .where("userId", "==", user.uid)
-    .get();
-
-  if (existingSubs.empty) {
-    // Get user data from Firestore to access customMemberId and displayName
-    const userDoc = await firestore.collection("users").doc(user.uid).get();
-    const userData = userDoc.data();
-
-    console.log("User data for Google subscription creation:", userData);
-
-    // Create a new subscription only if one doesn't exist
-    // Use server timestamp for consistency and accuracy
-    const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp();
-
-    // Calculate endDate as one month after startDate
-    const now = new Date();
-    const endDate = new Date(now);
-    endDate.setMonth(endDate.getMonth() + 1);
-
-    const batch = firestore.batch();
-    const subscriptionRef = firestore.collection("subscriptions").doc();
-
-    const subscriptionData = {
-      userId: user.uid,
-      plan: "basic",
-      status: "active",
-      startDate: serverTimestamp,
-      endDate: firebase.firestore.Timestamp.fromDate(endDate),
-      createdAt: serverTimestamp,
-      customMemberId: userData?.customMemberId || null,
-      displayName: userData?.displayName || user.email || "Unknown User",
-    };
-
-    console.log("Google subscription data to be created:", subscriptionData);
-
-    batch.set(subscriptionRef, subscriptionData);
-
-    await batch.commit();
-  }
-
+  // Google authentication completed - no automatic subscription creation
+  console.log("Google authentication completed successfully");
   return user;
 }
 
