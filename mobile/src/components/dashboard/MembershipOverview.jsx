@@ -9,19 +9,28 @@ const MembershipOverview = ({
   getDaysLeftFromSubscriptions,
 }) => {
   if (!membershipData) {
-    return (
-      <View style={[styles.card, { backgroundColor: colors.background }]}>
-        <View style={styles.loadingContainer}>
-          <Ionicons name="refresh" size={24} color={colors.icon} />
-          <Text style={[styles.loadingText, { color: colors.icon }]}>
-            Loading membership data...
-          </Text>
-        </View>
-      </View>
-    );
+    return null;
   }
 
   const daysLeft = getDaysLeftFromSubscriptions();
+
+  // Format the endDate from the subscription
+  const formatEndDate = (endDate) => {
+    if (!endDate) return "N/A";
+
+    try {
+      // Handle Firestore timestamp
+      const date = endDate.toDate ? endDate.toDate() : new Date(endDate);
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+    } catch (error) {
+      console.error("Error formatting end date:", error);
+      return "N/A";
+    }
+  };
 
   return (
     <View style={[styles.card, { backgroundColor: colors.background }]}>
@@ -59,7 +68,7 @@ const MembershipOverview = ({
         ) : null}
 
         <Text style={[styles.expiryText, { color: colors.icon }]}>
-          Expires: {membershipData.expiresAt}
+          Expires: {formatEndDate(membershipData.endDate)}
         </Text>
       </View>
     </View>
@@ -70,7 +79,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     padding: 20,
-    marginTop: 16,
+    marginHorizontal: 20,
+    marginTop: 20,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -109,18 +119,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.semiBold,
     fontSize: 14,
     marginTop: 8,
-  },
-
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 20,
-  },
-  loadingText: {
-    fontFamily: Fonts.family.regular,
-    fontSize: 16,
-    marginLeft: 12,
   },
 });
 
