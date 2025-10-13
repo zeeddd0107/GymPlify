@@ -10,6 +10,13 @@ export const SessionTimeoutWarning = ({
   onExtend,
   onLogout,
 }) => {
+  console.log(
+    "SessionTimeoutWarning: visible =",
+    visible,
+    "timeRemaining =",
+    timeRemaining,
+  );
+
   // Handle auto-logout when countdown reaches 0
   useEffect(() => {
     if (!visible || timeRemaining > 0) return;
@@ -21,7 +28,12 @@ export const SessionTimeoutWarning = ({
     onLogout();
   }, [visible, timeRemaining, onLogout]);
 
-  if (!visible) return null;
+  if (!visible) {
+    console.log("SessionTimeoutWarning: Not visible, returning null");
+    return null;
+  }
+
+  console.log("SessionTimeoutWarning: Rendering warning modal");
 
   const minutes = Math.floor(timeRemaining / (60 * 1000));
   const seconds = Math.floor((timeRemaining % (60 * 1000)) / 1000);

@@ -11,6 +11,15 @@ export const SessionTimeoutWrapper = ({ children }) => {
   const { showWarning, timeRemaining, extendSession, logoutNow, panResponder } =
     useSessionTimeout();
 
+  console.log(
+    "SessionTimeoutWrapper: user =",
+    !!user,
+    "showWarning =",
+    showWarning,
+    "timeRemaining =",
+    timeRemaining,
+  );
+
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
       {children}

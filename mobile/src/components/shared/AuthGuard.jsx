@@ -5,6 +5,7 @@ import { useAuth } from "@/src/context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/src/constants/Colors";
 import { useColorScheme } from "@/src/hooks";
+import Logger from "@/src/utils/logger";
 
 export default function AuthGuard({ children }) {
   const { user, loading } = useAuth();
@@ -15,20 +16,18 @@ export default function AuthGuard({ children }) {
 
   // Only log when state changes
   if (user && !loading) {
-    console.log("🛡️ AuthGuard: User authenticated, showing app");
+    Logger.render("AuthGuard", "User authenticated, showing app");
   } else if (!user && !loading) {
-    console.log("🛡️ AuthGuard: No user, redirecting to auth");
+    Logger.render("AuthGuard", "No user, redirecting to auth");
   }
 
   useEffect(() => {
     if (!loading) {
-      if (user) {
-        // User is authenticated, redirect to dashboard
-        router.replace("/(tabs)");
-      } else {
+      if (!user) {
         // User is not authenticated, redirect to auth
         router.replace("/auth");
       }
+      // If user is authenticated, don't redirect - let them stay on current screen
     }
   }, [user, loading, router]);
 
