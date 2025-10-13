@@ -66,6 +66,7 @@ export default [
         expect: "readonly",
         beforeEach: "readonly",
         afterEach: "readonly",
+        __DEV__: "readonly",
       },
     },
   },
@@ -114,6 +115,7 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
+        __DEV__: "readonly",
       },
     },
     plugins: {
