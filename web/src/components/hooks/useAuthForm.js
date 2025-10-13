@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useAuth } from "@/context";
 
 /**
- * Custom hook for authentication form logic
- * Handles form state, validation, and authentication actions
+ * This is my custom hook for handling all the authentication form logic
+ * It takes care of form state, validation, and all the auth actions
  */
 export const useAuthForm = (formType = "login") => {
   const [formData, setFormData] = useState({
@@ -23,13 +23,13 @@ export const useAuthForm = (formType = "login") => {
 
   const { signIn, signUp, signInWithGoogle } = useAuth();
 
-  // Update form field value
+  // Let me update a form field value
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
-    // Clear errors when user starts typing
+    // Let me clear errors when the user starts typing
     if (error) {
       setError("");
     }
@@ -41,7 +41,7 @@ export const useAuthForm = (formType = "login") => {
     }
   };
 
-  // Validate form data
+  // Let me validate the form data
   const validateForm = () => {
     const newFieldErrors = {
       username: "",
@@ -82,7 +82,7 @@ export const useAuthForm = (formType = "login") => {
     return true;
   };
 
-  // Handle form submission
+  // Let me handle the form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -100,13 +100,14 @@ export const useAuthForm = (formType = "login") => {
         await signUp(formData.username, formData.email, formData.password);
       }
     } catch (error) {
+      // My AuthService handles specific error messages and attempt tracking
       setError(error.message || "Authentication failed");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle Google sign in
+  // Let me handle Google sign in
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setError("");
@@ -120,7 +121,7 @@ export const useAuthForm = (formType = "login") => {
     }
   };
 
-  // Reset form
+  // Let me reset the form
   const resetForm = () => {
     setFormData({
       username: "",

@@ -18,6 +18,7 @@ import {
   timestampToDateString,
   dateStringToTimestamp,
   isSubscriptionExpired,
+  getSubscriptionStatus,
 } from "@/components/utils";
 
 /**
@@ -93,16 +94,51 @@ export const useSubscriptions = () => {
       const subscriptionRef = doc(db, "subscriptions", editingSubscription.id);
 
       // Convert date strings back to Firestore timestamps
+      const startDate = dateStringToTimestamp(editFormData.startDate);
+      const endDate = dateStringToTimestamp(editFormData.endDate);
+
+      // Create a temporary subscription object to calculate the correct status
+      const tempSubscription = {
+        ...editingSubscription,
+        startDate: startDate,
+        endDate: endDate,
+        status: "active", // Always start with active to allow proper recalculation
+      };
+
+      // Calculate the correct status based on the new dates
+      const calculatedStatus = getSubscriptionStatus(tempSubscription);
+
       const updateData = {
         plan: editFormData.plan,
-        status: editFormData.status,
-        startDate: dateStringToTimestamp(editFormData.startDate),
-        endDate: dateStringToTimestamp(editFormData.endDate),
+        status: calculatedStatus, // Use calculated status instead of manual status
+        startDate: startDate,
+        endDate: endDate,
         customMemberId: editFormData.customMemberId,
         displayName: editFormData.displayName,
+        updatedAt: new Date(),
       };
 
       await updateDoc(subscriptionRef, updateData);
+
+      // Also update the user document to reflect the new subscription status
+      const userRef = doc(db, "users", editingSubscription.userId);
+
+      if (calculatedStatus === "expired") {
+        // If subscription becomes expired, move activeSubscriptionId to lastSubscriptionId and set activeSubscriptionId to null
+        await updateDoc(userRef, {
+          subscriptionStatus: calculatedStatus,
+          lastSubscriptionId: editingSubscription.id, // Move current activeSubscriptionId to lastSubscriptionId
+          activeSubscriptionId: null, // Set activeSubscriptionId to null since subscription is expired
+          updatedAt: new Date(),
+        });
+      } else {
+        // If subscription is active, ensure activeSubscriptionId is set
+        await updateDoc(userRef, {
+          subscriptionStatus: calculatedStatus,
+          activeSubscriptionId: editingSubscription.id, // Ensure activeSubscriptionId is set for active subscriptions
+          updatedAt: new Date(),
+        });
+      }
 
       // Update local state with proper Firestore timestamp conversion
       setSubscriptions((prev) =>
@@ -111,7 +147,7 @@ export const useSubscriptions = () => {
             ? {
                 ...sub,
                 plan: updateData.plan,
-                status: updateData.status,
+                status: calculatedStatus, // Use calculated status
                 customMemberId: updateData.customMemberId,
                 displayName: updateData.displayName,
                 // Convert JavaScript Date objects back to Firestore timestamps for display
@@ -140,7 +176,7 @@ export const useSubscriptions = () => {
       // Show success toast notification
       setToast({
         isVisible: true,
-        message: `Subscription for ${editFormData.displayName} has been updated successfully!`,
+        message: `Subscription for ${editFormData.displayName} has been updated successfully! Status automatically set to ${calculatedStatus}.`,
         type: "success",
       });
     } catch (error) {
@@ -187,6 +223,7 @@ export const useSubscriptions = () => {
   const updateExpiredSubscriptions = async (subscriptions) => {
     try {
       const batch = [];
+      const userUpdates = [];
 
       for (const subscription of subscriptions) {
         // Check if subscription should be expired but isn't marked as expired in database
@@ -196,6 +233,30 @@ export const useSubscriptions = () => {
         ) {
           const subscriptionRef = doc(db, "subscriptions", subscription.id);
           batch.push(updateDoc(subscriptionRef, { status: "expired" }));
+
+          // Update user document: move activeSubscriptionId to lastSubscriptionId and set activeSubscriptionId to null
+          const userRef = doc(db, "users", subscription.userId);
+          userUpdates.push(
+            updateDoc(userRef, {
+              subscriptionStatus: "expired",
+              lastSubscriptionId: subscription.id, // Move current activeSubscriptionId to lastSubscriptionId
+              activeSubscriptionId: null, // Set activeSubscriptionId to null since subscription is expired
+              updatedAt: new Date(),
+            }),
+          );
+        } else if (
+          !isSubscriptionExpired(subscription.endDate) &&
+          subscription.status === "active"
+        ) {
+          // Ensure user document reflects active status for non-expired subscriptions
+          const userRef = doc(db, "users", subscription.userId);
+          userUpdates.push(
+            updateDoc(userRef, {
+              subscriptionStatus: "active",
+              activeSubscriptionId: subscription.id, // Ensure activeSubscriptionId is set for active subscriptions
+              updatedAt: new Date(),
+            }),
+          );
         }
       }
 
@@ -203,14 +264,20 @@ export const useSubscriptions = () => {
       if (batch.length > 0) {
         await Promise.all(batch);
         console.log(`Updated ${batch.length} expired subscriptions`);
-
-        // Refresh the subscriptions list to show updated statuses
-        const updatedSubscriptions = subscriptions.map((sub) => ({
-          ...sub,
-          status: isSubscriptionExpired(sub.endDate) ? "expired" : sub.status,
-        }));
-        setSubscriptions(updatedSubscriptions);
       }
+
+      // Update user documents
+      if (userUpdates.length > 0) {
+        await Promise.all(userUpdates);
+        console.log(`Updated ${userUpdates.length} user subscription statuses`);
+      }
+
+      // Refresh the subscriptions list to show updated statuses
+      const updatedSubscriptions = subscriptions.map((sub) => ({
+        ...sub,
+        status: getSubscriptionStatus(sub),
+      }));
+      setSubscriptions(updatedSubscriptions);
     } catch (error) {
       console.error("Error updating expired subscriptions:", error);
     }
@@ -310,7 +377,7 @@ export const useSubscriptions = () => {
       label: "Status",
       render: (value, row) => ({
         type: "status",
-        status: value,
+        status: getSubscriptionStatus(row),
         subscription: row,
       }),
     },

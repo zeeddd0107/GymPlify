@@ -34,7 +34,18 @@ export const usePendingSubscriptions = () => {
       return false;
     } catch (error) {
       console.error("Error approving request:", error);
-      setError("Failed to approve request");
+
+      // Check if it's the specific error about existing active subscription
+      if (
+        error.message &&
+        error.message.includes("already has an active subscription")
+      ) {
+        setError(
+          "This user already has an active subscription. Please wait for their current subscription to expire before approving a new one.",
+        );
+      } else {
+        setError("Failed to approve request");
+      }
       return false;
     }
   };
