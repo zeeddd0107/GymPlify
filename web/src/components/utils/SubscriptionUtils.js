@@ -70,9 +70,6 @@ export const isSubscriptionExpired = (endDate) => {
  * @returns {string} Subscription status
  */
 export const getSubscriptionStatus = (subscription) => {
-  // If status is already expired, return expired
-  if (subscription.status === "expired") return "expired";
-
   // Check if subscription should be expired based on end date
   if (isSubscriptionExpired(subscription.endDate)) {
     return "expired";
@@ -87,6 +84,7 @@ export const getSubscriptionStatus = (subscription) => {
     return "expired";
   }
 
+  // If not expired, return the current status or default to active
   return subscription.status || "active";
 };
 
