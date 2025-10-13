@@ -48,7 +48,7 @@ export default function CustomTimePickerModal({
       onShow={() => setStatusBarStyle("light", true)}
       onDismiss={() => setStatusBarStyle("dark", true)}
     >
-      <StatusBar style="light" backgroundColor="rgba(0,0,0,0.8)" animated />
+      <StatusBar style="light" animated />
       <Pressable style={styles.modalOverlay} onPress={onClose}>
         <Pressable
           style={styles.modalContainer}
@@ -107,7 +107,7 @@ export default function CustomTimePickerModal({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
     justifyContent: "center",
     alignItems: "center",
     padding: 15,
