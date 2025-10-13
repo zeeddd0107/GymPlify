@@ -4,11 +4,11 @@ import { useAuth } from "@/src/context/AuthContext";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minute in milliseconds (for testing)
-const SESSION_WARNING_TIME = 30 * 1000; // Show warning 30 seconds before timeout (at 14 minutes 30 seconds)
+const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minute in milliseconds
+const SESSION_WARNING_TIME = 30 * 1000; // Show warning 30 seconds before timeout (at 30 seconds)
 
 export const useSessionTimeout = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut: _signOut } = useAuth();
   const router = useRouter();
   const timeoutRef = useRef(null);
   const warningTimeoutRef = useRef(null);
@@ -21,8 +21,14 @@ export const useSessionTimeout = () => {
     // Only set timeout if user is authenticated
     if (!user) return;
 
+    // Don't reset if warning is already showing - this prevents the warning from being hidden
+    if (showWarning) {
+      console.log("Session timeout: Warning is showing, skipping reset");
+      return;
+    }
+
     console.log(
-      "Session timeout: Setting timeout for 15 minutes (warning at 14 minutes 30 seconds)",
+      "Session timeout: Setting timeout for 15 minute (warning at 30 seconds)",
     );
 
     // Clear existing timeouts
@@ -36,35 +42,40 @@ export const useSessionTimeout = () => {
     // Reset time remaining
     setTimeRemaining(SESSION_WARNING_TIME);
 
-    // Only hide warning if it's not already showing
-    if (!showWarning) {
-      setShowWarning(false);
-    }
+    // Hide warning when resetting timeout
+    setShowWarning(false);
 
-    // Set warning timeout (14 minutes 30 seconds)
+    // Set warning timeout (30 seconds)
+    const warningDelay = INACTIVITY_TIMEOUT - SESSION_WARNING_TIME;
+    console.log(
+      `Session timeout: Warning will trigger in ${warningDelay}ms (${warningDelay / 1000} seconds)`,
+    );
+
     warningTimeoutRef.current = setTimeout(() => {
       console.log(
-        "Session timeout: Warning triggered after 14 minutes 30 seconds of inactivity",
+        "Session timeout: Warning triggered after 30 seconds of inactivity",
       );
-      console.log("Session timeout: Current timeRemaining:", timeRemaining);
       setShowWarning(true);
-    }, INACTIVITY_TIMEOUT - SESSION_WARNING_TIME);
+    }, warningDelay);
 
-    // Set logout timeout (15 minutes) - this will be handled by the warning countdown
+    // Set logout timeout (1 minute) - this will be handled by the warning countdown
     timeoutRef.current = setTimeout(() => {
       console.log(
         "Session timeout: Auto-logout due to inactivity (backup timeout)",
       );
       logoutNow();
     }, INACTIVITY_TIMEOUT);
-  }, [user, showWarning, logoutNow, timeRemaining]);
+  }, [user, showWarning, logoutNow]);
 
   const updateActivity = useCallback(() => {
     // Only update activity if user is authenticated and app is active
     if (!user || appStateRef.current !== "active") return;
 
     // Don't reset timeout if warning is already showing
-    if (showWarning) return;
+    if (showWarning) {
+      console.log("Session timeout: Warning is showing, ignoring activity");
+      return;
+    }
 
     console.log("Session timeout: User activity detected, resetting timeout");
     lastActivityRef.current = Date.now();
@@ -72,8 +83,12 @@ export const useSessionTimeout = () => {
   }, [user, showWarning, resetTimeout]);
 
   const extendSession = useCallback(() => {
+    console.log("Session timeout: Extending session, hiding warning");
     setShowWarning(false);
-    resetTimeout();
+    // Force reset timeout by temporarily setting showWarning to false
+    setTimeout(() => {
+      resetTimeout();
+    }, 0);
   }, [resetTimeout]);
 
   const logoutNow = useCallback(async () => {
@@ -81,8 +96,11 @@ export const useSessionTimeout = () => {
     setShowWarning(false);
 
     try {
-      // Sign out from Firebase
-      await signOut();
+      // Use the authService signOut function which includes lastLogout tracking
+      const { signOut: authSignOut } = await import(
+        "@/src/services/authService"
+      );
+      await authSignOut();
       console.log("Session timeout: Firebase sign out completed");
 
       // Clear AsyncStorage
@@ -111,38 +129,55 @@ export const useSessionTimeout = () => {
         console.error("Session timeout: Fallback failed:", fallbackError);
       }
     }
-  }, [signOut, router]);
+  }, [router]);
 
   // Create PanResponder to track user touches
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => {
+        console.log("Session timeout: Touch detected (onStart)");
         updateActivity();
         return false; // Don't capture the touch, just track it
       },
       onMoveShouldSetPanResponder: () => {
+        console.log("Session timeout: Touch detected (onMove)");
         updateActivity();
         return false; // Don't capture the touch, just track it
       },
     }),
   ).current;
 
+  // Set initial time when warning first appears
+  useEffect(() => {
+    if (showWarning) {
+      console.log(
+        "Session timeout: Warning appeared, setting time to 30 seconds",
+      );
+      setTimeRemaining(SESSION_WARNING_TIME);
+    }
+  }, [showWarning]);
+
   // Update time remaining every second when warning is shown
   useEffect(() => {
     if (!showWarning) return;
 
-    // When warning first appears, set the remaining time to SESSION_WARNING_TIME
-    setTimeRemaining(SESSION_WARNING_TIME);
-
+    console.log("Session timeout: Starting countdown interval");
     const interval = setInterval(() => {
       setTimeRemaining((prev) => {
         const newTime = Math.max(0, prev - 1000);
-        console.log("Session timeout: countdown remaining:", newTime);
+        console.log(
+          "Session timeout: countdown remaining:",
+          newTime / 1000,
+          "seconds",
+        );
         return newTime;
       });
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log("Session timeout: Clearing countdown interval");
+      clearInterval(interval);
+    };
   }, [showWarning]);
 
   useEffect(() => {
@@ -165,7 +200,12 @@ export const useSessionTimeout = () => {
 
     // Initialize timeout if user is authenticated
     if (user) {
+      console.log("Session timeout: User authenticated, initializing timeout");
       resetTimeout();
+    } else {
+      console.log(
+        "Session timeout: No user authenticated, skipping timeout initialization",
+      );
     }
 
     // Cleanup function
@@ -183,8 +223,10 @@ export const useSessionTimeout = () => {
   // Reset timeout when user changes
   useEffect(() => {
     if (user) {
+      console.log("Session timeout: User changed, resetting timeout");
       resetTimeout();
     } else {
+      console.log("Session timeout: User logged out, clearing timeouts");
       // Clear timeout when user logs out
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);

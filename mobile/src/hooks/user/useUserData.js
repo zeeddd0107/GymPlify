@@ -7,14 +7,17 @@ export const useUserData = () => {
   const [email, setEmail] = useState("");
   const [activeSubscriptionId, setActiveSubscriptionId] = useState(null);
   const [userData, setUserData] = useState(null);
+  const [isUserDataLoading, setIsUserDataLoading] = useState(true);
   const { user: authUser, loading: authLoading } = useAuth();
 
   const fetchUserData = useCallback(async () => {
     // console.log("🔍 useUserData - fetchUserData called");
+    setIsUserDataLoading(true);
 
     // Don't proceed if authentication is still loading
     if (authLoading) {
       // console.log("🔍 useUserData - Authentication still loading, skipping fetch");
+      setIsUserDataLoading(false); // Set loading to false if auth is still loading
       return;
     }
 
@@ -30,8 +33,17 @@ export const useUserData = () => {
           // console.log("🔍 useUserData - Found AsyncStorage data, using as temporary fallback");
 
           // Use AsyncStorage data temporarily while waiting for Firebase auth
+          const tempUserName =
+            userObj.name && userObj.name.trim() !== ""
+              ? userObj.name
+              : userObj.displayName && userObj.displayName.trim() !== ""
+                ? userObj.displayName
+                : userObj.email
+                  ? userObj.email.split("@")[0]
+                  : "User";
+
           setUserData({
-            name: userObj.name || "User",
+            name: tempUserName,
             email: userObj.email || "",
             profilePicture: userObj.picture || null,
           });
@@ -99,10 +111,16 @@ export const useUserData = () => {
             // console.log("🔍 useUserData - activeSubscriptionId from document:", userData.activeSubscriptionId);
 
             // Always update userData with fresh Firebase data and store in AsyncStorage
+            // Prioritize name field, then displayName, then email prefix
             const userName =
-              userData.displayName ||
-              userData.name ||
-              (userEmail ? userEmail.split("@")[0] : "User");
+              userData.name && userData.name.trim() !== ""
+                ? userData.name
+                : userData.displayName && userData.displayName.trim() !== ""
+                  ? userData.displayName
+                  : userEmail
+                    ? userEmail.split("@")[0]
+                    : "User";
+
             const freshUserData = {
               name: userName,
               email: userEmail,
@@ -183,13 +201,8 @@ export const useUserData = () => {
           }
         }
       } else {
-        // No authenticated user
-        const noUserData = {
-          name: "User",
-          email: userEmail || "",
-          profilePicture: null,
-        };
-        setUserData(noUserData);
+        // No authenticated user - don't set user data, let loading state handle it
+        setUserData(null);
 
         // Clear AsyncStorage when no user
         try {
@@ -201,12 +214,8 @@ export const useUserData = () => {
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
-      const errorUserData = {
-        name: "User",
-        email: userEmail || "",
-        profilePicture: null,
-      };
-      setUserData(errorUserData);
+      // Don't set fallback user data on error, let loading state handle it
+      setUserData(null);
 
       // Clear AsyncStorage on error
       try {
@@ -215,6 +224,8 @@ export const useUserData = () => {
       } catch (storageError) {
         console.error("Error clearing AsyncStorage:", storageError);
       }
+    } finally {
+      setIsUserDataLoading(false);
     }
   }, [authUser, authLoading]);
 
@@ -225,15 +236,55 @@ export const useUserData = () => {
     }
   }, [authUser, authLoading, fetchUserData]);
 
+  // Add timeout to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (isUserDataLoading) {
+        console.log(
+          "🔍 useUserData - Loading timeout reached, setting loading to false",
+        );
+        setIsUserDataLoading(false);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [isUserDataLoading]);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
+
+    // Show generic greeting while user data is being fetched
+    if (authLoading || isUserDataLoading) {
+      if (hour < 12) {
+        return "Good morning 🌅";
+      } else if (hour < 18) {
+        return "Good afternoon ☀️";
+      } else {
+        return "Good evening 🌙";
+      }
+    }
+
+    // If no user data yet, show generic greeting
+    if (!userData) {
+      if (hour < 12) {
+        return "Good morning 🌅";
+      } else if (hour < 18) {
+        return "Good afternoon ☀️";
+      } else {
+        return "Good evening 🌙";
+      }
+    }
+
     // Better fallback logic for user names
     let userName = "User";
 
+    // Prioritize name field, then displayName, then email prefix
     if (userData?.name && userData.name.trim() !== "") {
       userName = userData.name.split(" ")[0];
+    } else if (userData?.displayName && userData.displayName.trim() !== "") {
+      userName = userData.displayName.split(" ")[0];
     } else if (userData?.email) {
-      // If no display name, use email prefix as fallback
+      // If no name or displayName, use email prefix as fallback
       userName = userData.email.split("@")[0];
     }
 
@@ -250,6 +301,7 @@ export const useUserData = () => {
     email,
     userData,
     activeSubscriptionId,
+    isUserDataLoading,
     fetchUserData,
     getGreeting,
   };
