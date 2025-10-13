@@ -23,7 +23,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     padding: 20,
-    margin: 20,
+    marginHorizontal: 20,
+    marginVertical: 20,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,

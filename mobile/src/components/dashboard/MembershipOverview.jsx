@@ -14,6 +14,15 @@ const MembershipOverview = ({
 
   const daysLeft = getDaysLeftFromSubscriptions();
 
+  // Check if this is a solo coaching subscription with session tracking
+  const isSoloCoaching = membershipData.planId === "coaching-solo";
+  const hasSessionTracking =
+    membershipData.maxSessions && membershipData.maxSessions > 0;
+  const usedSessions = membershipData.usedSessions || 0;
+  const remainingSessions = hasSessionTracking
+    ? Math.max(0, membershipData.maxSessions - usedSessions)
+    : null;
+
   // Format the endDate from the subscription
   const formatEndDate = (endDate) => {
     if (!endDate) return "N/A";
@@ -70,6 +79,28 @@ const MembershipOverview = ({
         <Text style={[styles.expiryText, { color: colors.icon }]}>
           Expires: {formatEndDate(membershipData.endDate)}
         </Text>
+
+        {/* Display session information for solo coaching */}
+        {isSoloCoaching && hasSessionTracking && (
+          <View style={styles.sessionInfo}>
+            <View style={styles.sessionRow}>
+              <Ionicons name="fitness-outline" size={16} color={colors.tint} />
+              <Text style={[styles.sessionLabel, { color: colors.text }]}>
+                Sessions
+              </Text>
+            </View>
+            <Text style={[styles.sessionCount, { color: colors.tint }]}>
+              {remainingSessions} of {membershipData.maxSessions} remaining
+            </Text>
+            {membershipData.extensionType === "solo_to_solo" &&
+              membershipData.newSoloSessions && (
+                <Text style={[styles.mergeInfo, { color: colors.icon }]}>
+                  ✨ Extended with {membershipData.newSoloSessions} additional
+                  sessions
+                </Text>
+              )}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -119,6 +150,33 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.family.semiBold,
     fontSize: 14,
     marginTop: 8,
+  },
+  sessionInfo: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.1)",
+  },
+  sessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  sessionLabel: {
+    fontFamily: Fonts.family.semiBold,
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  sessionCount: {
+    fontFamily: Fonts.family.semiBold,
+    fontSize: 14,
+    marginTop: 4,
+  },
+  mergeInfo: {
+    fontFamily: Fonts.family.regular,
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: "italic",
   },
 });
 

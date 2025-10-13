@@ -196,7 +196,7 @@ const SubscriptionPlans = ({ colors, onSelectPlan }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 120,
+    paddingVertical: 20,
   },
   content: {
     flex: 1,
@@ -234,14 +234,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "column",
     justifyContent: "space-between",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
   },
   popularBanner: {
     top: -3,
