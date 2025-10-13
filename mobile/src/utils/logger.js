@@ -11,7 +11,7 @@ const LOG_LEVELS = {
 };
 
 // Set to 'development' for verbose logging, 'production' for minimal logging
-// eslint-disable-next-line no-undef
+
 const ENV =
   typeof __DEV__ !== "undefined" && __DEV__ ? "development" : "production";
 
