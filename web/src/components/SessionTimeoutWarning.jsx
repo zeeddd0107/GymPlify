@@ -9,6 +9,7 @@ export const SessionTimeoutWarning = ({
   onLogout,
 }) => {
   const [displayTime, setDisplayTime] = useState(timeRemaining);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   // Update display time every second for countdown
   useEffect(() => {
@@ -87,17 +88,32 @@ export const SessionTimeoutWarning = ({
 
         <div className="flex justify-end space-x-3">
           <button
-            onClick={() => {
+            onClick={async () => {
               console.log("SessionTimeoutWarning: Logout button pressed");
-              onLogout();
+              setLogoutLoading(true);
+              try {
+                await onLogout();
+              } catch (error) {
+                console.error("Logout error:", error);
+                setLogoutLoading(false);
+              }
             }}
-            className="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm"
+            disabled={logoutLoading}
+            className="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
           >
-            Logout Now
+            {logoutLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 mr-2"></div>
+                Logging out...
+              </>
+            ) : (
+              "Logout Now"
+            )}
           </button>
           <button
             onClick={onExtend}
-            className="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm"
+            disabled={logoutLoading}
+            className="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm disabled:opacity-70 disabled:cursor-not-allowed"
           >
             Stay Logged In
           </button>
