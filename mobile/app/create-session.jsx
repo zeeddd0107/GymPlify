@@ -31,7 +31,6 @@ export default function CreateSessionScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
-  const [showGroupModal, setShowGroupModal] = useState(false);
   const [showCustomCalendarModal, setShowCustomCalendarModal] = useState(false);
   const [showCustomTimePickerModal, setShowCustomTimePickerModal] =
     useState(false);
@@ -69,8 +68,6 @@ export default function CreateSessionScreen() {
     setShowConfirmationModal,
     setShowErrorModal,
     setShowIntermediateConfirmation,
-    sessionType,
-    setSessionType,
     descriptions,
     setDescriptions,
     sessionTitle,
@@ -168,32 +165,6 @@ export default function CreateSessionScreen() {
                 color={theme.textLabel}
               />
             </Pressable>
-
-            {/* Session Type Selection */}
-            <Pressable
-              style={styles.groupRow}
-              onPress={() => setShowGroupModal(true)}
-            >
-              <Ionicons
-                name={
-                  sessionType === "solo" ? "person-outline" : "people-outline"
-                }
-                size={20}
-                color={theme.textLabel}
-              />
-              <Text style={styles.groupLabel}>
-                {sessionType === "solo"
-                  ? "Solo"
-                  : sessionType === "group"
-                    ? "Group"
-                    : "Select Type"}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={theme.textLabel}
-              />
-            </Pressable>
           </View>
 
           {/* Descriptions */}
@@ -266,80 +237,6 @@ export default function CreateSessionScreen() {
         getWorkoutInfo={getWorkoutInfo}
         isConfirming={isConfirming}
       />
-
-      {/* Group Selection Modal */}
-      <Modal
-        visible={showGroupModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowGroupModal(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowGroupModal(false)}
-        >
-          <Pressable
-            style={styles.groupModal}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View style={styles.groupModalHeader}>
-              <Text style={styles.groupModalTitle}>Select Type</Text>
-              <Pressable
-                style={styles.closeButton}
-                onPress={() => setShowGroupModal(false)}
-              >
-                <Ionicons name="close" size={24} color={theme.textLabel} />
-              </Pressable>
-            </View>
-
-            <View style={styles.groupOptions}>
-              <Pressable
-                style={styles.groupOption}
-                onPress={() => {
-                  setSessionType("solo");
-                  setShowGroupModal(false);
-                }}
-              >
-                <Ionicons
-                  name="person-outline"
-                  size={20}
-                  color={theme.iconColor}
-                />
-                <Text style={styles.groupOptionText}>Solo</Text>
-                {sessionType === "solo" && (
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={theme.iconColor}
-                  />
-                )}
-              </Pressable>
-
-              <Pressable
-                style={styles.groupOption}
-                onPress={() => {
-                  setSessionType("group");
-                  setShowGroupModal(false);
-                }}
-              >
-                <Ionicons
-                  name="people-outline"
-                  size={20}
-                  color={theme.iconColor}
-                />
-                <Text style={styles.groupOptionText}>Group</Text>
-                {sessionType === "group" && (
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={theme.iconColor}
-                  />
-                )}
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       {/* Custom Calendar Modal */}
       <CustomCalendarModal
@@ -437,20 +334,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#212427",
   },
-  groupRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-  },
-  groupLabel: {
-    fontFamily: Fonts.family.medium,
-    fontSize: 16,
-    color: "#1A1A1A",
-    marginLeft: 12,
-    flex: 1,
-  },
   descriptionSection: {
     marginHorizontal: 20,
     marginBottom: 24,
@@ -474,51 +357,5 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 10,
     marginBottom: 25,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 10,
-  },
-  groupModal: {
-    backgroundColor: "white",
-    borderRadius: 16,
-    padding: 24,
-    width: "90%",
-    maxWidth: 400,
-  },
-  groupModalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-  },
-  groupModalTitle: {
-    fontFamily: Fonts.family.semiBold,
-    fontSize: 20,
-    color: "#1A1A1A",
-  },
-  groupOptions: {
-    gap: 16,
-  },
-  groupOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: "#F8F9FA",
-  },
-  groupOptionText: {
-    fontFamily: Fonts.family.medium,
-    fontSize: 16,
-    color: "#1A1A1A",
-    marginLeft: 12,
-    flex: 1,
   },
 });

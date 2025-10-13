@@ -4,24 +4,12 @@ import {
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "react-native-reanimated";
 
-import { ThemeProvider, useTheme, AuthProvider } from "@/src/context";
+import { ThemeProvider, AuthProvider } from "@/src/context";
 import { SessionTimeoutWrapper } from "@/src/components/shared/SessionTimeoutWrapper";
 import AuthGuard from "@/src/components/shared/AuthGuard";
-
-function ThemedStatusBar() {
-  const { isDarkMode, theme } = useTheme();
-  return (
-    <StatusBar
-      style={isDarkMode ? "light" : "dark"}
-      backgroundColor={theme.background}
-      translucent={false}
-    />
-  );
-}
 
 function AppContent() {
   const [loaded] = useFonts({
@@ -64,6 +52,10 @@ function AppContent() {
                     options={{ headerShown: false }}
                   />
                   <Stack.Screen
+                    name="subscriptions"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
                     name="notifications"
                     options={{ headerShown: false }}
                   />
@@ -93,7 +85,6 @@ function AppContent() {
                   />
                 </Stack>
               </AuthGuard>
-              <ThemedStatusBar />
             </NavigationThemeProvider>
           </SessionTimeoutWrapper>
         </AuthProvider>

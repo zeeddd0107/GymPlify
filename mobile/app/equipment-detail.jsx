@@ -319,13 +319,6 @@ export default function EquipmentDetailScreen() {
         ))}
       </View>
 
-      {/* Equipment Counter */}
-      <View style={styles.counterContainer}>
-        <Text style={[styles.counterText, { color: theme.icon }]}>
-          {currentIndex + 1} of {categoryGuides.length}
-        </Text>
-      </View>
-
       {/* Modal removed; navigation now goes to equipment-info screen */}
     </SafeAreaView>
   );
@@ -447,14 +440,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  counterContainer: {
-    alignItems: "center",
-    paddingBottom: 20,
-  },
-  counterText: {
-    fontSize: 14,
-    fontFamily: Fonts.family.medium,
   },
   loadingContainer: {
     flex: 1,

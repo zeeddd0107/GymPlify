@@ -15,6 +15,9 @@ import { firebase, firestore } from "@/src/services/firebase";
 import QRCode from "react-native-qrcode-svg";
 import { Fonts } from "@/src/constants/Fonts";
 import { useTheme } from "@/src/context";
+import { useDashboard } from "@/src/hooks/dashboard";
+import { getUserActiveSubscription } from "@/src/services/subscriptionService";
+import { StatusBar, setStatusBarStyle } from "expo-status-bar";
 import * as FileSystem from "expo-file-system";
 import * as MediaLibrary from "expo-media-library";
 
@@ -27,19 +30,48 @@ export default function MyQRCodeScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const { hasActiveSubscription } = useDashboard();
 
   const [qrValue, setQrValue] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userInitial, setUserInitial] = useState("");
   const [Handle, setHandle] = useState("");
   const [regenerating, setRegenerating] = useState(false);
+  const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false);
   const qrRef = useRef(null);
+
+  // Set status bar style for QR code screen
+  useEffect(() => {
+    setStatusBarStyle("dark", true);
+  }, []);
 
   useEffect(() => {
     const fetchQr = async () => {
       setLoading(true);
+      setIsSubscriptionExpired(false);
+
       const user = firebase.auth().currentUser;
       if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // Check if subscription is expired first
+      try {
+        const activeSubscription = await getUserActiveSubscription(user.uid);
+        if (activeSubscription && activeSubscription.isExpired) {
+          setIsSubscriptionExpired(true);
+          setLoading(false);
+          return;
+        }
+
+        // If no active subscription or subscription is not expired, check hasActiveSubscription
+        if (!hasActiveSubscription) {
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking subscription expiry:", error);
         setLoading(false);
         return;
       }
@@ -68,7 +100,7 @@ export default function MyQRCodeScreen() {
       setLoading(false);
     };
     fetchQr();
-  }, []);
+  }, [hasActiveSubscription]);
 
   const handleRegenerate = async () => {
     const user = firebase.auth().currentUser;
@@ -134,6 +166,8 @@ export default function MyQRCodeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar style="dark" />
+
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
@@ -146,55 +180,86 @@ export default function MyQRCodeScreen() {
       </View>
 
       <View style={styles.content}>
-        <View style={styles.avatarContainer}>
-          <View style={[styles.avatar, { backgroundColor: theme.tint }]}>
-            <Text style={[styles.avatarText, { color: theme.background }]}>
-              {userInitial}
+        {isSubscriptionExpired ? (
+          <View style={styles.expiredContainer}>
+            <View style={styles.expiredIcon}>
+              <Ionicons name="time-outline" size={48} color="#DC2626" />
+            </View>
+            <Text style={[styles.expiredTitle, { color: theme.text }]}>
+              Subscription Expired
             </Text>
-          </View>
-        </View>
-        <View style={styles.qrCard}>
-          <View style={styles.qrContainer}>
-            {loading ? (
-              <ActivityIndicator size="large" color={theme.tint} />
-            ) : qrValue ? (
-              <QRCode
-                value={qrValue}
-                size={250}
-                getRef={(c) => (qrRef.current = c)}
-              />
-            ) : (
-              <Text style={[styles.noQrText, { color: theme.text }]}>
-                No QR code found.
-              </Text>
-            )}
-          </View>
-        </View>
-        <View style={styles.buttonContainer}>
-          <Pressable
-            style={[styles.regenerateButton, { backgroundColor: theme.tint }]}
-            onPress={handleRegenerate}
-            disabled={regenerating || loading}
-          >
-            <Text
-              style={[styles.regenerateButtonText, { color: theme.background }]}
+            <Text style={[styles.expiredSubtext, { color: theme.text }]}>
+              Your subscription has expired. Renew your subscription to access
+              QR code and other premium features.
+            </Text>
+            <Pressable
+              style={styles.renewButton}
+              onPress={() => router.push("/subscriptions")}
             >
-              {regenerating ? "Regenerating..." : "Regenerate QR"}
-            </Text>
-          </Pressable>
-          <View style={{ height: 12 }} />
-          <Pressable
-            style={[styles.regenerateButton, { backgroundColor: theme.tint }]}
-            onPress={handleDownload}
-            disabled={loading || !qrValue}
-          >
-            <Text
-              style={[styles.regenerateButtonText, { color: theme.background }]}
-            >
-              Download QR
-            </Text>
-          </Pressable>
-        </View>
+              <Text style={styles.renewButtonText}>Renew Subscription</Text>
+            </Pressable>
+          </View>
+        ) : loading || !qrValue ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.tint} />
+          </View>
+        ) : (
+          <>
+            <View style={styles.avatarContainer}>
+              <View style={[styles.avatar, { backgroundColor: theme.tint }]}>
+                <Text style={[styles.avatarText, { color: theme.background }]}>
+                  {userInitial}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.qrCard}>
+              <View style={styles.qrContainer}>
+                <QRCode
+                  value={qrValue}
+                  size={250}
+                  getRef={(c) => (qrRef.current = c)}
+                />
+              </View>
+            </View>
+            <View style={styles.buttonContainer}>
+              <Pressable
+                style={[
+                  styles.regenerateButton,
+                  { backgroundColor: theme.tint },
+                ]}
+                onPress={handleRegenerate}
+                disabled={regenerating || loading}
+              >
+                <Text
+                  style={[
+                    styles.regenerateButtonText,
+                    { color: theme.background },
+                  ]}
+                >
+                  {regenerating ? "Regenerating..." : "Regenerate QR"}
+                </Text>
+              </Pressable>
+              <View style={{ height: 12 }} />
+              <Pressable
+                style={[
+                  styles.regenerateButton,
+                  { backgroundColor: theme.tint },
+                ]}
+                onPress={handleDownload}
+                disabled={loading || !qrValue}
+              >
+                <Text
+                  style={[
+                    styles.regenerateButtonText,
+                    { color: theme.background },
+                  ]}
+                >
+                  Download QR
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </View>
     </View>
   );
@@ -282,5 +347,42 @@ const styles = StyleSheet.create({
   regenerateButtonText: {
     fontSize: 16,
     fontFamily: Fonts.semiBold,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  expiredContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
+  },
+  expiredTitle: {
+    fontFamily: Fonts.family.bold,
+    fontSize: 24,
+    marginTop: 20,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  expiredSubtext: {
+    fontFamily: Fonts.family.regular,
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  renewButton: {
+    backgroundColor: "#4361EE",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  renewButtonText: {
+    color: "white",
+    fontFamily: Fonts.family.semiBold,
+    fontSize: 16,
   },
 });

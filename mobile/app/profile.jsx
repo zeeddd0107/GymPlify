@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  ActivityIndicator,
+  Image,
 } from "react-native";
 
 import { useRouter } from "expo-router";
@@ -14,7 +16,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme, useAuth } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
-import { firebase } from "@/src/services/firebase";
+import { firebase as _firebase } from "@/src/services/firebase";
+import { LogoutConfirmationModal } from "@/src/components/shared";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -24,12 +27,14 @@ export default function ProfileScreen() {
 
   const [userData, setUserData] = useState(null);
   const [email, setEmail] = useState("");
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
     loadUserData();
   }, [authUser, authLoading, loadUserData]);
 
-  const loadUserData = async () => {
+  const loadUserData = useCallback(async () => {
     try {
       console.log("🔍 Profile - loadUserData called");
       console.log("🔍 Profile - authLoading:", authLoading);
@@ -63,6 +68,7 @@ export default function ProfileScreen() {
         email: authUser.email,
         displayName: authUser.name,
         uid: authUser.id,
+        photoURL: authUser.picture,
       });
       setEmail(authUser.email || "");
 
@@ -70,16 +76,21 @@ export default function ProfileScreen() {
         email: authUser.email,
         displayName: authUser.name,
         uid: authUser.id,
+        picture: authUser.picture,
       });
     } catch (error) {
       console.error("Error loading user data:", error);
     }
-  };
+  }, [authUser, authLoading]);
 
   // Removed unused handleProfileOptionPress to satisfy linter
 
   const handleMyQRCode = () => {
     router.push("/my-qr-code");
+  };
+
+  const handleSubscriptions = () => {
+    router.push("/subscriptions");
   };
 
   const handleLoginInformation = () => {
@@ -146,40 +157,43 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleSignOut = async () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          let signOutError = null;
-          try {
-            await firebase.auth().signOut();
-          } catch (error) {
-            signOutError = error;
-            console.error("Error signing out:", error);
-          } finally {
-            try {
-              await AsyncStorage.clear();
-            } catch (error) {
-              console.warn("Failed to clear AsyncStorage:", error);
-            }
-            router.replace("/auth");
-          }
-          if (signOutError) {
-            Alert.alert(
-              "Sign-out issue",
-              signOutError?.message ||
-                "Failed to sign out from server, but local session was cleared.",
-            );
-          }
-        },
-      },
-    ]);
+  const handleSignOut = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setIsLoggingOut(true);
+    setShowLogoutModal(false);
+
+    let signOutError = null;
+    try {
+      // Use the authService signOut function which includes lastLogout tracking
+      const { signOut: authSignOut } = await import(
+        "@/src/services/authService"
+      );
+      await authSignOut();
+    } catch (error) {
+      signOutError = error;
+      console.error("Error signing out:", error);
+    } finally {
+      try {
+        await AsyncStorage.clear();
+      } catch (error) {
+        console.warn("Failed to clear AsyncStorage:", error);
+      }
+      router.replace("/auth");
+    }
+    if (signOutError) {
+      Alert.alert(
+        "Sign-out issue",
+        signOutError?.message ||
+          "Failed to sign out from server, but local session was cleared.",
+      );
+    }
+  };
+
+  const handleCancelLogout = () => {
+    setShowLogoutModal(false);
   };
 
   const profileOptions = [
@@ -197,23 +211,52 @@ export default function ProfileScreen() {
     },
     {
       id: 3,
+      title: "Subscriptions",
+      icon: "card-outline",
+      onPress: handleSubscriptions,
+    },
+    {
+      id: 4,
       title: "Terms and Conditions",
       icon: "document-text-outline",
       onPress: handleTermsAndConditions,
     },
     {
-      id: 4,
+      id: 5,
       title: "Privacy Policy",
       icon: "shield-checkmark-outline",
       onPress: handlePrivacyPolicy,
     },
     {
-      id: 5,
+      id: 6,
       title: "Logout",
       icon: "log-out-outline",
       onPress: handleSignOut,
     },
   ];
+
+  // Show loading screen while authentication is loading
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={theme.textPrimary} />
+          </Pressable>
+          <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+            Profile
+          </Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
+        <View style={styles.loadingContainerFull}>
+          <ActivityIndicator size="large" color="#4361EE" />
+          <Text style={[styles.loadingText, { color: theme.textPrimary }]}>
+            Loading profile...
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -233,14 +276,27 @@ export default function ProfileScreen() {
         style={[styles.userInfoSection, { backgroundColor: theme.background }]}
       >
         <View style={styles.userAvatar}>
-          <Ionicons name="person" size={40} color={theme.icon} />
+          {console.log("🔍 Profile - photoURL:", userData?.photoURL)}
+          {userData?.photoURL ? (
+            <Image
+              source={{ uri: userData.photoURL }}
+              style={styles.userPhoto}
+              resizeMode="cover"
+              onError={(error) => {
+                console.log("🔍 Profile - Image load error:", error);
+              }}
+              onLoad={() => {
+                console.log("🔍 Profile - Image loaded successfully");
+              }}
+            />
+          ) : (
+            <Ionicons name="person" size={40} color={theme.icon} />
+          )}
         </View>
         <Text style={[styles.userName, { color: theme.textPrimary }]}>
           {userData?.displayName || "User"}
         </Text>
-        <Text style={[styles.userEmail, { color: theme.textSecondary }]}>
-          {email}
-        </Text>
+        <Text style={[styles.userEmail, { color: theme.text }]}>{email}</Text>
       </View>
 
       {/* Profile Options */}
@@ -251,16 +307,17 @@ export default function ProfileScreen() {
               <Pressable
                 style={[
                   styles.profileOption,
-                  option.id === 5 && styles.signOutOption,
+                  option.id === 6 && styles.signOutOption,
                 ]}
                 onPress={option.onPress}
+                disabled={isLoggingOut && option.id === 6}
               >
                 <Text
                   style={[
                     styles.profileOptionText,
                     {
                       color:
-                        option.id === 5 ? theme.textError : theme.textPrimary,
+                        option.id === 6 ? theme.textError : theme.textPrimary,
                     },
                   ]}
                 >
@@ -269,13 +326,31 @@ export default function ProfileScreen() {
                 <Ionicons
                   name={option.icon}
                   size={24}
-                  color={option.id === 5 ? theme.textError : theme.icon}
+                  color={option.id === 6 ? theme.textError : theme.icon}
                 />
               </Pressable>
             </View>
           ))}
         </View>
       </ScrollView>
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmationModal
+        visible={showLogoutModal}
+        onClose={handleCancelLogout}
+        onConfirm={handleConfirmLogout}
+        isLoading={isLoggingOut}
+      />
+
+      {/* Loading Overlay */}
+      {isLoggingOut && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4361EE" />
+            <Text style={styles.loadingText}>Signing out...</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -319,6 +394,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
+  userPhoto: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
   userName: {
     fontFamily: Fonts.family.bold,
     fontSize: 24,
@@ -357,5 +437,36 @@ const styles = StyleSheet.create({
   separator: {
     height: 1,
     opacity: 0.3,
+  },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  loadingContainer: {
+    backgroundColor: "white",
+    padding: 30,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 200,
+  },
+  loadingText: {
+    fontFamily: Fonts.family.medium,
+    fontSize: 16,
+    color: "white",
+    marginTop: 12,
+  },
+  loadingContainerFull: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
   },
 });

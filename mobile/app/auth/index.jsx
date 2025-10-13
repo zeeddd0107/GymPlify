@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Image,
 } from "react-native";
+import { StatusBar, setStatusBarStyle } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   loginUser,
@@ -24,18 +25,24 @@ import { Feather } from "@expo/vector-icons";
 import { sendEmailVerification } from "firebase/auth";
 import { updateProfile } from "firebase/auth";
 import { Fonts } from "@/src/constants/Fonts";
+import Logger from "@/src/utils/logger";
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function AuthScreen() {
-  console.log("🔐 AuthScreen: Component rendered");
+  Logger.render("AuthScreen", "Component rendered");
 
   // Track component lifecycle
   useEffect(() => {
-    console.log("🔐 AuthScreen: Component mounted");
+    Logger.render("AuthScreen", "Component mounted");
     return () => {
-      console.log("🔐 AuthScreen: Component unmounting");
+      Logger.render("AuthScreen", "Component unmounting");
     };
+  }, []);
+
+  // Ensure status bar is always black on Sign In screen
+  useEffect(() => {
+    setStatusBarStyle("dark", true);
   }, []);
 
   // --- STATE MANAGEMENT ---
@@ -53,6 +60,107 @@ export default function AuthScreen() {
   const [checking, setChecking] = useState(false);
   const [name, setName] = useState(""); // Add name state
   const verificationTimerRef = useRef(null);
+
+  // Password validation state
+  const [passwordValidation, setPasswordValidation] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
+    noPersonalData: false,
+    notWeakPassword: false,
+  });
+  const [passwordStrength, setPasswordStrength] = useState(0);
+
+  // Password validation functions
+  const validatePassword = (password, email, name) => {
+    const validation = {
+      minLength: password.length >= 8,
+      hasUppercase: /[A-Z]/.test(password),
+      hasLowercase: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecialChar: /[@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+      noPersonalData:
+        !password
+          .toLowerCase()
+          .includes(email?.toLowerCase().split("@")[0] || "") &&
+        !password.toLowerCase().includes(name?.toLowerCase() || ""),
+      notWeakPassword: !isWeakPassword(password),
+    };
+
+    setPasswordValidation(validation);
+
+    // Calculate password strength (0-100)
+    const validCount = Object.values(validation).filter(Boolean).length;
+    const strength = Math.round((validCount / 7) * 100);
+    setPasswordStrength(strength);
+
+    return validation;
+  };
+
+  const isWeakPassword = (password) => {
+    const weakPasswords = [
+      "password",
+      "123456",
+      "123456789",
+      "qwerty",
+      "abc123",
+      "password123",
+      "admin",
+      "letmein",
+      "welcome",
+      "monkey",
+      "1234567890",
+      "password1",
+      "qwerty123",
+      "dragon",
+      "master",
+      "hello",
+      "freedom",
+      "whatever",
+      "qazwsx",
+      "trustno1",
+      "654321",
+      "jordan23",
+      "harley",
+      "password1",
+      "shadow",
+      "superman",
+      "qazwsx",
+      "michael",
+      "football",
+      "jordan",
+      "hunter",
+      "purple",
+      "soccer",
+      "summer",
+      "orange",
+      "princess",
+      "dragon",
+      "passw0rd",
+      "master",
+      "hello",
+      "freedom",
+      "whatever",
+    ];
+
+    return weakPasswords.includes(password.toLowerCase());
+  };
+
+  const getPasswordStrengthColor = (strength) => {
+    if (strength < 30) return "#dc2626"; // Red
+    if (strength < 60) return "#f59e0b"; // Orange
+    if (strength < 80) return "#eab308"; // Yellow
+    return "#16a34a"; // Green
+  };
+
+  const getPasswordStrengthText = (strength) => {
+    if (strength < 30) return "Weak";
+    if (strength < 60) return "Fair";
+    if (strength < 80) return "Good";
+    return "Strong";
+  };
 
   // --- GOOGLE AUTHENTICATION HOOK ---
   const [_, response, promptAsync] = Google.useAuthRequest({
@@ -135,7 +243,7 @@ export default function AuthScreen() {
   const getUserInfo = useCallback(
     async (token) => {
       if (!token) return;
-      console.log("🔐 AuthScreen: Google authentication started");
+      Logger.auth("Google authentication started");
       try {
         // Sign in to Firebase with the Google credential
         const credential = firebase.auth.GoogleAuthProvider.credential(
@@ -143,7 +251,7 @@ export default function AuthScreen() {
           token,
         );
         await firebase.auth().signInWithCredential(credential);
-        console.log("🔐 AuthScreen: Google Firebase authentication successful");
+        Logger.auth("Google Firebase authentication successful");
 
         // Create or update the user in Firestore
         const fbUser = firebase.auth().currentUser;
@@ -161,13 +269,11 @@ export default function AuthScreen() {
           setUserInfo(userData);
         }
         // Navigate to home screen
-        console.log(
-          "🔐 AuthScreen: Google authentication complete, navigating to dashboard",
-        );
+        Logger.auth("Google authentication complete, navigating to dashboard");
         try {
           router.replace("/(tabs)");
         } catch (navError) {
-          console.log("🔐 AuthScreen: Navigation error:", navError);
+          Logger.error("Navigation error:", navError);
           // Fallback navigation
           router.push("/(tabs)");
         }
@@ -181,10 +287,7 @@ export default function AuthScreen() {
 
   // Handles email/password login and registration
   const handleAuth = async () => {
-    console.log("🔐 AuthScreen: handleAuth called", {
-      mode,
-      email: email.substring(0, 3) + "***",
-    });
+    Logger.auth(`handleAuth called - mode: ${mode}`);
     setLoading(true);
     setMessage("");
     setResent(false);
@@ -197,12 +300,23 @@ export default function AuthScreen() {
           setLoading(false);
           return;
         }
-        console.log("🔐 AuthScreen: Starting registration process");
+
+        // Validate password requirements
+        const validation = validatePassword(password, email, name);
+        const allRequirementsMet = Object.values(validation).every(Boolean);
+
+        if (!allRequirementsMet) {
+          setMessage(
+            "Please meet all password requirements before registering.",
+          );
+          setLoading(false);
+          return;
+        }
+
+        Logger.auth("Starting registration process");
         user = await registerUser(email, password);
         if (user) {
-          console.log(
-            "🔐 AuthScreen: Registration successful, updating profile",
-          );
+          Logger.auth("Registration successful, updating profile");
           // Compute a default avatar URL when no photo is provided
           const defaultPhotoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=0D8ABC&color=fff&bold=true`;
 
@@ -217,13 +331,14 @@ export default function AuthScreen() {
           await user.reload();
           const refreshedUser = firebase.auth().currentUser;
 
-          // Persist displayName and photoURL in Firestore
+          // Persist displayName, name, and photoURL in Firestore
           await firestore
             .collection("users")
             .doc(refreshedUser.uid)
             .set(
               {
                 displayName: name,
+                name: name, // Also set the name field for consistency
                 photoURL: refreshedUser.photoURL || defaultPhotoURL,
               },
               { merge: true },
@@ -243,14 +358,12 @@ export default function AuthScreen() {
           setUserInfo(userData);
         }
         // After registration, show verification screen
-        console.log(
-          "🔐 AuthScreen: Registration complete, showing verification screen",
-        );
+        Logger.auth("Registration complete, showing verification screen");
         setAwaitingVerification(true);
         setLoading(false);
         return;
       } else {
-        console.log("🔐 AuthScreen: Starting login process");
+        Logger.auth("Starting login process");
         user = await loginUser(email, password);
         if (user && !user.photoURL) {
           const defaultPhotoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=0D8ABC&color=fff&bold=true`;
@@ -276,12 +389,10 @@ export default function AuthScreen() {
           { merge: true },
         );
       }
-      console.log(
-        "🔐 AuthScreen: Authentication successful, navigating to dashboard",
-      );
+      Logger.auth("Authentication successful, navigating to dashboard");
       router.replace("/(tabs)");
     } catch (err) {
-      console.log("🔐 AuthScreen: Authentication failed", err.message);
+      Logger.error("Authentication failed", err.message);
       setMessage(err.message);
     } finally {
       setLoading(false);
@@ -386,6 +497,7 @@ export default function AuthScreen() {
   }
   return (
     <View style={[styles.container, { paddingTop: insets.top + 40 }]}>
+      <StatusBar style="dark" />
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#22c55e" />
@@ -423,7 +535,12 @@ export default function AuthScreen() {
               style={[styles.input, styles.passwordInput]}
               placeholder="Password"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (mode === "register") {
+                  validatePassword(text, email, name);
+                }
+              }}
               secureTextEntry={!showPassword}
               placeholderTextColor="#bdbdbd"
             />
@@ -438,6 +555,153 @@ export default function AuthScreen() {
               )}
             </Pressable>
           </View>
+
+          {/* Password Validation (Registration only) */}
+          {mode === "register" && password.length > 0 && (
+            <View style={styles.passwordValidationContainer}>
+              {/* Password Strength Meter */}
+              <View style={styles.passwordStrengthContainer}>
+                <View style={styles.passwordStrengthBar}>
+                  <View
+                    style={[
+                      styles.passwordStrengthFill,
+                      {
+                        width: `${passwordStrength}%`,
+                        backgroundColor:
+                          getPasswordStrengthColor(passwordStrength),
+                      },
+                    ]}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.passwordStrengthText,
+                    { color: getPasswordStrengthColor(passwordStrength) },
+                  ]}
+                >
+                  {getPasswordStrengthText(passwordStrength)}
+                </Text>
+              </View>
+
+              {/* Password Requirements */}
+              <View style={styles.passwordRequirements}>
+                <Text style={styles.passwordRequirementsTitle}>
+                  Password Requirements:
+                </Text>
+
+                <View style={styles.passwordRequirementItem}>
+                  <Text
+                    style={[
+                      styles.passwordRequirementText,
+                      {
+                        color: passwordValidation.minLength
+                          ? "#16a34a"
+                          : "#dc2626",
+                      },
+                    ]}
+                  >
+                    {passwordValidation.minLength ? "✓" : "✗"} At least 8
+                    characters
+                  </Text>
+                </View>
+
+                <View style={styles.passwordRequirementItem}>
+                  <Text
+                    style={[
+                      styles.passwordRequirementText,
+                      {
+                        color: passwordValidation.hasUppercase
+                          ? "#16a34a"
+                          : "#dc2626",
+                      },
+                    ]}
+                  >
+                    {passwordValidation.hasUppercase ? "✓" : "✗"} One uppercase
+                    letter (A-Z)
+                  </Text>
+                </View>
+
+                <View style={styles.passwordRequirementItem}>
+                  <Text
+                    style={[
+                      styles.passwordRequirementText,
+                      {
+                        color: passwordValidation.hasLowercase
+                          ? "#16a34a"
+                          : "#dc2626",
+                      },
+                    ]}
+                  >
+                    {passwordValidation.hasLowercase ? "✓" : "✗"} One lowercase
+                    letter (a-z)
+                  </Text>
+                </View>
+
+                <View style={styles.passwordRequirementItem}>
+                  <Text
+                    style={[
+                      styles.passwordRequirementText,
+                      {
+                        color: passwordValidation.hasNumber
+                          ? "#16a34a"
+                          : "#dc2626",
+                      },
+                    ]}
+                  >
+                    {passwordValidation.hasNumber ? "✓" : "✗"} One number (0-9)
+                  </Text>
+                </View>
+
+                <View style={styles.passwordRequirementItem}>
+                  <Text
+                    style={[
+                      styles.passwordRequirementText,
+                      {
+                        color: passwordValidation.hasSpecialChar
+                          ? "#16a34a"
+                          : "#dc2626",
+                      },
+                    ]}
+                  >
+                    {passwordValidation.hasSpecialChar ? "✓" : "✗"} One special
+                    character (@#$%)
+                  </Text>
+                </View>
+
+                <View style={styles.passwordRequirementItem}>
+                  <Text
+                    style={[
+                      styles.passwordRequirementText,
+                      {
+                        color: passwordValidation.noPersonalData
+                          ? "#16a34a"
+                          : "#dc2626",
+                      },
+                    ]}
+                  >
+                    {passwordValidation.noPersonalData ? "✓" : "✗"} No personal
+                    information
+                  </Text>
+                </View>
+
+                <View style={styles.passwordRequirementItem}>
+                  <Text
+                    style={[
+                      styles.passwordRequirementText,
+                      {
+                        color: passwordValidation.notWeakPassword
+                          ? "#16a34a"
+                          : "#dc2626",
+                      },
+                    ]}
+                  >
+                    {passwordValidation.notWeakPassword ? "✓" : "✗"} Not a
+                    common password
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           {mode === "register" && <View style={{ marginTop: 18 }} />}
 
@@ -688,5 +952,53 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     marginRight: 8,
+  },
+  // Password validation styles
+  passwordValidationContainer: {
+    marginTop: 12,
+    padding: 16,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+  },
+  passwordStrengthContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  passwordStrengthBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: "#e9ecef",
+    borderRadius: 3,
+    marginRight: 12,
+    overflow: "hidden",
+  },
+  passwordStrengthFill: {
+    height: "100%",
+    borderRadius: 3,
+    transition: "width 0.3s ease",
+  },
+  passwordStrengthText: {
+    fontSize: 14,
+    fontFamily: Fonts.family.medium,
+    fontWeight: "600",
+  },
+  passwordRequirements: {
+    marginTop: 8,
+  },
+  passwordRequirementsTitle: {
+    fontSize: 14,
+    fontFamily: Fonts.family.medium,
+    color: "#374151",
+    marginBottom: 8,
+  },
+  passwordRequirementItem: {
+    marginBottom: 4,
+  },
+  passwordRequirementText: {
+    fontSize: 13,
+    fontFamily: Fonts.family.regular,
   },
 });

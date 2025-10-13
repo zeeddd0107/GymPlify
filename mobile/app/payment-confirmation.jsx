@@ -15,6 +15,11 @@ import { useColorScheme } from "@/src/hooks";
 import { Fonts } from "@/src/constants/Fonts";
 import { createPendingSubscription } from "@/src/services/subscriptionService";
 import { useAuth } from "@/src/context";
+import Logger from "@/src/utils/logger";
+import {
+  SubscriptionWarningModal,
+  RequestSubmittedModal,
+} from "@/src/components/shared";
 
 const plans = [
   {
@@ -84,7 +89,7 @@ const plans = [
 ];
 
 export default function PaymentConfirmationScreen() {
-  console.log("💳 PaymentConfirmation: Component rendered");
+  Logger.render("PaymentConfirmation", "Component rendered");
 
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -93,13 +98,21 @@ export default function PaymentConfirmationScreen() {
   const { planId } = useLocalSearchParams();
   // const [hasPaid, setHasPaid] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isModalLoading, setIsModalLoading] = useState(false);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [successTitle, setSuccessTitle] = useState(null);
+  const [warningTitle, setWarningTitle] = useState(
+    "You already have an active subscription!",
+  );
+  const [warningMessage, setWarningMessage] = useState(
+    "Starting a new one will replace your current subscription. Are you sure you want to continue?",
+  );
+  const [isNotAllowedModal, setIsNotAllowedModal] = useState(false); // Flag for single-button modal
   const { user } = useAuth();
 
-  console.log("💳 PaymentConfirmation: User data", {
-    hasUser: !!user,
-    userId: user?.id,
-    userEmail: user?.email?.substring(0, 3) + "***" || "none",
-  });
+  Logger.payment(`User data - hasUser: ${!!user}, userId: ${user?.id}`);
 
   const selectedPlan = plans.find((plan) => plan.id === planId) || plans[1]; // Default to monthly
 
@@ -209,33 +222,23 @@ export default function PaymentConfirmationScreen() {
             style={[
               styles.primaryButton,
               {
-                backgroundColor: isLoading ? colors.border : "#4361EE",
+                backgroundColor: "#4361EE",
+                opacity: isLoading ? 0.8 : 1,
               },
             ]}
             disabled={isLoading}
             onPress={async () => {
-              console.log("💳 PaymentConfirmation: Yes button pressed", {
-                hasUser: !!user,
-                userId: user?.id,
-                planId: selectedPlan.id,
-              });
+              Logger.payment(`Yes button pressed - planId: ${selectedPlan.id}`);
 
               if (!user) {
-                console.log("💳 PaymentConfirmation: No user found");
+                Logger.error("No user found");
                 Alert.alert("Error", "You must be logged in to subscribe.");
                 return;
               }
 
               setIsLoading(true);
               try {
-                console.log(
-                  "💳 PaymentConfirmation: Creating pending subscription...",
-                );
-                console.log("💳 PaymentConfirmation: User object details:", {
-                  uid: user.uid,
-                  id: user.id,
-                  email: user.email,
-                });
+                Logger.payment("Creating pending subscription...");
 
                 // Use user.id if available, otherwise use user.uid
                 const userId = user.id || user.uid;
@@ -243,30 +246,55 @@ export default function PaymentConfirmationScreen() {
                   throw new Error("No valid user ID found");
                 }
 
-                await createPendingSubscription(
+                const result = await createPendingSubscription(
                   userId,
                   selectedPlan.id,
                   "counter",
                   user,
                 );
-                console.log(
-                  "💳 PaymentConfirmation: Subscription request created successfully",
-                );
-                Alert.alert(
-                  "Request Submitted",
-                  `Your subscription request for ${selectedPlan.name} has been submitted to the gym owner. You will be notified once it's approved.`,
-                  [
-                    {
-                      text: "OK",
-                      onPress: () => {
-                        console.log(
-                          "💳 PaymentConfirmation: Navigating to dashboard",
-                        );
-                        router.replace("/(tabs)");
-                      },
-                    },
-                  ],
-                );
+
+                if (result.success) {
+                  Logger.payment("Subscription request created successfully");
+                  // Set custom message for Walk-in extensions
+                  if (result.message && result.message.includes("extended")) {
+                    setSuccessMessage(result.message);
+                    setSuccessTitle("Walk-in Extended");
+                  } else {
+                    setSuccessMessage(null);
+                    setSuccessTitle(null);
+                  }
+                  setShowSuccessModal(true);
+                } else if (result.hasActiveSubscription) {
+                  // Check if this is a "not allowed" case (e.g., monthly to walk-in)
+                  if (result.isNotAllowed) {
+                    setShowWarningModal(true);
+                    setWarningTitle(
+                      result.title ||
+                        "Cannot Add Walk-in to Monthly Subscription",
+                    );
+                    setWarningMessage(
+                      result.message ||
+                        "You already have an active monthly subscription. Walk-in sessions cannot be added to monthly subscriptions.",
+                    );
+                    setIsNotAllowedModal(true); // Flag to indicate this is a single-button modal
+                  } else {
+                    setShowWarningModal(true);
+                    setWarningTitle(
+                      result.title ||
+                        "You already have an active subscription!",
+                    );
+                    setWarningMessage(
+                      result.message ||
+                        "Starting a new one will replace your current subscription. Are you sure you want to continue?",
+                    );
+                    setIsNotAllowedModal(false); // Flag to indicate this is a dual-button modal
+                  }
+                } else {
+                  Alert.alert(
+                    "Error",
+                    result.message || "Failed to submit subscription request",
+                  );
+                }
               } catch (error) {
                 console.error(
                   "💳 PaymentConfirmation: Error creating subscription request:",
@@ -290,13 +318,95 @@ export default function PaymentConfirmationScreen() {
             style={styles.skipButton}
             onPress={() => {
               // TODO: Implement payment status logic
-              console.log("Not paid yet - no action yet");
+              Logger.payment("Not paid yet - no action yet");
             }}
           >
             <Text style={styles.skipButtonText}>No, I haven't paid yet</Text>
           </Pressable>
         </View>
       </View>
+
+      {/* Subscription Warning Modal */}
+      <SubscriptionWarningModal
+        visible={showWarningModal}
+        onClose={() => {
+          setShowWarningModal(false);
+          setIsNotAllowedModal(false); // Reset the flag
+        }}
+        onConfirm={async () => {
+          // Only proceed with confirmation if it's not a "not allowed" modal
+          if (isNotAllowedModal) {
+            return; // Do nothing for not allowed modals
+          }
+
+          // Don't close the modal yet, show loading state
+          setIsModalLoading(true);
+          try {
+            const userId = user.id || user.uid;
+            if (!userId) {
+              throw new Error("No valid user ID found");
+            }
+
+            const result = await createPendingSubscription(
+              userId,
+              selectedPlan.id,
+              "counter",
+              user,
+              true, // bypassSubscriptionCheck = true
+            );
+
+            if (result.success) {
+              Logger.payment("Subscription request created successfully");
+              // Close warning modal and show success modal
+              setShowWarningModal(false);
+              setShowSuccessModal(true);
+            } else {
+              Alert.alert(
+                "Error",
+                result.message || "Failed to submit subscription request",
+              );
+            }
+          } catch (error) {
+            console.error(
+              "💳 PaymentConfirmation: Error creating subscription request:",
+              error,
+            );
+            Alert.alert(
+              "Error",
+              `Failed to submit subscription request: ${error.message}`,
+            );
+          } finally {
+            setIsModalLoading(false);
+          }
+        }}
+        isLoading={isModalLoading}
+        title={warningTitle}
+        message={warningMessage}
+        showSingleButton={isNotAllowedModal}
+        singleButtonText="OK"
+        iconName={
+          isNotAllowedModal
+            ? "close-circle-outline"
+            : "information-circle-outline"
+        }
+        iconColor={isNotAllowedModal ? "#FF3B30" : "#4361EE"}
+      />
+
+      {/* Request Submitted Modal */}
+      <RequestSubmittedModal
+        visible={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        onConfirm={() => {
+          setShowSuccessModal(false);
+          setSuccessMessage(null);
+          setSuccessTitle(null);
+          Logger.payment("Navigating to dashboard");
+          router.replace("/(tabs)");
+        }}
+        subscriptionName={selectedPlan.name}
+        customMessage={successMessage}
+        customTitle={successTitle}
+      />
     </View>
   );
 }
@@ -339,13 +449,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
     marginBottom: 32,
-    shadowColor: "#000",
+    shadowColor: "#434941",
     shadowOffset: {
       width: 0,
       height: 4,
     },
     shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowRadius: 5,
     elevation: 8,
   },
   planHeader: {
@@ -434,7 +544,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: "#434941",
     shadowOffset: {
       width: 0,
       height: 2,
