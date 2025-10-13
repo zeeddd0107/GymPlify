@@ -5,7 +5,7 @@ service firebase.storage {
     function isAdmin() { return request.auth.token.admin == true; }
 
     // Guides videos
-    match /guides/{uid}/{file=**} {
+    match /guides/{file=**} {
       allow read: if isSignedIn();
       allow write, delete: if isAdmin();
     }
