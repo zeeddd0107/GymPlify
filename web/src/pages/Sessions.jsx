@@ -1674,7 +1674,14 @@ const Sessions = () => {
 
             {/* Custom Calendar Picker - Styled like mobile CustomCalendarModal */}
             {showDatePicker && (
-              <div className="calendar-picker absolute z-20 mt-2 bg-[#F4F4F5] border border-gray-300 rounded-2xl shadow-lg p-5 w-80">
+              <div
+                className="calendar-picker fixed z-[9999] bg-[#F4F4F5] border border-gray-300 rounded-2xl shadow-lg p-5 w-80"
+                style={{
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                }}
+              >
                 {/* Calendar Navigation */}
                 <div className="flex items-center justify-between mb-5">
                   <div className="text-base font-medium text-gray-900">

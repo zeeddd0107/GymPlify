@@ -1,5 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { FaPlay, FaUpload, FaCheck, FaTimes } from "react-icons/fa";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  FaPlay,
+  FaUpload,
+  FaCheck,
+  FaTimes,
+  FaTh,
+  FaFolder,
+} from "react-icons/fa";
 import {
   ref,
   uploadBytesResumable,
@@ -13,6 +20,8 @@ import {
   FormSelect,
   FormFileUpload,
   EditDeleteButtons,
+  TargetWorkoutFilter,
+  GuideFolderView,
 } from "@/components";
 import { DeleteModal } from "@/components/modals";
 import guideService from "@/services/guideService";
@@ -49,6 +58,10 @@ const Guide = () => {
       try {
         if (preUploaded.path) {
           await deleteObject(ref(storage, preUploaded.path));
+          console.log(
+            "Deleted pre-uploaded video on cancel:",
+            preUploaded.path,
+          );
         }
       } catch (err) {
         console.error("Failed to delete pre-uploaded file on cancel:", err);
@@ -76,6 +89,12 @@ const Guide = () => {
   );
   const [validationErrors, setValidationErrors] = useState({});
 
+  // Filter state
+  const [selectedTargets, setSelectedTargets] = useState([]);
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'folder'
+  const [customTarget, setCustomTarget] = useState("");
+  const [customTargets, setCustomTargets] = useState([]);
+
   // Load guides from Firebase
   useEffect(() => {
     const loadGuides = async () => {
@@ -89,6 +108,18 @@ const Guide = () => {
         const guidesData = await guideService.getAllGuides();
         console.log("Loaded guides:", guidesData);
         setGuides(guidesData);
+
+        // Load custom targets separately to avoid blocking guide loading
+        guideService
+          .getCustomTargets()
+          .then((customTargetsData) => {
+            console.log("Loaded custom targets:", customTargetsData);
+            setCustomTargets(customTargetsData);
+          })
+          .catch((customTargetsError) => {
+            console.warn("Failed to load custom targets:", customTargetsError);
+            setCustomTargets([]);
+          });
       } catch (error) {
         console.error("Error loading guides:", error);
         console.error("Error details:", error.message);
@@ -152,7 +183,23 @@ const Guide = () => {
     setValidationErrors({});
   };
 
-  const openCreate = () => {
+  const openCreate = async () => {
+    // Clean up any existing pre-uploaded video before opening new create modal
+    if (preUploaded.url && preUploaded.path) {
+      try {
+        await deleteObject(ref(storage, preUploaded.path));
+        console.log(
+          "Deleted pre-uploaded video before opening new create modal:",
+          preUploaded.path,
+        );
+      } catch (err) {
+        console.warn(
+          "Failed to delete pre-uploaded file before opening new create modal:",
+          err,
+        );
+      }
+    }
+
     setEditing({
       id: null,
       title: "",
@@ -215,8 +262,11 @@ const Guide = () => {
       setAbortController(controller);
       try {
         const file = editing.videoFile;
-        const safeName = `${Date.now()}_${file.name}`;
-        const path = `guides/${user.uid}/${safeName}`;
+        // Use guide ID if editing, otherwise use timestamp + random string for uniqueness
+        const safeName = editing.id
+          ? `${editing.id}_${file.name}`
+          : `${Date.now()}_${Math.random().toString(36).substring(2)}_${file.name}`;
+        const path = `guides/${safeName}`;
         const task = uploadBytesResumable(ref(storage, path), file, {
           contentType: file.type || "video/mp4",
         });
@@ -368,6 +418,56 @@ const Guide = () => {
       setConfirmDelete({ open: false, item: null });
     }
   };
+
+  // Extract all available target workouts from guides
+  const availableTargets = useMemo(() => {
+    const targets = new Set();
+    guides.forEach((guide) => {
+      const guideTargets = Array.isArray(guide.target)
+        ? guide.target
+        : guide.target
+          ? [guide.target]
+          : [];
+      guideTargets.forEach((target) => targets.add(target));
+    });
+    // Add custom targets from database (with safety check)
+    if (Array.isArray(customTargets)) {
+      customTargets.forEach((target) => targets.add(target));
+    }
+    return Array.from(targets);
+  }, [guides, customTargets]);
+
+  // Filter guides based on selected targets
+  const filteredGuides = guides.filter((guide) => {
+    if (selectedTargets.length === 0) return true;
+
+    const guideTargets = Array.isArray(guide.target)
+      ? guide.target
+      : guide.target
+        ? [guide.target]
+        : [];
+    return selectedTargets.some((target) => guideTargets.includes(target));
+  });
+
+  const handleTargetChange = (targets) => {
+    setSelectedTargets(targets);
+  };
+
+  const handleClearFilters = () => {
+    setSelectedTargets([]);
+  };
+
+  const handleAddCustomTarget = () => {
+    if (customTarget.trim() && !editing.target?.includes(customTarget.trim())) {
+      const currentTargets = editing.target || [];
+      setEditing((s) => ({
+        ...s,
+        target: [...currentTargets, customTarget.trim()],
+      }));
+      setCustomTarget("");
+    }
+  };
+
   return (
     <div className="pl-1 pt-5">
       {showSuccess && (
@@ -378,22 +478,63 @@ const Guide = () => {
           <span className="font-medium text-sm">{successMessage}</span>
         </div>
       )}
-      <div className="flex items-center justify-end">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === "grid"
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              <FaTh className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("folder")}
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === "folder"
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              <FaFolder className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
         <button
           onClick={openCreate}
-          className="px-5 py-3 bg-primary hover:bg-secondary text-white rounded-xl shadow text-sm"
+          className="px-4 sm:px-5 py-2 sm:py-3 bg-primary hover:bg-secondary text-white rounded-xl shadow text-sm w-full sm:w-auto"
         >
           Upload Guide
         </button>
       </div>
 
-      <div className="pt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {loading ? (
-          <div className="col-span-full text-center py-8">
-            <p className="text-gray-500">Loading guides...</p>
-          </div>
-        ) : (
-          guides.map((g) => (
+      {/* Filter Section */}
+      <div className="mb-6">
+        <TargetWorkoutFilter
+          selectedTargets={selectedTargets}
+          onTargetChange={handleTargetChange}
+          onClearFilters={handleClearFilters}
+          availableTargets={availableTargets}
+        />
+      </div>
+
+      {/* Guides Display */}
+      {loading ? (
+        <div className="text-center py-8">
+          <p className="text-gray-500">Loading guides...</p>
+        </div>
+      ) : viewMode === "folder" ? (
+        <GuideFolderView
+          guides={filteredGuides}
+          selectedTargets={selectedTargets}
+          onGuideClick={setViewing}
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredGuides.map((g) => (
             <div
               key={g.id}
               onClick={() => setViewing(g)}
@@ -415,7 +556,7 @@ const Guide = () => {
               </div>
               <div className="p-6 flex flex-col flex-1">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2 break-words">
                     {g.title}
                   </h3>
                   {(g.sets || g.reps) && (
@@ -442,7 +583,7 @@ const Guide = () => {
                       )}
                     </div>
                   )}
-                  <p className="text-sm text-gray-600 line-clamp-3 overflow-hidden">
+                  <p className="text-sm text-gray-600 line-clamp-3 overflow-hidden break-words">
                     {g.instructions}
                   </p>
                 </div>
@@ -462,9 +603,9 @@ const Guide = () => {
                 </div>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {viewing && (
         <div
@@ -501,7 +642,7 @@ const Guide = () => {
               <div className="p-6">
                 <div className="flex items-start gap-3">
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900">
+                    <h3 className="text-xl font-semibold text-gray-900 break-words">
                       {viewing.title}
                     </h3>
                     <div className="mt-2 space-y-2">
@@ -582,7 +723,7 @@ const Guide = () => {
                     <h4 className="text-sm font-semibold text-gray-900 mb-2">
                       Instructions
                     </h4>
-                    <p className="text-sm text-gray-700 whitespace-pre-line">
+                    <p className="text-sm text-gray-700 whitespace-pre-line break-words">
                       {viewing.instructions}
                     </p>
                   </div>
@@ -616,13 +757,30 @@ const Guide = () => {
 
       <EditModal
         isOpen={Boolean(editing)}
-        onClose={() => {
+        onClose={async () => {
+          // Clean up any pre-uploaded video if modal is closed
+          if (preUploaded.url && preUploaded.path) {
+            try {
+              await deleteObject(ref(storage, preUploaded.path));
+              console.log(
+                "Deleted pre-uploaded video on modal close:",
+                preUploaded.path,
+              );
+            } catch (err) {
+              console.warn(
+                "Failed to delete pre-uploaded file on modal close:",
+                err,
+              );
+            }
+          }
+          setPreUploaded({ url: "", path: "" });
+          setUploadProgress(0);
           if (editing?.id) setViewing(editing);
           setEditing(null);
         }}
         onCancel={handleCancel}
         onSave={onSave}
-        saving={saving}
+        saving={saving && !(uploadProgress > 0 && uploadProgress < 100)}
         savingText={
           editing?.id
             ? "Saving..."
@@ -632,16 +790,23 @@ const Guide = () => {
         }
         title={editing?.id ? "Edit Equipment Guide" : "Create Equipment Guide"}
         saveText={
-          editing?.videoFile && preUploaded?.url && uploadProgress === 100
-            ? editing?.id
-              ? "Save"
-              : "Upload"
-            : editing?.id
-              ? "Save"
-              : "Save"
+          uploadProgress > 0 && uploadProgress < 100
+            ? "Uploading..."
+            : editing?.videoFile && preUploaded?.url && uploadProgress === 100
+              ? editing?.id
+                ? "Save"
+                : "Upload"
+              : editing?.id
+                ? "Save"
+                : "Save"
         }
-        cancelButtonClassName="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm"
-        saveButtonClassName="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm"
+        cancelButtonClassName="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm pointer-events-auto"
+        saveButtonClassName={`px-5 py-2.5 rounded-xl text-white hover:bg-secondary text-sm ${
+          uploadProgress > 0 && uploadProgress < 100
+            ? "opacity-50 cursor-not-allowed"
+            : "bg-primary"
+        }`}
+        disabled={uploadProgress > 0 && uploadProgress < 100}
         forceEnableCancel={
           (uploadProgress > 0 && uploadProgress < 100) ||
           (!!preUploaded.url && uploadProgress === 100)
@@ -690,42 +855,73 @@ const Guide = () => {
                 </div>
               </div>
             )}
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm text-blue-700 font-medium">
+                    Uploading video... Please wait while the video is being
+                    uploaded. Form fields are temporarily disabled.
+                  </span>
+                </div>
+              </div>
+            )}
             <div
-              className={`grid grid-cols-1 gap-4 ${editing.id ? "pt-0" : "pt-4"}`}
+              className={`grid grid-cols-1 gap-4 ${
+                editing.id
+                  ? "pt-0"
+                  : uploadProgress > 0 && uploadProgress < 100
+                    ? "pt-0"
+                    : "pt-4"
+              }`}
             >
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
                   Guide Title <span className="text-red-500">*</span>
                 </label>
-                <FormInput
-                  type="text"
-                  value={editing.title}
-                  onChange={(e) => {
-                    setEditing((s) => ({ ...s, title: e.target.value }));
-                    if (validationErrors.title) {
-                      setValidationErrors((prev) => ({ ...prev, title: null }));
-                    }
-                  }}
-                  placeholder="Enter guide title"
-                  required={true}
+                <div
                   className={
-                    validationErrors.title
-                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                    uploadProgress > 0 && uploadProgress < 100
+                      ? "opacity-80 pointer-events-none"
                       : ""
                   }
-                />
-                {validationErrors.title && (
-                  <p className="text-xs text-red-500 mt-1 italic">
-                    {validationErrors.title}
-                  </p>
-                )}
+                >
+                  <FormInput
+                    type="text"
+                    value={editing.title}
+                    onChange={(e) => {
+                      setEditing((s) => ({ ...s, title: e.target.value }));
+                      if (validationErrors.title) {
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          title: null,
+                        }));
+                      }
+                    }}
+                    placeholder="Enter guide title"
+                    required={true}
+                    disabled={uploadProgress > 0 && uploadProgress < 100}
+                    className={
+                      validationErrors.title
+                        ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                        : ""
+                    }
+                  />
+                  {validationErrors.title && (
+                    <p className="text-xs text-red-500 mt-1 italic">
+                      {validationErrors.title}
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
                   Target Workout
                 </label>
-                <div className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30 transition-colors">
-                  <div className="grid grid-cols-2 gap-2">
+                <div
+                  className={`border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30 transition-colors ${uploadProgress > 0 && uploadProgress < 100 ? "opacity-80 pointer-events-none" : ""}`}
+                >
+                  <div className="grid grid-cols-2 gap-2 mb-3">
                     {[
                       "Shoulders",
                       "Back",
@@ -735,6 +931,9 @@ const Guide = () => {
                       "Core",
                       "Full Body",
                       "Cardio",
+                      ...(Array.isArray(customTargets)
+                        ? customTargets.sort()
+                        : []),
                     ].map((t) => (
                       <label
                         key={t}
@@ -759,176 +958,306 @@ const Guide = () => {
                               }));
                             }
                           }}
-                          className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                          disabled={uploadProgress > 0 && uploadProgress < 100}
+                          className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <span className="text-sm text-gray-700">{t}</span>
                       </label>
                     ))}
                   </div>
+
+                  {/* Custom Target Input */}
+                  <div className="border-t border-gray-200 pt-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={customTarget}
+                        onChange={(e) => setCustomTarget(e.target.value)}
+                        placeholder="Add custom target workout..."
+                        disabled={uploadProgress > 0 && uploadProgress < 100}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddCustomTarget();
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomTarget}
+                        disabled={
+                          !customTarget.trim() ||
+                          (uploadProgress > 0 && uploadProgress < 100)
+                        }
+                        className="px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Selected Custom Targets */}
+                  {editing.target && editing.target.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="flex flex-wrap gap-2">
+                        {editing.target.map((target, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm rounded-full"
+                          >
+                            {target}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentTargets = editing.target || [];
+                                setEditing((s) => ({
+                                  ...s,
+                                  target: currentTargets.filter(
+                                    (_, i) => i !== index,
+                                  ),
+                                }));
+                              }}
+                              disabled={
+                                uploadProgress > 0 && uploadProgress < 100
+                              }
+                              className="hover:bg-primary/20 rounded-full p-0.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <FaTimes className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
                   Equipment Category <span className="text-red-500">*</span>
                 </label>
-                <FormSelect
-                  value={editing.category ?? ""}
-                  onChange={(e) => {
-                    setEditing((s) => ({ ...s, category: e.target.value }));
-                    if (validationErrors.category) {
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        category: null,
-                      }));
-                    }
-                  }}
-                  options={[
-                    { value: "Free Weights", label: "Free Weights" },
-                    { value: "Benches & Racks", label: "Benches & Racks" },
-                    {
-                      value: "Plate-Loaded Machines (Hammer Strength–style)",
-                      label: "Plate-Loaded Machines (Hammer Strength–style)",
-                    },
-                    {
-                      value: "Selectorized Weight Machines (Pin-Loaded)",
-                      label: "Selectorized Weight Machines (Pin-Loaded)",
-                    },
-                    { value: "Cable Machines", label: "Cable Machines" },
-                    {
-                      value: "Bodyweight/Assisted Machines",
-                      label: "Bodyweight/Assisted Machines",
-                    },
-                    {
-                      value: "Leg & Glute Specialty Machines",
-                      label: "Leg & Glute Specialty Machines",
-                    },
-                    { value: "Cardio Machines", label: "Cardio Machines" },
-                    {
-                      value: "Other Strength/Functional Training Tools",
-                      label: "Other Strength/Functional Training Tools",
-                    },
-                  ]}
-                  placeholder="Select Equipment Category"
-                  required={true}
+                <div
                   className={
-                    validationErrors.category
-                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                    uploadProgress > 0 && uploadProgress < 100
+                      ? "opacity-80 pointer-events-none"
                       : ""
                   }
-                />
-                {validationErrors.category && (
-                  <p className="text-xs text-red-500 mt-1 italic">
-                    {validationErrors.category}
-                  </p>
-                )}
+                >
+                  <FormSelect
+                    value={editing.category ?? ""}
+                    onChange={(e) => {
+                      setEditing((s) => ({ ...s, category: e.target.value }));
+                      if (validationErrors.category) {
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          category: null,
+                        }));
+                      }
+                    }}
+                    disabled={uploadProgress > 0 && uploadProgress < 100}
+                    options={[
+                      { value: "Free Weights", label: "Free Weights" },
+                      { value: "Benches & Racks", label: "Benches & Racks" },
+                      {
+                        value: "Plate-Loaded Machines (Hammer Strength–style)",
+                        label: "Plate-Loaded Machines (Hammer Strength–style)",
+                      },
+                      {
+                        value: "Selectorized Weight Machines (Pin-Loaded)",
+                        label: "Selectorized Weight Machines (Pin-Loaded)",
+                      },
+                      { value: "Cable Machines", label: "Cable Machines" },
+                      {
+                        value: "Bodyweight/Assisted Machines",
+                        label: "Bodyweight/Assisted Machines",
+                      },
+                      {
+                        value: "Leg & Glute Specialty Machines",
+                        label: "Leg & Glute Specialty Machines",
+                      },
+                      { value: "Cardio Machines", label: "Cardio Machines" },
+                      {
+                        value: "Other Strength/Functional Training Tools",
+                        label: "Other Strength/Functional Training Tools",
+                      },
+                    ]}
+                    placeholder="Select Equipment Category"
+                    required={true}
+                    className={
+                      validationErrors.category
+                        ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                        : ""
+                    }
+                  />
+                  {validationErrors.category && (
+                    <p className="text-xs text-red-500 mt-1 italic">
+                      {validationErrors.category}
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="space-y-1 -mb-2">
                 <label className="text-sm font-medium text-gray-700">
                   Instructions <span className="text-red-500">*</span>
                 </label>
-                <FormInput
-                  type="textarea"
-                  rows={2}
-                  value={editing.instructions}
-                  onChange={(e) => {
-                    setEditing((s) => ({ ...s, instructions: e.target.value }));
-                    if (validationErrors.instructions) {
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        instructions: null,
-                      }));
-                    }
-                  }}
-                  placeholder="Enter detailed instructions"
-                  required={true}
+                <div
                   className={
-                    validationErrors.instructions
-                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                    uploadProgress > 0 && uploadProgress < 100
+                      ? "opacity-80 pointer-events-none"
                       : ""
                   }
-                />
-                {validationErrors.instructions && (
-                  <p className="text-xs text-red-500 mt-1 italic">
-                    {validationErrors.instructions}
-                  </p>
-                )}
+                >
+                  <FormInput
+                    type="textarea"
+                    rows={2}
+                    value={editing.instructions}
+                    onChange={(e) => {
+                      setEditing((s) => ({
+                        ...s,
+                        instructions: e.target.value,
+                      }));
+                      if (validationErrors.instructions) {
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          instructions: null,
+                        }));
+                      }
+                    }}
+                    placeholder="Enter detailed instructions"
+                    required={true}
+                    disabled={uploadProgress > 0 && uploadProgress < 100}
+                    className={
+                      validationErrors.instructions
+                        ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                        : ""
+                    }
+                  />
+                  {validationErrors.instructions && (
+                    <p className="text-xs text-red-500 mt-1 italic">
+                      {validationErrors.instructions}
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">
                     Sets
                   </label>
-                  <FormInput
-                    type="text"
-                    value={editing.sets || ""}
-                    onChange={(e) =>
-                      setEditing((s) => ({ ...s, sets: e.target.value }))
+                  <div
+                    className={
+                      uploadProgress > 0 && uploadProgress < 100
+                        ? "opacity-80 pointer-events-none"
+                        : ""
                     }
-                    placeholder="e.g., 3-4"
-                  />
+                  >
+                    <FormInput
+                      type="text"
+                      value={editing.sets || ""}
+                      onChange={(e) =>
+                        setEditing((s) => ({ ...s, sets: e.target.value }))
+                      }
+                      placeholder="e.g., 3-4"
+                      disabled={uploadProgress > 0 && uploadProgress < 100}
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">
                     Reps
                   </label>
-                  <FormInput
-                    type="text"
-                    value={editing.reps || ""}
-                    onChange={(e) =>
-                      setEditing((s) => ({ ...s, reps: e.target.value }))
+                  <div
+                    className={
+                      uploadProgress > 0 && uploadProgress < 100
+                        ? "opacity-80 pointer-events-none"
+                        : ""
                     }
-                    placeholder="e.g., 8-12"
-                  />
+                  >
+                    <FormInput
+                      type="text"
+                      value={editing.reps || ""}
+                      onChange={(e) =>
+                        setEditing((s) => ({ ...s, reps: e.target.value }))
+                      }
+                      placeholder="e.g., 8-12"
+                      disabled={uploadProgress > 0 && uploadProgress < 100}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
                   Status <span className="text-red-500">*</span>
                 </label>
-                <FormSelect
-                  value={editing.status}
-                  onChange={(e) => {
-                    setEditing((s) => ({ ...s, status: e.target.value }));
-                    if (validationErrors.status) {
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        status: null,
-                      }));
-                    }
-                  }}
-                  options={[
-                    { value: "Published", label: "Published" },
-                    { value: "Draft", label: "Draft" },
-                    ...(editing?.id
-                      ? [{ value: "Archive", label: "Archive" }]
-                      : []),
-                  ]}
-                  placeholder="Select Status"
-                  required={true}
+                <div
                   className={
-                    validationErrors.status
-                      ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                    uploadProgress > 0 && uploadProgress < 100
+                      ? "opacity-80 pointer-events-none"
                       : ""
                   }
-                />
-                {validationErrors.status && (
-                  <p className="text-xs text-red-500 mt-1 italic">
-                    {validationErrors.status}
-                  </p>
-                )}
+                >
+                  <FormSelect
+                    value={editing.status}
+                    onChange={(e) => {
+                      setEditing((s) => ({ ...s, status: e.target.value }));
+                      if (validationErrors.status) {
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          status: null,
+                        }));
+                      }
+                    }}
+                    disabled={uploadProgress > 0 && uploadProgress < 100}
+                    options={[
+                      { value: "Published", label: "Published" },
+                      { value: "Draft", label: "Draft" },
+                      ...(editing?.id
+                        ? [{ value: "Archive", label: "Archive" }]
+                        : []),
+                    ]}
+                    placeholder="Select Status"
+                    required={true}
+                    className={
+                      validationErrors.status
+                        ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
+                        : ""
+                    }
+                  />
+                  {validationErrors.status && (
+                    <p className="text-xs text-red-500 mt-1 italic">
+                      {validationErrors.status}
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="space-y-3">
                 <label className="text-sm font-medium text-gray-700">
                   {editing.id ? "Replace Video" : "Upload Video"}{" "}
                   <span className="text-red-500">*</span>
                 </label>
-                <div className="space-y-2">
+                <div className="space-y-2 opacity-100">
                   <FormFileUpload
                     id="video-upload"
                     accept="video/*"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files[0];
                       if (file) {
+                        // If there's a pre-uploaded video that hasn't been saved yet, delete it
+                        if (preUploaded.url && preUploaded.path) {
+                          try {
+                            await deleteObject(ref(storage, preUploaded.path));
+                            console.log(
+                              "Deleted previous pre-uploaded video:",
+                              preUploaded.path,
+                            );
+                          } catch (error) {
+                            console.warn(
+                              "Failed to delete previous pre-uploaded video:",
+                              error,
+                            );
+                          }
+                        }
+
                         // Reset pre-upload state when a new file is chosen
                         setPreUploaded({ url: "", path: "" });
                         setUploadProgress(0);
@@ -961,7 +1290,7 @@ const Guide = () => {
                     }
                   />
                   {uploadProgress > 0 && uploadProgress < 100 && (
-                    <div className="w-full">
+                    <div className="w-full opacity-100">
                       <div className="w-full bg-slate-200 rounded-full h-2">
                         <div
                           className="bg-primary h-2 rounded-full"

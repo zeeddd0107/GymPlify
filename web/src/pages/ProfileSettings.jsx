@@ -24,6 +24,7 @@ const ProfileSettings = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [userData, setUserData] = useState(null);
@@ -331,10 +332,14 @@ const ProfileSettings = () => {
   };
 
   const handleSignOut = async () => {
+    setLogoutLoading(true);
     try {
       await signOut();
     } catch (error) {
       console.error("Error signing out:", error);
+      setError("Failed to logout. Please try again.");
+    } finally {
+      setLogoutLoading(false);
     }
   };
 
@@ -518,10 +523,20 @@ const ProfileSettings = () => {
                           <div>
                             <button
                               onClick={handleSignOut}
-                              className="px-6 py-2 bg-danger text-white rounded-lg hover:bg-danger/90 transition-colors font-semibold"
+                              disabled={logoutLoading}
+                              className="px-6 py-2 bg-danger text-white rounded-lg hover:bg-danger/90 transition-colors font-semibold disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
                             >
-                              <FaSignOutAlt className="inline mr-2" />
-                              Logout
+                              {logoutLoading ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                  Logging out...
+                                </>
+                              ) : (
+                                <>
+                                  <FaSignOutAlt className="inline mr-2" />
+                                  Logout
+                                </>
+                              )}
                             </button>
                           </div>
                         </div>
