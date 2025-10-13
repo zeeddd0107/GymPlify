@@ -2,51 +2,54 @@ import { useState } from "react";
 import { Alert } from "react-native";
 import { fetchAttendanceData } from "@/src/services/dashboardService";
 import { useAuth } from "@/src/context";
+import Logger from "@/src/utils/logger";
 
 export const useAttendance = () => {
   const [attendanceData, setAttendanceData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { user: authUser, loading: authLoading } = useAuth();
 
   const fetchAttendanceDataHook = async () => {
     try {
-      console.log("🔍 useAttendance - fetchAttendanceDataHook called");
-      console.log("🔍 useAttendance - authLoading:", authLoading);
-      console.log("🔍 useAttendance - authUser:", authUser);
+      // Prevent multiple simultaneous fetches
+      if (isLoading) {
+        Logger.debug("Attendance fetch already in progress, skipping");
+        return;
+      }
+
+      Logger.hook("useAttendance", "Fetching attendance data");
 
       // Don't fetch if authentication is still loading
       if (authLoading) {
-        console.log(
-          "🔍 useAttendance - Authentication still loading, skipping attendance fetch",
-        );
+        Logger.debug("Authentication still loading, skipping attendance fetch");
         return;
       }
 
       // Don't fetch if no authenticated user
       if (!authUser) {
-        console.log(
-          "🔍 useAttendance - No authenticated user, skipping attendance fetch",
-        );
+        Logger.debug("No authenticated user, skipping attendance fetch");
         return;
       }
 
       // Don't fetch if user ID is not available
       if (!authUser.id) {
-        console.log(
-          "🔍 useAttendance - No user ID available, skipping attendance fetch",
-        );
+        Logger.debug("No user ID available, skipping attendance fetch");
         return;
       }
 
-      console.log(
-        "🔍 useAttendance - Fetching attendance for user:",
-        authUser.email,
-      );
+      setIsLoading(true);
+      Logger.hook("useAttendance", `Fetching data for user: ${authUser.email}`);
       const attendance = await fetchAttendanceData(authUser.id);
       setAttendanceData(attendance);
-      console.log("🔍 useAttendance - Attendance data fetched:", attendance);
+      Logger.hook(
+        "useAttendance",
+        `Attendance data fetched: ${attendance.totalVisits} visits`,
+      );
     } catch (error) {
       console.error("Error fetching attendance data:", error);
       Alert.alert("Error", "Failed to load attendance data");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -59,5 +62,6 @@ export const useAttendance = () => {
     setAttendanceData,
     fetchAttendanceDataHook,
     getProgressPercentage,
+    isLoading,
   };
 };

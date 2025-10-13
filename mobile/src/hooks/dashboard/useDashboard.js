@@ -32,8 +32,14 @@ export const useDashboard = () => {
 
   const { workoutTip, fetchWorkoutTipHook } = useWorkoutTip();
 
-  const { email, userData, activeSubscriptionId, fetchUserData, getGreeting } =
-    useUserData();
+  const {
+    email,
+    userData,
+    activeSubscriptionId,
+    isUserDataLoading,
+    fetchUserData,
+    getGreeting,
+  } = useUserData();
 
   const { notifications, fetchNotificationsHook, getUnreadCount } =
     useNotifications();
@@ -83,7 +89,7 @@ export const useDashboard = () => {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchUserData(), fetchDashboardData()]);
+    await Promise.all([fetchUserData(), fetchMembershipDataHook(true)]); // Force refresh subscription data
     setRefreshing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array since these functions are stable
@@ -91,7 +97,8 @@ export const useDashboard = () => {
   useEffect(() => {
     // console.log("🔍 useDashboard - useEffect triggered");
 
-    if (!authLoading) {
+    // Only fetch data if user is authenticated and not loading
+    if (!authLoading && authUser && authUser.id) {
       fetchUserData();
       fetchDashboardData();
     }
@@ -133,6 +140,7 @@ export const useDashboard = () => {
     subscriptions,
     hasActiveSubscription: hasActiveSubscription, // Use the simple check based on activeSubscriptionId
     isDataLoaded,
+    isUserDataLoading,
 
     // Functions
     onRefresh,

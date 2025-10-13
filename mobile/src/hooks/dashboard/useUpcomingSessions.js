@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alert } from "react-native";
 import { fetchUpcomingSessions } from "@/src/services/dashboardService";
 import { useAuth } from "@/src/context";
+import Logger from "@/src/utils/logger";
 
 export const useUpcomingSessions = () => {
   const [upcomingSessions, setUpcomingSessions] = useState([]);
@@ -9,43 +10,35 @@ export const useUpcomingSessions = () => {
 
   const fetchUpcomingSessionsHook = async () => {
     try {
-      console.log("🔍 useUpcomingSessions - fetchUpcomingSessionsHook called");
-      console.log("🔍 useUpcomingSessions - authLoading:", authLoading);
-      console.log("🔍 useUpcomingSessions - authUser:", authUser);
+      Logger.hook("useUpcomingSessions", "Fetching upcoming sessions");
 
       // Don't fetch if authentication is still loading
       if (authLoading) {
-        console.log(
-          "🔍 useUpcomingSessions - Authentication still loading, skipping sessions fetch",
-        );
+        Logger.debug("Authentication still loading, skipping sessions fetch");
         return;
       }
 
       // Don't fetch if no authenticated user
       if (!authUser) {
-        console.log(
-          "🔍 useUpcomingSessions - No authenticated user, skipping sessions fetch",
-        );
+        Logger.debug("No authenticated user, skipping sessions fetch");
         return;
       }
 
       // Don't fetch if user ID is not available
       if (!authUser.id) {
-        console.log(
-          "🔍 useUpcomingSessions - No user ID available, skipping sessions fetch",
-        );
+        Logger.debug("No user ID available, skipping sessions fetch");
         return;
       }
 
-      console.log(
-        "🔍 useUpcomingSessions - Fetching sessions for user:",
-        authUser.email,
+      Logger.hook(
+        "useUpcomingSessions",
+        `Fetching data for user: ${authUser.email}`,
       );
       const sessions = await fetchUpcomingSessions(authUser.id);
       setUpcomingSessions(sessions);
-      console.log(
-        "🔍 useUpcomingSessions - Sessions fetched:",
-        sessions.length,
+      Logger.hook(
+        "useUpcomingSessions",
+        `Sessions fetched: ${sessions.length}`,
       );
     } catch (error) {
       console.error("Error fetching upcoming sessions:", error);

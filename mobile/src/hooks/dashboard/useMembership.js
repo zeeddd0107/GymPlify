@@ -7,59 +7,48 @@ import {
 } from "@/src/services/dashboardService";
 import { getUserActiveSubscription } from "@/src/services/subscriptionService";
 import { useAuth } from "@/src/context";
+import Logger from "@/src/utils/logger";
 
 export const useMembership = () => {
   const [membershipData, setMembershipData] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
   const { user: authUser, loading: authLoading } = useAuth();
 
-  const fetchMembershipDataHook = async () => {
+  const fetchMembershipDataHook = async (forceRefresh = false) => {
     try {
-      console.log("🔍 useMembership - fetchMembershipDataHook called");
-      console.log("🔍 useMembership - authLoading:", authLoading);
-      console.log("🔍 useMembership - authUser:", authUser);
-      console.log("🔍 useMembership - authUser type:", typeof authUser);
-      console.log(
-        "🔍 useMembership - authUser keys:",
-        authUser ? Object.keys(authUser) : "null",
-      );
-      console.log("🔍 useMembership - authUser.id:", authUser?.id);
+      Logger.hook("useMembership", "Fetching membership data");
 
       // Don't fetch if authentication is still loading
       if (authLoading) {
-        console.log(
-          "🔍 useMembership - Authentication still loading, skipping membership data fetch",
+        Logger.debug(
+          "Authentication still loading, skipping membership data fetch",
         );
         return;
       }
 
       // Don't fetch if no authenticated user
       if (!authUser) {
-        console.log(
-          "🔍 useMembership - No authenticated user, skipping membership data fetch",
-        );
+        Logger.debug("No authenticated user, skipping membership data fetch");
         return;
       }
 
       // Don't fetch if user ID is not available
       if (!authUser.id) {
-        console.log(
-          "🔍 useMembership - No user ID available, skipping membership data fetch",
-        );
+        Logger.debug("No user ID available, skipping membership data fetch");
         return;
       }
 
-      console.log(
-        "🔍 useMembership - Fetching membership data for user:",
-        authUser.email,
-      );
+      Logger.hook("useMembership", `Fetching data for user: ${authUser.email}`);
 
       // Try to get active subscription from new system first
-      const activeSubscription = await getUserActiveSubscription(authUser.id);
+      const activeSubscription = await getUserActiveSubscription(
+        authUser.id,
+        forceRefresh,
+      );
       if (activeSubscription) {
-        console.log(
-          "🔍 useMembership - Found active subscription:",
-          activeSubscription.id,
+        Logger.hook(
+          "useMembership",
+          `Found active subscription: ${activeSubscription.id}`,
         );
         setMembershipData(activeSubscription);
         return;
