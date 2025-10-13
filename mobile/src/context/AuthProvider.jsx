@@ -245,7 +245,7 @@ export function AuthProvider({ children }) {
       unsubscribe();
       clearTimeout(firebaseTimeout);
     };
-  }, []);
+  }, [firebaseReady, user]);
 
   const signOut = async () => {
     try {
