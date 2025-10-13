@@ -7,9 +7,11 @@ import TabBarBackground from "@/src/components";
 import { useTheme } from "@/src/context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Entypo from "@expo/vector-icons/Entypo";
+import { useDashboard } from "@/src/hooks";
 
 export default function TabLayout() {
   const { theme } = useTheme();
+  const { hasActiveSubscription } = useDashboard();
 
   return (
     <Tabs
@@ -19,16 +21,18 @@ export default function TabLayout() {
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: "absolute",
-            backgroundColor: theme.background,
-          },
-          default: {
-            backgroundColor: theme.background,
-          },
-        }),
+        tabBarStyle: hasActiveSubscription
+          ? Platform.select({
+              ios: {
+                // Use a transparent background on iOS to show the blur effect
+                position: "absolute",
+                backgroundColor: theme.background,
+              },
+              default: {
+                backgroundColor: theme.background,
+              },
+            })
+          : { display: "none" },
       }}
     >
       <Tabs.Screen

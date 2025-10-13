@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,24 +7,68 @@ import {
   ScrollView,
   RefreshControl,
   Modal,
+  ActivityIndicator,
 } from "react-native";
+import { StatusBar, setStatusBarStyle } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
 import { useSessions } from "@/src/hooks";
 import { SessionCard, SessionDetailModal } from "@/src/components";
+import { useAuth } from "@/src/context";
+import { getUserActiveSubscription } from "@/src/services/subscriptionService";
 
 export default function SessionsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+  const { user: authUser } = useAuth();
   const [selectedSession, setSelectedSession] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [showWorkoutSchedulePopup, setShowWorkoutSchedulePopup] =
     useState(false);
+  const [subscriptionPlan, setSubscriptionPlan] = useState(null);
+  const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
 
   const { sessions, loading, refreshing, error, onRefresh, deleteSession } =
     useSessions();
+
+  // Ensure status bar is set to dark when component mounts
+  useEffect(() => {
+    setStatusBarStyle("dark", true);
+  }, []);
+
+  // Check user's subscription plan
+  useEffect(() => {
+    const checkSubscriptionPlan = async () => {
+      if (!authUser?.id) {
+        setIsCheckingSubscription(false);
+        return;
+      }
+
+      try {
+        const activeSubscription = await getUserActiveSubscription(authUser.id);
+        if (activeSubscription) {
+          // Get the subscription plan details
+          const planId = activeSubscription.planId;
+          if (planId) {
+            // Import the service to get plan details
+            const { getSubscriptionPlan } = await import(
+              "@/src/services/subscriptionService"
+            );
+            const plan = await getSubscriptionPlan(planId);
+            setSubscriptionPlan(plan);
+          }
+        }
+      } catch (error) {
+        console.error("Error checking subscription plan:", error);
+      } finally {
+        setIsCheckingSubscription(false);
+      }
+    };
+
+    checkSubscriptionPlan();
+  }, [authUser?.id]);
 
   const handleSessionPress = (session) => {
     console.log("Session pressed:", session);
@@ -68,6 +112,13 @@ export default function SessionsScreen() {
     router.push(url);
   };
 
+  // Check if user can book sessions (only coaching plans)
+  const canBookSessions = () => {
+    if (!subscriptionPlan) return false;
+    const planName = subscriptionPlan.name?.toLowerCase() || "";
+    return planName.includes("coaching");
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -80,9 +131,7 @@ export default function SessionsScreen() {
         </View>
 
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, { color: theme.text }]}>
-            Loading sessions...
-          </Text>
+          <ActivityIndicator size="large" color="#4361EE" />
         </View>
       </View>
     );
@@ -90,6 +139,7 @@ export default function SessionsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar style="dark" />
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerSide} />
@@ -105,9 +155,37 @@ export default function SessionsScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        contentContainerStyle={styles.scrollContentContainer}
+        contentContainerStyle={
+          isCheckingSubscription
+            ? styles.scrollViewFullscreen
+            : styles.scrollContentContainer
+        }
       >
-        {error ? (
+        {isCheckingSubscription ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4361EE" />
+          </View>
+        ) : !canBookSessions() ? (
+          <View style={styles.restrictionContainer}>
+            <Ionicons name="lock-closed-outline" size={64} color="#FF6B6B" />
+            <Text style={[styles.restrictionTitle, { color: theme.text }]}>
+              Unlock Session Booking
+            </Text>
+            <Text style={[styles.restrictionSubtext, { color: theme.text }]}>
+              Personal training sessions are available with our Coaching plans.
+              {"\n"}
+              Discover the benefits of coach guidance and structured workouts.
+            </Text>
+            <Pressable
+              style={styles.upgradeButton}
+              onPress={() => router.push("/subscriptions")}
+            >
+              <Text style={styles.upgradeButtonText}>
+                View Coaching Subscriptions
+              </Text>
+            </Pressable>
+          </View>
+        ) : error ? (
           <View style={styles.errorContainer}>
             <Ionicons name="alert-circle" size={48} color="#FF6B6B" />
             <Text style={[styles.errorText, { color: theme.text }]}>
@@ -140,15 +218,17 @@ export default function SessionsScreen() {
         )}
       </ScrollView>
 
-      {/* Create Session Floating Button - Always at bottom right */}
-      <View style={styles.createSessionButtonContainer}>
-        <Pressable
-          style={styles.createSessionButton}
-          onPress={handleCreateSession}
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </Pressable>
-      </View>
+      {/* Create Session Floating Button - Only show for coaching plans */}
+      {canBookSessions() && (
+        <View style={styles.createSessionButtonContainer}>
+          <Pressable
+            style={styles.createSessionButton}
+            onPress={handleCreateSession}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </Pressable>
+        </View>
+      )}
 
       {/* Workout Schedule Popup */}
       <Modal
@@ -328,8 +408,9 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   loadingContainer: {
+    flex: 1,
     alignItems: "center",
-    paddingVertical: 40,
+    justifyContent: "center",
   },
   loadingText: {
     fontFamily: Fonts.family.regular,
@@ -337,6 +418,7 @@ const styles = StyleSheet.create({
   },
   sessionsContainer: {
     marginHorizontal: 20,
+    marginTop: 20,
   },
   errorContainer: {
     alignItems: "center",
@@ -475,5 +557,44 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     lineHeight: 20,
+  },
+  // Restriction message styles
+  restrictionContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+    marginVertical: 200,
+  },
+  restrictionTitle: {
+    fontFamily: Fonts.family.bold,
+    fontSize: 24,
+    marginTop: 20,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  restrictionSubtext: {
+    fontFamily: Fonts.family.regular,
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  upgradeButton: {
+    backgroundColor: "#4361EE",
+    color: "white",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  upgradeButtonText: {
+    color: "white",
+    fontFamily: Fonts.family.semiBold,
+    fontSize: 16,
+  },
+  scrollViewFullscreen: {
+    flexGrow: 1, // Allow content to grow and fill available space
   },
 });

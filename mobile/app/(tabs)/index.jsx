@@ -5,7 +5,9 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
+  ActivityIndicator,
 } from "react-native";
+import { StatusBar, setStatusBarStyle } from "expo-status-bar";
 import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +16,7 @@ import { Colors } from "@/src/constants/Colors";
 import { Fonts } from "@/src/constants/Fonts";
 import { useColorScheme } from "@/src/hooks";
 import { FloatingActionButton } from "@/src/components";
+import { TypingIndicator } from "@/src/components/shared";
 import {
   MembershipOverview,
   AttendanceSummary,
@@ -26,6 +29,11 @@ import { useDashboard } from "@/src/hooks";
 export default function HomeScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
+
+  // Ensure status bar is set to light when component mounts
+  useEffect(() => {
+    setStatusBarStyle("light", true);
+  }, []);
   const colors = Colors[colorScheme ?? "light"];
   const insets = useSafeAreaInsets();
 
@@ -42,6 +50,7 @@ export default function HomeScreen() {
     subscriptions,
     hasActiveSubscription,
     isDataLoaded,
+    isUserDataLoading,
     onRefresh,
     getGreeting,
     handleRenewMembership,
@@ -80,6 +89,7 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar style="light" />
       {/* Always show app bar for logged-in users */}
       <View style={[styles.appBar, { paddingTop: insets.top + 10 }]}>
         {/* Top Section - Icons */}
@@ -114,12 +124,23 @@ export default function HomeScreen() {
 
         {/* Bottom Section - Greeting */}
         <View style={styles.bottomSection}>
-          <Text style={styles.greetingText}>{getGreeting()}</Text>
+          {isUserDataLoading ? (
+            <TypingIndicator
+              key="greeting-loading"
+              color="#FFFFFF"
+              dotSize={8}
+            />
+          ) : (
+            <Text style={styles.greetingText}>{getGreeting()}</Text>
+          )}
         </View>
       </View>
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={
+          isInitialLoad ? styles.scrollViewFullscreen : undefined
+        }
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -128,9 +149,7 @@ export default function HomeScreen() {
         {isInitialLoad ? (
           // Show loading state during initial load to prevent flash
           <View style={styles.loadingContainer}>
-            <Text style={[styles.loadingText, { color: colors.text }]}>
-              Loading...
-            </Text>
+            <ActivityIndicator size="large" color="#4361EE" />
           </View>
         ) : hasActiveSubscription ? (
           // Show home dashboard for users with active subscription
@@ -184,7 +203,6 @@ const styles = StyleSheet.create({
   },
   appBar: {
     backgroundColor: "#4361EE",
-    //backgroundColor: "#0f4c3a", // Dark teal background
     paddingBottom: 15,
     paddingHorizontal: 20,
   },
@@ -218,9 +236,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   scrollViewFullscreen: {
+    flexGrow: 1, // Allow content to grow and fill available space
     paddingTop: 20, // Add some top padding when no header
     paddingHorizontal: 0, // Remove horizontal padding for fullscreen
   },
@@ -290,7 +308,7 @@ const styles = StyleSheet.create({
     height: 1,
     opacity: 0.2,
   },
-  // Notifications Modal Styles
+
   notificationsModal: {
     flex: 1,
   },
@@ -346,7 +364,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 100,
   },
   loadingText: {
     fontFamily: Fonts.family.medium,

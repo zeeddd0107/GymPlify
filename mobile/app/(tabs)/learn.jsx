@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,16 @@ import {
   Pressable,
   SafeAreaView,
   ActivityIndicator,
-  RefreshControl,
 } from "react-native";
+import { StatusBar, setStatusBarStyle } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTheme } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
 import guideService from "@/src/services/guideService";
+import { useAuth } from "@/src/context";
+import { getUserActiveSubscription } from "@/src/services/subscriptionService";
+import { firestore } from "@/src/services/firebase";
 
 // Category Card Component
 const CategoryCard = ({ category, guideCount, onPress, theme }) => {
@@ -92,22 +95,75 @@ const CategoryCard = ({ category, guideCount, onPress, theme }) => {
 export default function LearnScreen() {
   const router = useRouter();
   const { theme } = useTheme();
+  const { user: authUser } = useAuth();
   const [groupedGuides, setGroupedGuides] = useState({});
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] = useState(true);
 
+  // Ensure status bar is set to dark when component mounts
   useEffect(() => {
-    loadGuides();
+    setStatusBarStyle("dark", true);
   }, []);
 
-  const loadGuides = async (isRefresh = false) => {
+  useEffect(() => {
+    checkSubscriptionStatus();
+  }, [authUser, checkSubscriptionStatus]);
+
+  useEffect(() => {
+    if (!checkingSubscription && !isSubscriptionExpired) {
+      loadGuides();
+    }
+  }, [checkingSubscription, isSubscriptionExpired]);
+
+  const checkSubscriptionStatus = useCallback(async () => {
+    if (!authUser) {
+      setCheckingSubscription(false);
+      return;
+    }
+
     try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+      // First check user's role to determine if they should have subscription access
+      const userDoc = await firestore
+        .collection("users")
+        .doc(authUser.uid)
+        .get();
+      if (!userDoc.exists) {
+        setCheckingSubscription(false);
+        return;
       }
+
+      const userData = userDoc.data();
+      const userRole = userData.role;
+
+      // Only check subscription status for clients (regular users)
+      // Staff and admin don't need subscription checks for Learn tab access
+      if (userRole === "client") {
+        const activeSubscription = await getUserActiveSubscription(
+          authUser.uid,
+        );
+        if (activeSubscription && activeSubscription.isExpired) {
+          setIsSubscriptionExpired(true);
+        }
+      }
+      // For staff and admin, always allow access (no subscription check needed)
+    } catch (error) {
+      // Only log non-permission errors
+      if (!error.code || error.code !== "permission-denied") {
+        console.error("Error checking subscription status:", error);
+      }
+      // If there's a permission error or no subscription, allow access to Learn tab
+      // This handles cases where users don't have subscriptions yet or permission issues
+      setIsSubscriptionExpired(false);
+    } finally {
+      setCheckingSubscription(false);
+    }
+  }, [authUser]);
+
+  const loadGuides = async () => {
+    try {
+      setLoading(true);
 
       const guidesData = await guideService.getAllGuides();
 
@@ -128,12 +184,7 @@ export default function LearnScreen() {
       setError(error.message);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  };
-
-  const onRefresh = () => {
-    loadGuides(true);
   };
 
   const handleCategoryPress = (category) => {
@@ -149,6 +200,58 @@ export default function LearnScreen() {
       params: { id: guide.id },
     });
   };
+
+  if (checkingSubscription) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.background }]}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerSide} />
+          <Text style={[styles.title, { color: theme.text }]}>Learn</Text>
+          <View style={styles.headerSide} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B5CF6" />
+          <Text style={[styles.loadingText, { color: theme.text }]}>
+            Checking subscription...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isSubscriptionExpired) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.background }]}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerSide} />
+          <Text style={[styles.title, { color: theme.text }]}>Learn</Text>
+          <View style={styles.headerSide} />
+        </View>
+        <View style={styles.expiredContainer}>
+          <View style={styles.expiredIcon}>
+            <Ionicons name="time-outline" size={48} color="#DC2626" />
+          </View>
+          <Text style={[styles.expiredTitle, { color: theme.text }]}>
+            Subscription Expired
+          </Text>
+          <Text style={[styles.expiredSubtext, { color: theme.text }]}>
+            Your subscription has expired. Renew your subscription to access
+            learning materials and other premium features.
+          </Text>
+          <Pressable
+            style={styles.renewButton}
+            onPress={() => router.push("/subscriptions")}
+          >
+            <Text style={styles.renewButtonText}>Renew Subscription</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (loading) {
     return (
@@ -196,21 +299,12 @@ export default function LearnScreen() {
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.background }]}
     >
+      <StatusBar style="dark" />
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerSide} />
         <Text style={[styles.title, { color: theme.text }]}>Learn</Text>
-        <Pressable
-          style={styles.refreshButton}
-          onPress={onRefresh}
-          disabled={refreshing}
-        >
-          <Ionicons
-            name="refresh"
-            size={20}
-            color={refreshing ? theme.icon : theme.text}
-          />
-        </Pressable>
+        <View style={styles.headerSide} />
       </View>
 
       {/* Category Cards */}
@@ -218,14 +312,6 @@ export default function LearnScreen() {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#8B5CF6"
-            colors={["#8B5CF6"]}
-          />
-        }
       >
         <View style={styles.grid}>
           {Object.keys(groupedGuides).map((category) => (
@@ -261,7 +347,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 50,
-    paddingBottom: 12,
+    paddingBottom: 16,
     backgroundColor: "#fff",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -383,5 +469,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: Fonts.family.medium,
     textAlign: "center",
+  },
+  expiredContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
+  },
+  expiredIcon: {
+    marginBottom: 20,
+  },
+  expiredTitle: {
+    fontFamily: Fonts.family.bold,
+    fontSize: 24,
+    marginTop: 20,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  expiredSubtext: {
+    fontFamily: Fonts.family.regular,
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  renewButton: {
+    backgroundColor: "#4361EE",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  renewButtonText: {
+    color: "white",
+    fontFamily: Fonts.family.semiBold,
+    fontSize: 16,
   },
 });
