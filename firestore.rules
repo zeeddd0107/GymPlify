@@ -1,11 +1,210 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // TEMPORARY: Allow all reads and writes for testing
-    // TODO: Replace with proper security rules after testing
-    match /{document=**} {
-      allow read, write: if true;
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserRole() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : 
+             null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+    
+    function isStaff() {
+      return isAuthenticated() && getUserRole() == 'staff';
+    }
+    
+    function isClient() {
+      return isAuthenticated() && getUserRole() == 'client';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isNewUser() {
+      return isAuthenticated() && (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) || 
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+              !get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(['role'])));
+    }
+    
+    // Users collection - Single collection for admin, staff, and clients
+    match /users/{userId} {
+      // Admin: Full CRUD access to all users
+      allow read, write: if isAdmin();
+      
+      // Staff: Can read all users and update their own data (for logout functionality)
+      allow read: if isStaff();
+      allow write: if isStaff() && isOwner(userId);
+      
+      // Allow all authenticated users to create and update their own document (for registration and logout)
+      allow create, write: if isAuthenticated() && isOwner(userId);
+      
+      // Allow authenticated users to read their own document (for clients and new users)
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Fallback: Allow any authenticated user to read their own document (for mobile app consistency)
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Inventory collection
+    match /inventory/{inventoryId} {
+      // Admin: Full CRUD access to inventory
+      allow read, write: if isAdmin();
+      
+      // Staff: Read-only access to inventory
+      allow read: if isStaff();
+      
+      // Clients: No access to inventory
+      allow read, write: if false;
+    }
+    
+    // Attendance collection
+    match /attendance/{attendanceId} {
+      // Admin: Full CRUD access to attendance
+      allow read, write: if isAdmin();
+      
+      // Staff: Can read and write attendance (for check-in/check-out functionality)
+      allow read, write: if isStaff();
+      
+      // Allow authenticated users to read and write their own attendance (for clients and new users)
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && (resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid);
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid);
+      allow delete: if false; // Users cannot delete attendance records
+    }
+    
+    // Subscriptions collection
+    match /subscriptions/{subscriptionId} {
+      // Admin: Full CRUD access to subscriptions
+      allow read, write: if isAdmin();
+      
+      // Staff: No access to subscriptions
+      allow read, write: if false;
+      
+      // Allow authenticated users to read and update their own subscription (for clients and new users)
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid);
+      allow create: if false; // Users cannot create subscriptions directly
+      allow delete: if false; // Users cannot delete subscriptions
+    }
+    
+    // Pending Subscriptions collection
+    match /pendingSubscriptions/{pendingId} {
+      // Admin: Full CRUD access to pending subscriptions
+      allow read, write: if isAdmin();
+      
+      // Staff: No access to pending subscriptions
+      allow read, write: if false;
+      
+      // Allow authenticated users to read and write their own pending subscriptions (for clients and new users)
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if false; // Users cannot delete pending subscriptions
+    }
+    
+    // Subscription Plans collection
+    match /subscriptionPlans/{planId} {
+      // Admin: Full CRUD access to subscription plans
+      allow read, write: if isAdmin();
+      
+      // Staff: Read-only access to subscription plans (for viewing available plans)
+      allow read: if isStaff();
+      
+      // Allow all authenticated users to read subscription plans (for clients and new users)
+      allow read: if isAuthenticated();
+    }
+    
+    // Sessions collection
+    match /sessions/{sessionId} {
+      // Admin: Full CRUD access to sessions
+      allow read, write: if isAdmin();
+      
+      // Staff: Can read and write sessions (for managing gym sessions)
+      allow read: if isStaff();
+      
+      // Allow authenticated users to read sessions (for clients and new users to see available sessions)
+      allow read: if isAuthenticated();
+      
+      // Allow authenticated users to create sessions (for clients and new users during registration)
+      allow create: if isAuthenticated() && (resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid);
+      
+      // Allow authenticated users to update sessions they own (for booking confirmations)
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid);
+      allow delete: if false; // Users cannot delete sessions
+    }
+    
+    // Guides collection
+    match /guides/{guideId} {
+      // Admin: Full CRUD access to guides
+      allow read, write: if isAdmin();
+      
+      // Staff: Can read and write guides (for managing equipment guides)
+      allow read, write: if isStaff();
+      
+      // Allow all authenticated users to read guides (for clients and new users)
+      allow read: if isAuthenticated();
+    }
+    
+    // Login Attempts collection
+    match /loginAttempts/{attemptId} {
+      // Admin: Full CRUD access to login attempts
+      allow read, write: if isAdmin();
+      
+      // Staff: No access to login attempts
+      allow read, write: if false;
+      
+      // Clients: No access to login attempts
+      allow read, write: if false;
+    }
+    
+    // Counters collection
+    match /counters/{counterId} {
+      // Admin: Full CRUD access to counters
+      allow read, write: if isAdmin();
+      
+      // Staff: No access to counters
+      allow read, write: if false;
+      
+      // Clients: No access to counters
+      allow read, write: if false;
+      
+      // Allow authenticated users to read and write counters (for Member ID generation during registration)
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Admin: Full CRUD access to notifications
+      allow read, write: if isAdmin();
+      
+      // Staff: Read-only access to notifications
+      allow read: if isStaff();
+      allow write: if false; // Staff cannot modify notifications
+      
+      // Allow authenticated users to read their own notifications (for clients and new users)
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Custom Targets collection (for guide target workouts)
+    match /customTargets/{targetId} {
+      // Admin: Full CRUD access to custom targets
+      allow read, write: if isAdmin();
+      
+      // Staff: Can read and write custom targets (for managing guide targets)
+      allow read, write: if isStaff();
+      
+      // Allow all authenticated users to read custom targets (for clients and guide creation)
+      allow read: if isAuthenticated();
+      allow write: if false; // Only staff and admin can modify custom targets
     }
   }
 }

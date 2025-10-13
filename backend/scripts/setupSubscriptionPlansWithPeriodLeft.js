@@ -11,10 +11,10 @@ const db = admin.firestore();
 const subscriptionPlans = [
   {
     id: "walkin",
-    name: "Walk-in Session",
+    name: "Walk-in",
     price: "₱100",
     period: "per session",
-    periodLeft: 1, // 1 session for walkin
+    daysRemaining: 1,
     description: "Pay as you go",
     features: [
       "Single gym session",
@@ -33,7 +33,7 @@ const subscriptionPlans = [
     name: "Monthly Plan",
     price: "₱850",
     period: "per month",
-    periodLeft: 31, // 31 days for monthly plan
+    // No daysRemaining - calculated dynamically as exactly one calendar month
     description: "Best value for regular gym-goers",
     features: [
       "Unlimited gym access",
@@ -51,10 +51,10 @@ const subscriptionPlans = [
   },
   {
     id: "coaching-group",
-    name: "Coaching Program",
+    name: "Coaching Program - Group",
     price: "₱2,500",
     period: "per month",
-    periodLeft: 30, // 30 days for coaching group
+    // No daysRemaining - calculated dynamically as exactly one calendar month
     description: "Group coaching - unlimited sessions",
     features: [
       "Everything in Monthly",
@@ -73,10 +73,11 @@ const subscriptionPlans = [
   },
   {
     id: "coaching-solo",
-    name: "Coaching Program",
+    name: "Coaching Program - Solo",
     price: "₱2,500",
     period: "per month",
-    periodLeft: 10, // 10 sessions for solo coaching
+    // No daysRemaining - calculated dynamically as exactly one calendar month
+    maxSessions: 10, // 10 sessions limit for solo coaching
     description: "Solo coaching - 10 sessions limit",
     features: [
       "Everything in Monthly",
@@ -115,20 +116,16 @@ async function setupSubscriptionPlansWithPeriodLeft() {
         const planRef = collectionRef.doc(plan.id);
         const planDoc = await planRef.get();
 
-        if (planDoc.exists) {
-          await planRef.update({
-            periodLeft: plan.periodLeft,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-          console.log(
-            `✅ Updated ${plan.name} with periodLeft = ${plan.periodLeft}`,
-          );
-        } else {
-          await planRef.set(plan);
-          console.log(
-            `✅ Created ${plan.name} with periodLeft = ${plan.periodLeft}`,
-          );
-        }
+        // Use set with merge to handle both existing and new documents
+        const planData = {
+          ...plan,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        await planRef.set(planData, { merge: true });
+        console.log(
+          `✅ ${planDoc.exists ? "Updated" : "Created"} ${plan.name} - daysRemaining: ${plan.daysRemaining || "N/A"}, maxSessions: ${plan.maxSessions || "N/A"}`,
+        );
       }
     } else {
       console.log("📝 Creating new subscriptionPlans collection...");
@@ -136,17 +133,24 @@ async function setupSubscriptionPlansWithPeriodLeft() {
       for (const plan of subscriptionPlans) {
         await collectionRef.doc(plan.id).set(plan);
         console.log(
-          `✅ Created plan: ${plan.name} (periodLeft = ${plan.periodLeft})`,
+          `✅ Created plan: ${plan.name} - using date-based calculations`,
         );
       }
     }
 
     console.log("\n🎉 subscriptionPlans collection setup complete!");
-    console.log("📋 PeriodLeft values:");
-    console.log("   - Walk-in Session: periodLeft = 1 (session)");
-    console.log("   - Solo Coaching: periodLeft = 10 (sessions)");
-    console.log("   - Monthly Plan: periodLeft = 31 (days)");
-    console.log("   - Coaching Group: periodLeft = 30 (days)");
+    console.log("📋 Plan configurations:");
+    console.log("   - Walk-in: 1 day, no session limits");
+    console.log("   - Solo Coaching: Exactly one calendar month, 10 sessions");
+    console.log(
+      "   - Monthly Plan: Exactly one calendar month, unlimited sessions",
+    );
+    console.log(
+      "   - Coaching Group: Exactly one calendar month, unlimited sessions",
+    );
+    console.log(
+      "   - All monthly plans use exact calendar month calculations for accurate durations",
+    );
 
     process.exit(0);
   } catch (error) {

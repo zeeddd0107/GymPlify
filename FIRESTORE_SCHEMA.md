@@ -19,6 +19,12 @@ Stores user profiles for all registered users (email/password, Google, etc).
   "provider": "google", // or "password"
   "customMemberId": "MBR-00001", // Auto-generated for mobile users
   "qrCodeValue": "abc123", // Unique QR code value
+  "activeSubscriptionId": "sub_xyz789", // Reference to current active subscription
+  "subscriptionHistory": [ // Array of all subscription IDs (current and past)
+    "sub_abc123",
+    "sub_def456", 
+    "sub_xyz789"
+  ],
   "createdAt": <timestamp>,
   "lastLogin": <timestamp>,
   "lastLogout": <timestamp>,
