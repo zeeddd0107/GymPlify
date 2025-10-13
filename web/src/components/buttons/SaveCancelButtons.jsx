@@ -33,11 +33,11 @@ const SaveCancelButtons = ({
         onClick={saving || disabled ? undefined : onCancel}
         disabled={saving || disabled}
         className={`
-          px-6 py-3.5 !text-sm font-medium rounded-lg border border-gray-300 
+          px-6 py-3 !text-sm font-medium rounded-xl border border-gray-300 
           bg-white text-primary hover:bg-gray-50 hover:border-primary
           focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2
           transition-all duration-200 ease-in-out
-          disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300
+          disabled:opacity-90 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300
           ${cancelButtonClassName}
         `.trim()}
       >
@@ -49,11 +49,11 @@ const SaveCancelButtons = ({
         onClick={saving || disabled ? undefined : onSave}
         disabled={saving || disabled}
         className={`
-          px-6 py-3 !text-sm font-medium rounded-lg border border-transparent
+          px-6 py-3 !text-sm font-medium rounded-xl border border-transparent
           bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700
           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
           transition-all duration-200 ease-in-out
-          disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600
+          disabled:opacity-90 disabled:cursor-not-allowed disabled:hover:bg-blue-600
           ${saveButtonClassName}
         `.trim()}
       >

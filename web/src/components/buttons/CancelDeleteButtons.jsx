@@ -37,7 +37,7 @@ const CancelDeleteButtons = ({
           bg-white text-primary hover:bg-gray-50 hover:border-primary
           focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2
           transition-all duration-200 ease-in-out
-          disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white
+          disabled:opacity-90 disabled:cursor-not-allowed disabled:hover:bg-white
           ${cancelButtonClassName}
         `.trim()}
       >
@@ -53,7 +53,7 @@ const CancelDeleteButtons = ({
           bg-red-500 text-white hover:bg-red-600 focus:bg-red-600
           focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
           transition-all duration-200 ease-in-out
-          disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-500
+          disabled:opacity-90 disabled:cursor-not-allowed disabled:hover:bg-red-500
           ${deleteButtonClassName}
         `.trim()}
       >
