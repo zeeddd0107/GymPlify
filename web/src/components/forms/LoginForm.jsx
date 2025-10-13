@@ -7,7 +7,7 @@ import ForgotPassword from "./ForgotPassword";
 import Button from "../ui/Button";
 
 const LoginForm = () => {
-  // Use the custom auth form hook for all logic
+  // I'm using my custom auth form hook to handle all the logic
   const {
     formData,
     isLoading,
@@ -17,15 +17,15 @@ const LoginForm = () => {
     handleSubmit,
   } = useAuthForm("login");
 
-  // State for forgot password screen
+  // I need to track whether to show the forgot password screen
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
-  // Handle back to login
+  // Let me handle going back to the login screen
   const handleBackToLogin = () => {
     setShowForgotPassword(false);
   };
 
-  // Show forgot password screen
+  // If they want to reset their password, show that screen instead
   if (showForgotPassword) {
     return <ForgotPassword onBackToLogin={handleBackToLogin} />;
   }
@@ -45,11 +45,6 @@ const LoginForm = () => {
         <h2 className="mb-6 sm:mb-8 text-[1.25rem] sm:text-[1.5rem] font-bold text-gray-800">
           Sign In
         </h2>
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm sm:text-base">
-            {error}
-          </div>
-        )}
         <form onSubmit={handleSubmit} noValidate>
           <div className="mb-4 sm:mb-5">
             <label
@@ -65,7 +60,7 @@ const LoginForm = () => {
               value={formData.username}
               onChange={(e) => handleInputChange("username", e.target.value)}
               icon={faUser}
-              error={!!fieldErrors.username}
+              error={!!fieldErrors.username || !!error}
             />
             {fieldErrors.username && (
               <p className="text-red-500 text-sm text-left">
@@ -73,7 +68,7 @@ const LoginForm = () => {
               </p>
             )}
           </div>
-          <div className="mb-6 sm:mb-8">
+          <div className="mb-4">
             <label
               htmlFor="password"
               className="block text-sm sm:text-base font-medium text-gray-700 mb-2 text-left"
@@ -87,7 +82,7 @@ const LoginForm = () => {
               value={formData.password}
               onChange={(e) => handleInputChange("password", e.target.value)}
               icon={faLock}
-              error={!!fieldErrors.password}
+              error={!!fieldErrors.password || !!error}
             />
             {fieldErrors.password && (
               <p className="text-red-500 text-sm text-left">
@@ -95,6 +90,20 @@ const LoginForm = () => {
               </p>
             )}
           </div>
+          {error && (
+            <div
+              className={`mb-4 p-3 border rounded text-sm sm:text-base ${
+                error.includes("Account locked")
+                  ? "bg-orange-100 border-orange-400 text-orange-700"
+                  : error.includes("attempts left") ||
+                      error.includes("attempt left")
+                    ? "bg-yellow-100 border-yellow-400 text-yellow-700"
+                    : "bg-red-100 border-red-400 text-red-700"
+              }`}
+            >
+              {error}
+            </div>
+          )}
           <Button
             type="submit"
             disabled={isLoading}

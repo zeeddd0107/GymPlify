@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faKey, faArrowLeft } from "@fortawesome/free-solid-svg-icons";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/config/firebase";
 import FormInput from "../ui/FormInput";
 import Button from "../ui/Button";
 
@@ -18,16 +20,34 @@ const ForgotPassword = ({ onBackToLogin }) => {
       return;
     }
 
+    // Let me check if this email looks valid
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
     setMessage("");
 
     try {
-      // Simulate API call for password reset
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setMessage("Password reset instructions have been sent to your email");
-    } catch {
-      setError("Failed to send reset instructions. Please try again.");
+      // Time to send that reset email through Firebase
+      await sendPasswordResetEmail(auth, email);
+      setMessage(
+        "Password reset instructions have been sent to your email. Please check your spam folder if you don't see it.",
+      );
+    } catch (error) {
+      // Firebase is giving me some specific error codes to work with
+      if (error.code === "auth/user-not-found") {
+        setError("No account found with this email address.");
+      } else if (error.code === "auth/invalid-email") {
+        setError("Please enter a valid email address.");
+      } else if (error.code === "auth/too-many-requests") {
+        setError("Too many requests. Please try again later.");
+      } else {
+        setError("Failed to send reset instructions. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -36,7 +56,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#4361ee] to-[#3a0ca3] px-4 sm:px-6 lg:px-8">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[400px] p-6 sm:p-8 md:p-10 text-center">
-        {/* Key Icon */}
+        {/* The key icon for password reset */}
         <div className="flex justify-center mb-4 sm:mb-6">
           <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center">
             <FontAwesomeIcon
@@ -46,31 +66,24 @@ const ForgotPassword = ({ onBackToLogin }) => {
           </div>
         </div>
 
-        {/* Title */}
+        {/* Main heading */}
         <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
           Forgot password?
         </h1>
 
-        {/* Subtitle */}
+        {/* Helpful subtitle */}
         <p className="text-sm sm:text-base text-gray-600 mb-3">
           No worries, we'll send you reset instructions.
         </p>
 
-        {/* Error Message */}
+        {/* Show any errors that come up */}
         {error && (
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm sm:text-base">
             {error}
           </div>
         )}
 
-        {/* Success Message */}
-        {message && (
-          <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded text-sm sm:text-base">
-            {message}
-          </div>
-        )}
-
-        {/* Form */}
+        {/* The actual form */}
         <form onSubmit={handleSubmit} noValidate>
           <div className="mb-4 sm:mb-6">
             <label
@@ -92,7 +105,14 @@ const ForgotPassword = ({ onBackToLogin }) => {
             )}
           </div>
 
-          {/* Reset Password Button */}
+          {/* Show success message when email is sent */}
+          {message && (
+            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded text-sm sm:text-base">
+              {message}
+            </div>
+          )}
+
+          {/* The main action button */}
           <Button
             type="submit"
             disabled={isLoading}
@@ -104,7 +124,7 @@ const ForgotPassword = ({ onBackToLogin }) => {
           </Button>
         </form>
 
-        {/* Back to Login Link */}
+        {/* Let them go back to login if they remember their password */}
         <div className="flex justify-center">
           <button
             onClick={onBackToLogin}
