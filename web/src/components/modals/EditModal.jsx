@@ -20,6 +20,7 @@ const EditModal = ({
   maxHeight = "max-h-[90vh]", // Default max height with margin
   noShadow = false,
   zIndex = "z-50", // Default z-index
+  forceEnableCancel = false, // New prop to force enable cancel button
 }) => {
   // Don't render anything if modal is not open
   if (!isOpen) return null;
@@ -74,7 +75,7 @@ const EditModal = ({
             savingText={savingText}
             saveText={saveText}
             cancelText={cancelText}
-            disabled={disabled}
+            disabled={disabled && !forceEnableCancel}
             saveButtonClassName={saveButtonClassName}
             cancelButtonClassName={cancelButtonClassName}
           />
