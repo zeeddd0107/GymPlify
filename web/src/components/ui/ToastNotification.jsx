@@ -125,7 +125,7 @@ const ToastNotification = ({
 
   return (
     <div
-      className={`fixed ${positionStyles} z-[60] bg-white rounded-lg border-l-4 ${typeStyles.borderColor} px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2 sm:gap-3 max-w-xs sm:max-w-sm shadow-lg transition-all duration-300 ease-in-out transform ${className} ${
+      className={`fixed ${positionStyles} z-[60] bg-white rounded-lg border-l-4 ${typeStyles.borderColor} px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2 sm:gap-3 min-w-0 max-w-md shadow-lg transition-all duration-300 ease-in-out transform ${className} ${
         isAnimating
           ? "translate-x-0 opacity-100 scale-100"
           : "translate-x-full opacity-0 scale-95"
@@ -142,9 +142,9 @@ const ToastNotification = ({
       </div>
 
       {/* Text content */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 pr-2">
         <div
-          className={`font-semibold text-gray-600 text-xs sm:text-sm break-words transition-all duration-300 ${
+          className={`font-medium text-gray-600 text-xs sm:text-sm break-words leading-tight transition-all duration-300 ${
             isAnimating
               ? "translate-y-0 opacity-100"
               : "translate-y-2 opacity-0"
@@ -158,7 +158,7 @@ const ToastNotification = ({
       {showCloseButton && (
         <button
           onClick={handleClose}
-          className={`text-gray-700 hover:text-gray-900 transition-all duration-200 flex-shrink-0 p-1 rounded-full hover:bg-gray-100 ${
+          className={`text-gray-700 hover:text-gray-900 transition-all duration-200 flex-shrink-0 p-0.5 rounded-full hover:bg-gray-100 ${
             isAnimating ? "scale-100 opacity-100" : "scale-75 opacity-0"
           }`}
           title="Close notification"

@@ -36,7 +36,7 @@ const FormInput = ({
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className={`w-full py-3 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 placeholder:font-normal placeholder:text-gray-400 ${
+        className={`w-full py-3 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 placeholder:font-normal placeholder:text-gray-400 bg-white autofill:bg-white autofill:shadow-[inset_0_0_0px_1000px_white] ${
           icon ? "pl-12" : "pl-4"
         } ${isPasswordField ? "pr-12" : "pr-4"} ${
           error
@@ -45,7 +45,7 @@ const FormInput = ({
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
         {...props}
       />
-      {isPasswordField && (
+      {isPasswordField && value && value.length > 0 && (
         <button
           type="button"
           onClick={togglePasswordVisibility}
