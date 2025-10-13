@@ -52,6 +52,7 @@ export async function upsertUserInFirestore(user, provider) {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName,
+        name: user.displayName, // Also set name field for consistency
         role: "client",
         provider,
         photoURL: fallbackPhotoURL,
@@ -70,6 +71,7 @@ export async function upsertUserInFirestore(user, provider) {
         email: user.email,
         provider,
         displayName: user.displayName,
+        name: user.displayName, // Also set name field for consistency
         photoURL: fallbackPhotoURL,
         qrCodeValue: userSnap.data().qrCodeValue || user.uid, // Preserve or set QR code value
         lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
@@ -102,13 +104,13 @@ export async function loginUser(email, password) {
   if (!user.emailVerified) {
     throw new Error("Please verify your email address before logging in.");
   }
-  // Only update lastLogin, not createdAt
-  await firestore.collection("users").doc(user.uid).set(
-    {
+  // Only update lastLogin if user document exists
+  const userDoc = await firestore.collection("users").doc(user.uid).get();
+  if (userDoc.exists) {
+    await firestore.collection("users").doc(user.uid).update({
       lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
+    });
+  }
   return user;
 }
 
@@ -171,12 +173,13 @@ export async function updateExpiredSubscriptions() {
 }
 
 export async function setLastLogout(uid) {
-  await firestore.collection("users").doc(uid).set(
-    {
+  // Only update lastLogout if user document exists
+  const userDoc = await firestore.collection("users").doc(uid).get();
+  if (userDoc.exists) {
+    await firestore.collection("users").doc(uid).update({
       lastLogout: firebase.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true },
-  );
+    });
+  }
 }
 
 export async function signOut() {
