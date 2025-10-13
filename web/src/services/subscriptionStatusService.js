@@ -1,5 +1,6 @@
-import { onSnapshot, doc, getDoc } from "firebase/firestore";
+import { onSnapshot, doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
+import { getSubscriptionStatus } from "@/components/utils";
 
 /**
  * Subscribe to user's subscription status changes
@@ -27,16 +28,31 @@ export const subscribeToUserSubscriptionStatus = (userId, callback) => {
           if (subscriptionDoc.exists()) {
             const subscriptionData = subscriptionDoc.data();
 
-            // Check if subscription is active and not expired
-            const now = new Date();
-            const endDate = subscriptionData.endDate?.toDate?.() || new Date();
-            const isActive =
-              subscriptionData.status === "active" && endDate > now;
+            // Check if subscription is active using the utility function
+            const actualStatus = getSubscriptionStatus(subscriptionData);
+            const isActive = actualStatus === "active";
+
+            // If subscription is expired but user still has activeSubscriptionId, update user document
+            if (!isActive && userData.activeSubscriptionId) {
+              // Update user document to move activeSubscriptionId to lastSubscriptionId
+              const userRef = doc(db, "users", userId);
+              updateDoc(userRef, {
+                subscriptionStatus: actualStatus,
+                lastSubscriptionId: userData.activeSubscriptionId,
+                activeSubscriptionId: null,
+                updatedAt: new Date(),
+              }).catch((error) => {
+                console.error(
+                  "Error updating user subscription status:",
+                  error,
+                );
+              });
+            }
 
             callback({
               hasActiveSubscription: isActive,
               subscription: subscriptionData,
-              subscriptionId: userData.activeSubscriptionId,
+              subscriptionId: isActive ? userData.activeSubscriptionId : null,
             });
           } else {
             callback({
@@ -110,15 +126,28 @@ export const getUserSubscriptionStatus = async (userId) => {
 
     const subscriptionData = subscriptionDoc.data();
 
-    // Check if subscription is active and not expired
-    const now = new Date();
-    const endDate = subscriptionData.endDate?.toDate?.() || new Date();
-    const isActive = subscriptionData.status === "active" && endDate > now;
+    // Check if subscription is active using the utility function
+    const actualStatus = getSubscriptionStatus(subscriptionData);
+    const isActive = actualStatus === "active";
+
+    // If subscription is expired but user still has activeSubscriptionId, update user document
+    if (!isActive && userData.activeSubscriptionId) {
+      // Update user document to move activeSubscriptionId to lastSubscriptionId
+      const userRef = doc(db, "users", userId);
+      updateDoc(userRef, {
+        subscriptionStatus: actualStatus,
+        lastSubscriptionId: userData.activeSubscriptionId,
+        activeSubscriptionId: null,
+        updatedAt: new Date(),
+      }).catch((error) => {
+        console.error("Error updating user subscription status:", error);
+      });
+    }
 
     return {
       hasActiveSubscription: isActive,
       subscription: subscriptionData,
-      subscriptionId: userData.activeSubscriptionId,
+      subscriptionId: isActive ? userData.activeSubscriptionId : null,
     };
   } catch (error) {
     console.error("Error getting user subscription status:", error);

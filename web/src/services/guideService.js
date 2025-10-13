@@ -19,6 +19,7 @@ import {
 class GuideService {
   constructor() {
     this.collectionName = "guides";
+    this.customTargetsCollection = "customTargets";
   }
 
   async createGuide(guideData, userId, onProgress, createdByName, signal) {
@@ -31,8 +32,11 @@ class GuideService {
       let videoPath = "";
       if (guideData.videoFile) {
         const file = guideData.videoFile;
-        const safeName = `${Date.now()}_${file.name}`;
-        const path = `guides/${userId}/${safeName}`;
+        // Use guide ID if available (for updates), otherwise use timestamp + random string for uniqueness
+        const safeName = guideData.id
+          ? `${guideData.id}_${file.name}`
+          : `${Date.now()}_${Math.random().toString(36).substring(2)}_${file.name}`;
+        const path = `guides/${safeName}`;
         const storageRef = ref(storage, path);
         const task = uploadBytesResumable(storageRef, file, {
           contentType: file.type || "video/mp4",
@@ -87,6 +91,16 @@ class GuideService {
       videoUrl = guideData.videoUrl || videoUrl;
       videoPath = guideData.videoPath || videoPath;
 
+      // Save custom targets to database (non-blocking)
+      if (guideData.target && Array.isArray(guideData.target)) {
+        try {
+          await this.saveCustomTargets(guideData.target);
+        } catch (error) {
+          console.warn("Failed to save custom targets:", error);
+          // Don't block guide creation if custom targets fail
+        }
+      }
+
       const guideRef = await addDoc(collection(db, this.collectionName), {
         title: guideData.title,
         target: guideData.target,
@@ -100,7 +114,6 @@ class GuideService {
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: createdByName || userId,
-        createdByUid: userId,
       });
 
       console.log("Guide created with ID:", guideRef.id);
@@ -121,7 +134,6 @@ class GuideService {
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: createdByName || userId,
-        createdByUid: userId,
       };
     } catch (error) {
       console.error("Error creating guide:", error);
@@ -140,6 +152,16 @@ class GuideService {
     try {
       const guideRef = doc(db, this.collectionName, guideId);
 
+      // Save custom targets to database (non-blocking)
+      if (guideData.target && Array.isArray(guideData.target)) {
+        try {
+          await this.saveCustomTargets(guideData.target);
+        } catch (error) {
+          console.warn("Failed to save custom targets:", error);
+          // Don't block guide update if custom targets fail
+        }
+      }
+
       // If replacing video, upload the new one and delete the old if provided
       let update = {
         title: guideData.title,
@@ -151,13 +173,13 @@ class GuideService {
         status: guideData.status,
         updatedAt: new Date(),
         updatedBy: updatedByName || userId,
-        updatedByUid: userId,
       };
 
       if (guideData.videoFile) {
         const file = guideData.videoFile;
-        const safeName = `${Date.now()}_${file.name}`;
-        const path = `guides/${userId}/${safeName}`;
+        // Use guide ID for consistent filename when updating
+        const safeName = `${guideId}_${file.name}`;
+        const path = `guides/${safeName}`;
         const storageRef = ref(storage, path);
         const task = uploadBytesResumable(storageRef, file, {
           contentType: file.type || "video/mp4",
@@ -320,6 +342,61 @@ class GuideService {
       console.error("Error deleting guide:", error);
       throw new Error(`Failed to delete guide: ${error.message}`);
     }
+  }
+
+  async saveCustomTargets(targets) {
+    try {
+      // Get existing custom targets
+      const existingTargets = await this.getCustomTargets();
+
+      // Find new targets that don't exist yet
+      const newTargets = targets.filter(
+        (target) =>
+          !existingTargets.includes(target) &&
+          !this.getDefaultTargets().includes(target),
+      );
+
+      // Save new targets to database
+      for (const target of newTargets) {
+        await addDoc(collection(db, this.customTargetsCollection), {
+          name: target,
+          createdAt: new Date(),
+        });
+      }
+
+      console.log("Saved custom targets:", newTargets);
+    } catch (error) {
+      console.error("Error saving custom targets:", error);
+      // Don't throw error as this shouldn't block guide creation
+    }
+  }
+
+  async getCustomTargets() {
+    try {
+      const customTargetsRef = collection(db, this.customTargetsCollection);
+      const querySnapshot = await getDocs(customTargetsRef);
+
+      const targets = querySnapshot.docs.map((doc) => doc.data().name);
+      console.log("Retrieved custom targets:", targets);
+
+      return targets;
+    } catch (error) {
+      console.error("Error getting custom targets:", error);
+      return [];
+    }
+  }
+
+  getDefaultTargets() {
+    return [
+      "Shoulders",
+      "Back",
+      "Chest",
+      "Arms",
+      "Legs",
+      "Core",
+      "Full Body",
+      "Cardio",
+    ];
   }
 }
 
