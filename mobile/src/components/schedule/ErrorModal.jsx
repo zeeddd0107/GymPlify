@@ -11,27 +11,53 @@ const ErrorModal = ({
   selectedTime,
   isDateInPast,
   isTimeSlotInPast,
+  isDateBlocked,
+  hasDuplicateSession,
   currentYear,
   currentMonth,
+  endTime,
+  customError,
 }) => {
   // Determine the type of error
   const hasDate = !!selectedDate;
-  const hasTime = !!selectedTime;
+  const hasTime = !!selectedTime || !!endTime;
+  const timeToCheck = selectedTime || endTime;
   const isPastDate =
     selectedDate &&
     isDateInPast &&
     isDateInPast(selectedDate, currentYear, currentMonth);
   const isPastTime =
     selectedDate &&
-    !!selectedTime &&
+    !!timeToCheck &&
     isTimeSlotInPast &&
-    isTimeSlotInPast(selectedDate, selectedTime, currentYear, currentMonth);
+    isTimeSlotInPast(selectedDate, timeToCheck, currentYear, currentMonth);
+  const isBlockedDate =
+    selectedDate &&
+    isDateBlocked &&
+    isDateBlocked(selectedDate, currentYear, currentMonth);
+  const isDuplicateSession =
+    selectedDate &&
+    !!timeToCheck &&
+    hasDuplicateSession &&
+    hasDuplicateSession(selectedDate, timeToCheck, currentYear, currentMonth);
 
   let errorTitle = "Missing Information";
   let errorMessage =
     "Please select both a date and time to continue with your booking.";
 
-  if (isPastDate) {
+  // Check for custom error first (e.g., capacity full)
+  if (customError) {
+    errorTitle = "Time Slot Full";
+    errorMessage = customError;
+  } else if (isDuplicateSession) {
+    errorTitle = "Session Already Scheduled";
+    errorMessage =
+      "You already have a session scheduled for this date and time. Please select a different date or time.";
+  } else if (isBlockedDate) {
+    errorTitle = "Date Not Available";
+    errorMessage =
+      "This date is blocked and not available for scheduling. Please select a different date.";
+  } else if (isPastDate) {
     errorTitle = "Date in the Past";
     errorMessage =
       "You cannot schedule a session for a date that has already passed. Please select a future date.";
@@ -103,10 +129,14 @@ const ErrorModal = ({
               <Text
                 style={[
                   styles.missingItemText,
-                  { color: hasDate && !isPastDate ? "#4CAF50" : "#FF6B6B" },
+                  { color: hasDate && !isPastDate && !isBlockedDate && !isDuplicateSession ? "#4CAF50" : "#FF6B6B" },
                 ]}
               >
-                {hasDate && !isPastDate
+                {hasDate && isDuplicateSession
+                  ? "Session Already Exists"
+                  : hasDate && isBlockedDate
+                    ? "Date Blocked"
+                    : hasDate && !isPastDate
                   ? "Date Selected"
                   : isPastDate
                     ? "Date in Past"

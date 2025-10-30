@@ -50,16 +50,68 @@ const Requests = () => {
   }, [showModal, showApproveModal, showRejectModal, showDeleteModal]);
 
   // Toast notification states
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const [toastType, setToastType] = useState("success");
+  // Smart toast notification system
+  const [activeToasts, setActiveToasts] = useState([]);
 
-  // Helper function to show toast notifications
-  const showToastNotification = (message, type = "success") => {
-    setToastMessage(message);
-    setToastType(type);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+  // Function to add a new toast with smart grouping
+  const addToast = (message, type = "success") => {
+    const toastId = Date.now() + Math.random();
+    
+    setActiveToasts(prev => {
+      // Limit to maximum 3 toasts at once
+      if (prev.length >= 3) {
+        // Remove oldest toast to make room
+        const sortedToasts = [...prev].sort((a, b) => a.timestamp - b.timestamp);
+        const filteredToasts = prev.filter(toast => toast.id !== sortedToasts[0].id);
+        
+        const newToast = { 
+          id: toastId, 
+          message, 
+          type,
+          timestamp: Date.now()
+        };
+        
+        return [...filteredToasts, newToast];
+      }
+      
+      // Check for similar operations and group them
+      const similarToast = prev.find(toast => 
+        toast.message === message && 
+        toast.type === type &&
+        (Date.now() - toast.timestamp) < 1000 // Within 1 second
+      );
+      
+      if (similarToast) {
+        // Update existing toast with count
+        const updatedToasts = prev.map(toast => 
+          toast.id === similarToast.id 
+            ? { ...toast, count: (toast.count || 1) + 1, timestamp: Date.now() }
+            : toast
+        );
+        return updatedToasts;
+      }
+      
+      // Add new toast
+      const newToast = { 
+        id: toastId, 
+        message, 
+        type,
+        timestamp: Date.now(),
+        count: 1
+      };
+      
+      return [...prev, newToast];
+    });
+    
+    // Auto-remove toast after 3 seconds
+    setTimeout(() => {
+      setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+    }, 3000);
+  };
+
+  // Function to remove a specific toast
+  const removeToast = (toastId) => {
+    setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
   };
 
   // Pagination handlers
@@ -407,36 +459,24 @@ const Requests = () => {
                           selectedRequest.id,
                         );
                         if (success) {
-                          showToastNotification(
-                            "Subscription request approved!",
-                            "success",
-                          );
+                          addToast("Subscription request approved!");
                           setShowModal(false);
                         } else {
                           // Show the error message from the hook
                           if (error) {
-                            showToastNotification(error, "error");
+                            addToast(error, "error");
                           } else {
-                            showToastNotification(
-                              "Failed to approve subscription request. Please try again.",
-                              "error",
-                            );
+                            addToast("Failed to approve subscription request. Please try again.", "error");
                           }
                         }
                       }}
                       onDelete={async () => {
                         const success = await rejectRequest(selectedRequest.id);
                         if (success) {
-                          showToastNotification(
-                            "Subscription request rejected!",
-                            "success",
-                          );
+                          addToast("Subscription request rejected!");
                           setShowModal(false);
                         } else {
-                          showToastNotification(
-                            "Failed to reject subscription request. Please try again.",
-                            "error",
-                          );
+                          addToast("Failed to reject subscription request. Please try again.", "error");
                         }
                       }}
                       cancelText="Approve"
@@ -451,13 +491,13 @@ const Requests = () => {
                       selectedRequest.id,
                     );
                     if (success) {
-                      showToastNotification(
+                      addToast(
                         "Subscription request deleted successfully!",
                         "success",
                       );
                       setShowModal(false);
                     } else {
-                      showToastNotification(
+                      addToast(
                         "Failed to delete subscription request. Please try again.",
                         "error",
                       );
@@ -532,7 +572,7 @@ const Requests = () => {
                   setIsApproving(true);
                   const success = await approveRequest(requestToApprove.id);
                   if (success) {
-                    showToastNotification(
+                    addToast(
                       "Subscription request approved!",
                       "success",
                     );
@@ -540,9 +580,9 @@ const Requests = () => {
                     setShowApproveModal(false);
                   } else {
                     if (error) {
-                      showToastNotification(error, "error");
+                      addToast(error, "error");
                     } else {
-                      showToastNotification(
+                      addToast(
                         "Failed to approve subscription request. Please try again.",
                         "error",
                       );
@@ -620,14 +660,14 @@ const Requests = () => {
                   setIsRejecting(true);
                   const success = await rejectRequest(requestToReject.id);
                   if (success) {
-                    showToastNotification(
+                    addToast(
                       "Subscription request rejected!",
                       "success",
                     );
                     setIsRejecting(false);
                     setShowRejectModal(false);
                   } else {
-                    showToastNotification(
+                    addToast(
                       "Failed to reject subscription request. Please try again.",
                       "error",
                     );
@@ -676,8 +716,8 @@ const Requests = () => {
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto px-6 md:px-7 py-4 md:py-5">
               <div className="text-center">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FaTrash className="w-8 h-8 text-red-600" />
+                <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FaTrash className="w-5 h-5 text-red-600" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">
                   Delete Subscription Request
@@ -706,13 +746,13 @@ const Requests = () => {
                       requestToDelete.id,
                     );
                     if (success) {
-                      showToastNotification(
+                      addToast(
                         "Subscription request deleted successfully!",
                         "success",
                       );
                       setShowDeleteModal(false);
                     } else {
-                      showToastNotification(
+                      addToast(
                         "Failed to delete subscription request. Please try again.",
                         "error",
                       );
@@ -731,14 +771,26 @@ const Requests = () => {
         </div>
       )}
 
-      {/* Toast Notification */}
-      <ToastNotification
-        isVisible={showToast}
-        onClose={() => setShowToast(false)}
-        message={toastMessage}
-        type={toastType}
-        position="top-right"
-      />
+      {/* Toast Notifications - Multiple simultaneous toasts */}
+      {activeToasts.map((toast, index) => (
+        <div
+          key={toast.id}
+          style={{
+            position: 'fixed',
+            top: `${20 + (index * 80)}px`, // Stack toasts vertically
+            right: '20px',
+            zIndex: 1000 + index,
+          }}
+        >
+          <ToastNotification
+            isVisible={true}
+            onClose={() => removeToast(toast.id)}
+            message={toast.count > 1 ? `${toast.message} (${toast.count}x)` : toast.message}
+            type={toast.type}
+            position="top-right"
+          />
+        </div>
+      ))}
     </div>
   );
 };

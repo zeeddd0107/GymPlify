@@ -7,7 +7,7 @@ const admin = require("../config/firebase");
 Usage:
   node scripts/setAdmin.js "Full Name" admin@example.com
 
-Behavior:
+Paano gumagana:
   - Creates Firebase Auth user with a generated temporary password
   - Writes Firestore user document with role: "admin" and displayName
   - Includes lastLogout field (initially null)
@@ -64,7 +64,7 @@ async function ensureUser(email, temporaryPassword) {
 
 async function main() {
   try {
-    const temporaryPassword = generateTemporaryPassword();
+    const temporaryPassword = "password"; // Simple password for development
     const user = await ensureUser(email, temporaryPassword);
 
     // Set admin custom claim
@@ -90,22 +90,20 @@ async function main() {
     );
 
     console.log("==================================================");
-    console.log("✅ ADMIN USER CREATED SUCCESSFULLY");
+    console.log(" ADMIN USER CREATED SUCCESSFULLY");
     console.log("==================================================");
-    console.log(`📧 Email: ${email}`);
-    console.log(`👤 Name: ${fullName}`);
-    console.log(`🆔 UID: ${user.uid}`);
-    console.log(`👥 Role: admin`);
-    console.log(`🕒 lastLogout: null (will be set on logout)`);
+    console.log(` Email: ${email}`);
+    console.log(` Name: ${fullName}`);
+    console.log(` UID: ${user.uid}`);
+    console.log(` Role: admin`);
+    console.log(` lastLogout: null (will be set on logout)`);
     console.log("");
-    console.log("🔑 LOGIN CREDENTIALS:");
-    console.log(`   📧 Email: ${email}`);
-    console.log(`   🔐 Password: ${temporaryPassword}`);
+    console.log(" LOGIN CREDENTIALS:");
+    console.log(`    Email: ${email}`);
+    console.log(`    Password: ${temporaryPassword}`);
     console.log("");
-    console.log("📝 Instructions for admin:");
-    console.log("   1. Use the credentials above to log in");
-    console.log("   2. Change password after first login");
-    console.log("   3. Password can be changed in profile settings");
+    console.log("  NOTE: Using simple password for development");
+    console.log("   Change password in production environment");
     console.log("");
     console.log("==================================================");
 

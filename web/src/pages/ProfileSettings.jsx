@@ -9,14 +9,14 @@ import {
   FaEdit,
   FaTimes,
   FaKey,
-  FaBell,
   FaFileContract,
-  FaEye,
-  FaEyeSlash,
   FaCheck,
   FaExclamationTriangle,
   FaSignOutAlt,
 } from "react-icons/fa";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLock, faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+import MarkdownRenderer from "../components/ui/MarkdownRenderer";
 
 const ProfileSettings = () => {
   const { user, updateProfile, updatePassword, isAdmin, signOut, getUserData } =
@@ -35,7 +35,6 @@ const ProfileSettings = () => {
     displayName: "",
     email: "",
     phone: "",
-    username: "",
     role: "",
     memberSince: "",
     lastLogin: "",
@@ -54,14 +53,13 @@ const ProfileSettings = () => {
     new: false,
     confirm: false,
   });
-
-  // Notification settings states
-  const [notificationSettings, setNotificationSettings] = useState({
-    emailNotifications: true,
-    pushNotifications: true,
-    marketingEmails: false,
-    securityAlerts: true,
+  const [passwordValidation, setPasswordValidation] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasNumber: false,
+    hasSpecialChar: false,
   });
+
 
   // Fetch user data from Firestore
   useEffect(() => {
@@ -105,12 +103,6 @@ const ProfileSettings = () => {
               firestoreUserData.displayName || user.displayName || "",
             email: firestoreUserData.email || user.email || "",
             phone: firestoreUserData.phoneNumber || user.phoneNumber || "",
-            username:
-              firestoreUserData.displayName
-                ?.toLowerCase()
-                .replace(/\s+/g, "") ||
-              user.displayName?.toLowerCase().replace(/\s+/g, "") ||
-              "",
             role:
               firestoreUserData.role === "admin"
                 ? "Administrator"
@@ -128,7 +120,6 @@ const ProfileSettings = () => {
             displayName: user.displayName || "",
             email: user.email || "",
             phone: user.phoneNumber || "",
-            username: user.displayName?.toLowerCase().replace(/\s+/g, "") || "",
             role: isAdmin ? "Administrator" : "User",
             memberSince: "Not available",
             lastLogin: "Not available",
@@ -154,12 +145,27 @@ const ProfileSettings = () => {
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image size must be less than 5MB');
+        return;
+      }
+
       setProfileImage(file);
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagePreview(e.target.result);
       };
       reader.readAsDataURL(file);
+      
+      // Show save button when image is changed
+      setIsEditing(true);
     }
   };
 
@@ -170,26 +176,73 @@ const ProfileSettings = () => {
     setSuccess("");
 
     try {
-      // Update profile information
+      let photoURL = imagePreview;
+
+      // Upload profile image to Firebase Storage if a new image was selected
+      if (profileImage) {
+        const { ref, uploadBytes, getDownloadURL, deleteObject, listAll } = await import("firebase/storage");
+        const { storage } = await import("@/config/firebase");
+        
+        // Create user-specific folder path
+        const userFolder = `profile-pictures/${user.uid}`;
+        
+        // Delete all old profile pictures in the user's folder
+        try {
+          const folderRef = ref(storage, userFolder);
+          const filesList = await listAll(folderRef);
+          
+          // Delete all existing files in the user's folder
+          const deletePromises = filesList.items.map((item) => deleteObject(item));
+          await Promise.all(deletePromises);
+          
+          if (filesList.items.length > 0) {
+            console.log(`Deleted ${filesList.items.length} old profile picture(s)`);
+          }
+        } catch (deleteError) {
+          console.warn("Could not delete old profile pictures:", deleteError);
+          // Continue even if delete fails
+        }
+        
+        // Create a reference to the new file location in user's folder
+        const fileExtension = profileImage.name.split('.').pop();
+        const fileName = `profile_${Date.now()}.${fileExtension}`;
+        const storageRef = ref(storage, `${userFolder}/${fileName}`);
+        
+        // Upload the file
+        await uploadBytes(storageRef, profileImage);
+        
+        // Get the download URL
+        photoURL = await getDownloadURL(storageRef);
+        console.log("New profile picture uploaded to user folder:", photoURL);
+      }
+
+      // Update Firebase Auth profile (this also updates Firestore)
       await updateProfile({
         displayName: profileData.displayName,
         phoneNumber: profileData.phone,
+        photoURL: photoURL,
       });
 
-      // TODO: Handle profile image upload to Firebase Storage
-      if (profileImage) {
-        // Upload image logic would go here
-        console.log("Profile image upload:", profileImage);
-      }
+      // Refetch user data to ensure we have the latest information
+      const updatedUserData = await getUserData(user.uid);
+      setUserData(updatedUserData);
+      
+      // Force image refresh by adding cache-busting timestamp
+      const cacheBustedURL = updatedUserData.photoURL 
+        ? `${updatedUserData.photoURL}${updatedUserData.photoURL.includes('?') ? '&' : '?'}t=${Date.now()}`
+        : user.photoURL || null;
+      setImagePreview(cacheBustedURL);
 
       setSuccess("Profile updated successfully!");
       setIsEditing(false);
+      setProfileImage(null); // Clear the selected image
 
       // Hide success message after 3 seconds
       setTimeout(() => {
         setSuccess("");
       }, 3000);
     } catch (error) {
+      console.error("Error updating profile:", error);
       setError(error.message || "Failed to update profile");
     } finally {
       setLoading(false);
@@ -198,15 +251,12 @@ const ProfileSettings = () => {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
+    setError(""); // Clear any errors
     if (userData) {
       setProfileData({
         displayName: userData.displayName || user?.displayName || "",
         email: userData.email || user?.email || "",
         phone: userData.phoneNumber || user?.phoneNumber || "",
-        username:
-          userData.displayName?.toLowerCase().replace(/\s+/g, "") ||
-          user?.displayName?.toLowerCase().replace(/\s+/g, "") ||
-          "",
         role:
           userData.role === "admin"
             ? "Administrator"
@@ -240,6 +290,7 @@ const ProfileSettings = () => {
           : "Not available",
       });
     }
+    // Reset image to original
     setImagePreview(userData?.photoURL || user?.photoURL || null);
     setProfileImage(null);
   };
@@ -250,15 +301,19 @@ const ProfileSettings = () => {
       ...prev,
       [name]: value,
     }));
+
+    // Update validation when typing new password
+    if (name === 'newPassword') {
+      const validation = validatePassword(value, profileData.displayName);
+      setPasswordValidation({
+        minLength: validation.minLength,
+        hasUppercase: validation.hasUppercase,
+        hasNumber: validation.hasNumber,
+        hasSpecialChar: validation.hasSpecialChar,
+      });
+    }
   };
 
-  const handleNotificationChange = (e) => {
-    const { name, checked } = e.target;
-    setNotificationSettings((prev) => ({
-      ...prev,
-      [name]: checked,
-    }));
-  };
 
   const togglePasswordVisibility = (field) => {
     setShowPasswords((prev) => ({
@@ -267,43 +322,158 @@ const ProfileSettings = () => {
     }));
   };
 
+  // Password validation function
+  const validatePassword = (password, fullName = "") => {
+    const validation = {
+      minLength: password.length >= 8,
+      hasUppercase: /[A-Z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecialChar: /[@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+      noPersonalData: true,
+      notWeakPassword: true,
+    };
+
+    // Check for personal data (name)
+    if (fullName && password.toLowerCase().includes(fullName.toLowerCase())) {
+      validation.noPersonalData = false;
+    }
+
+    // Check for weak passwords
+    const weakPasswords = [
+      'password', 'password123', '12345678', 'qwerty', 'abc123',
+      'letmein', 'welcome', 'monkey', '1234567890', 'password1'
+    ];
+    if (weakPasswords.includes(password.toLowerCase())) {
+      validation.notWeakPassword = false;
+    }
+
+    return validation;
+  };
+
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     setSuccess("");
 
-    // Validation
+    // Step 1: Validate all fields are filled
+    if (!passwordData.currentPassword) {
+      setError("Please enter your current password");
+      setLoading(false);
+      return;
+    }
+
+    if (!passwordData.newPassword) {
+      setError("Please enter a new password");
+      setLoading(false);
+      return;
+    }
+
+    if (!passwordData.confirmPassword) {
+      setError("Please confirm your new password");
+      setLoading(false);
+      return;
+    }
+
+    // Step 2: FIRST verify the current password is correct
+    try {
+      const { EmailAuthProvider, reauthenticateWithCredential } = await import("firebase/auth");
+      const credential = EmailAuthProvider.credential(user.email, passwordData.currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      
+      // Current password is correct, continue with validation
+    } catch (error) {
+      console.error("Current password verification error:", error);
+      
+      // Handle authentication errors
+      let errorMessage = "The current password you entered is incorrect. Please check and try again.";
+      
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-login-credentials') {
+        errorMessage = "The current password you entered doesn't match our records. Please try again.";
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = "Too many failed attempts. Please wait a few minutes and try again.";
+      }
+      
+      setError(errorMessage);
+      setLoading(false);
+      return;
+    }
+
+    // Step 3: Check if new password and confirm password match
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setError("New passwords do not match");
+      setError("New password and confirm password do not match. Please make sure they are the same.");
       setLoading(false);
       return;
     }
 
-    if (passwordData.newPassword.length < 6) {
-      setError("New password must be at least 6 characters long");
+    // Step 4: Validate new password requirements
+    const validation = validatePassword(passwordData.newPassword, profileData.displayName);
+    const requiredChecks = [
+      validation.minLength,
+      validation.hasUppercase,
+      validation.hasNumber,
+      validation.hasSpecialChar,
+    ];
+    const allRequirementsMet = requiredChecks.every(Boolean);
+
+    if (!allRequirementsMet) {
+      setError("Your new password doesn't meet all the requirements. Please check the password requirements below.");
       setLoading(false);
       return;
     }
 
+    if (!validation.noPersonalData) {
+      setError("Your password should not contain your personal information. Please choose a different password.");
+      setLoading(false);
+      return;
+    }
+
+    if (!validation.notWeakPassword) {
+      setError("This password is too common and easy to guess. Please choose a stronger password.");
+      setLoading(false);
+      return;
+    }
+
+    // Step 5: All validations passed, now change the password
     try {
       await updatePassword(
         passwordData.currentPassword,
         passwordData.newPassword,
       );
-      setSuccess("Password changed successfully!");
+      
+      // Success!
+      setSuccess("Great! Your password has been changed successfully. Please use your new password when logging in next time.");
       setPasswordData({
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
       });
+      setPasswordValidation({
+        minLength: false,
+        hasUppercase: false,
+        hasNumber: false,
+        hasSpecialChar: false,
+      });
 
-      // Hide success message after 3 seconds
+      // Hide success message after 5 seconds
       setTimeout(() => {
         setSuccess("");
-      }, 3000);
+      }, 5000);
     } catch (error) {
-      setError(error.message || "Failed to change password");
+      console.error("Password change error:", error);
+      
+      // Handle any remaining errors
+      let errorMessage = "We couldn't change your password. Please try again.";
+      
+      if (error.code === 'auth/weak-password') {
+        errorMessage = "The new password is too weak. Please choose a stronger password.";
+      } else if (error.code === 'auth/requires-recent-login') {
+        errorMessage = "For security reasons, please log out and log in again before changing your password.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -346,12 +516,12 @@ const ProfileSettings = () => {
   const tabs = [
     { id: "profile", title: "Profile Information", icon: FaUser },
     { id: "password", title: "Security", icon: FaKey },
-    { id: "notifications", title: "Notifications", icon: FaBell },
     { id: "terms", title: "Terms & Conditions", icon: FaFileContract },
+    { id: "logout", title: "Logout", icon: FaSignOutAlt },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen py-8">
       <div className="max-w-6xl px-0">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-8 mb-6">
@@ -406,9 +576,10 @@ const ProfileSettings = () => {
 
           {/* Content Area */}
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg shadow-md px-8 py-6">
-              {/* Profile Information Tab */}
-              {activeTab === "profile" && (
+            {activeTab !== "logout" && (
+              <div className="bg-white rounded-lg shadow-md px-8 py-6">
+                {/* Profile Information Tab */}
+                {activeTab === "profile" && (
                 <div>
                   {userDataLoading && (
                     <div className="flex items-center justify-center py-8">
@@ -429,6 +600,7 @@ const ProfileSettings = () => {
                               <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                                 {imagePreview ? (
                                   <img
+                                    key={imagePreview}
                                     src={imagePreview}
                                     alt="Profile"
                                     className="w-full h-full object-cover"
@@ -487,28 +659,8 @@ const ProfileSettings = () => {
                                 placeholder="Your Full Name"
                               />
                             ) : (
-                              <p className="text-gray-600">
+                              <p className="text-gray-600 py-2">
                                 {profileData.displayName}
-                              </p>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Username
-                            </label>
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                name="username"
-                                value={profileData.username}
-                                onChange={handleInputChange}
-                                className="w-full px-3 py-2 border border-gray/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-gray-900"
-                                placeholder="Your Username"
-                              />
-                            ) : (
-                              <p className="text-gray-600">
-                                {profileData.username}
                               </p>
                             )}
                           </div>
@@ -517,27 +669,16 @@ const ProfileSettings = () => {
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               Role
                             </label>
-                            <p className="text-gray-600">{profileData.role}</p>
+                            <p className="text-gray-600 py-2">{profileData.role}</p>
                           </div>
 
                           <div>
-                            <button
-                              onClick={handleSignOut}
-                              disabled={logoutLoading}
-                              className="px-6 py-2 bg-danger text-white rounded-lg hover:bg-danger/90 transition-colors font-semibold disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
-                            >
-                              {logoutLoading ? (
-                                <>
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                  Logging out...
-                                </>
-                              ) : (
-                                <>
-                                  <FaSignOutAlt className="inline mr-2" />
-                                  Logout
-                                </>
-                              )}
-                            </button>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Last Login
+                            </label>
+                            <p className="text-gray-600 py-2">
+                              {profileData.lastLogin}
+                            </p>
                           </div>
                         </div>
 
@@ -547,24 +688,15 @@ const ProfileSettings = () => {
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               Email Address
                             </label>
-                            <p className="text-gray-600">{profileData.email}</p>
+                            <p className="text-gray-600 py-2">{profileData.email}</p>
                           </div>
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               Member Since
                             </label>
-                            <p className="text-gray-600">
+                            <p className="text-gray-600 py-2">
                               {profileData.memberSince}
-                            </p>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Last Login
-                            </label>
-                            <p className="text-gray-600">
-                              {profileData.lastLogin}
                             </p>
                           </div>
                         </div>
@@ -608,304 +740,237 @@ const ProfileSettings = () => {
 
                   <form onSubmit={handleChangePassword} className="space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
                         Current Password
                       </label>
                       <div className="relative">
+                        <FontAwesomeIcon
+                          icon={faLock}
+                          className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"
+                        />
                         <input
                           type={showPasswords.current ? "text" : "password"}
                           name="currentPassword"
                           value={passwordData.currentPassword}
                           onChange={handlePasswordChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/80 focus:border-transparent text-gray-900 pr-10"
+                          className="w-full py-3 pl-12 pr-12 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 focus:border-primary placeholder:font-normal placeholder:text-gray-500 bg-white autofill:bg-white autofill:shadow-[inset_0_0_0px_1000px_white]"
                           placeholder="Enter current password"
                           required
                         />
-                        <button
-                          type="button"
-                          onClick={() => togglePasswordVisibility("current")}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                          {showPasswords.current ? <FaEyeSlash /> : <FaEye />}
-                        </button>
+                        {passwordData.currentPassword && passwordData.currentPassword.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => togglePasswordVisibility("current")}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                          >
+                            <FontAwesomeIcon
+                              icon={showPasswords.current ? faEyeSlash : faEye}
+                              className="text-sm"
+                            />
+                          </button>
+                        )}
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
                         New Password
                       </label>
                       <div className="relative">
+                        <FontAwesomeIcon
+                          icon={faLock}
+                          className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"
+                        />
                         <input
                           type={showPasswords.new ? "text" : "password"}
                           name="newPassword"
                           value={passwordData.newPassword}
                           onChange={handlePasswordChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/80 focus:border-transparent text-gray-900 pr-10"
+                          className="w-full py-3 pl-12 pr-12 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 focus:border-primary placeholder:font-normal placeholder:text-gray-500 bg-white autofill:bg-white autofill:shadow-[inset_0_0_0px_1000px_white]"
                           placeholder="Enter new password"
                           required
                         />
-                        <button
-                          type="button"
-                          onClick={() => togglePasswordVisibility("new")}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                          {showPasswords.new ? <FaEyeSlash /> : <FaEye />}
-                        </button>
+                        {passwordData.newPassword && passwordData.newPassword.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => togglePasswordVisibility("new")}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                          >
+                            <FontAwesomeIcon
+                              icon={showPasswords.new ? faEyeSlash : faEye}
+                              className="text-sm"
+                            />
+                          </button>
+                        )}
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
                         Confirm New Password
                       </label>
                       <div className="relative">
+                        <FontAwesomeIcon
+                          icon={faLock}
+                          className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"
+                        />
                         <input
                           type={showPasswords.confirm ? "text" : "password"}
                           name="confirmPassword"
                           value={passwordData.confirmPassword}
                           onChange={handlePasswordChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/80 focus:border-transparent text-gray-900 pr-10"
+                          className="w-full py-3 pl-12 pr-12 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 focus:border-primary placeholder:font-normal placeholder:text-gray-500 bg-white autofill:bg-white autofill:shadow-[inset_0_0_0px_1000px_white]"
                           placeholder="Confirm new password"
                           required
                         />
+                        {passwordData.confirmPassword && passwordData.confirmPassword.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => togglePasswordVisibility("confirm")}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                          >
+                            <FontAwesomeIcon
+                              icon={showPasswords.confirm ? faEyeSlash : faEye}
+                              className="text-sm"
+                            />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Password Requirements - Only show when typing new password */}
+                    {passwordData.newPassword.length > 0 && (
+                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">Password Requirements:</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className={passwordValidation.minLength ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>
+                              {passwordValidation.minLength ? '✓' : '✗'}
+                            </span>
+                            <span className={passwordValidation.minLength ? 'text-green-600 text-sm' : 'text-gray-600 text-sm'}>
+                              At least 8 characters
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={passwordValidation.hasUppercase ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>
+                              {passwordValidation.hasUppercase ? '✓' : '✗'}
+                            </span>
+                            <span className={passwordValidation.hasUppercase ? 'text-green-600 text-sm' : 'text-gray-600 text-sm'}>
+                              One uppercase letter
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={passwordValidation.hasNumber ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>
+                              {passwordValidation.hasNumber ? '✓' : '✗'}
+                            </span>
+                            <span className={passwordValidation.hasNumber ? 'text-green-600 text-sm' : 'text-gray-600 text-sm'}>
+                              One number
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={passwordValidation.hasSpecialChar ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>
+                              {passwordValidation.hasSpecialChar ? '✓' : '✗'}
+                            </span>
+                            <span className={passwordValidation.hasSpecialChar ? 'text-green-600 text-sm' : 'text-gray-600 text-sm'}>
+                              One special character
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {(passwordData.currentPassword.length > 0 || 
+                      passwordData.newPassword.length > 0 || 
+                      passwordData.confirmPassword.length > 0) && (
+                      <div className="flex justify-end space-x-4 pt-6 border-t border-gray/50">
                         <button
                           type="button"
-                          onClick={() => togglePasswordVisibility("confirm")}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          onClick={() => {
+                            setPasswordData({
+                              currentPassword: "",
+                              newPassword: "",
+                              confirmPassword: "",
+                            });
+                            setPasswordValidation({
+                              minLength: false,
+                              hasUppercase: false,
+                              hasNumber: false,
+                              hasSpecialChar: false,
+                            });
+                            setError("");
+                          }}
+                          className="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm"
                         >
-                          {showPasswords.confirm ? <FaEyeSlash /> : <FaEye />}
+                          <FaTimes className="inline mr-2" />
+                          Clear
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm disabled:opacity-50"
+                        >
+                          <FaSave className="inline mr-2" />
+                          {loading ? "Changing..." : "Change Password"}
                         </button>
                       </div>
-                    </div>
-
-                    <div className="flex justify-end space-x-4 pt-6 border-t border-gray/50">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPasswordData({
-                            currentPassword: "",
-                            newPassword: "",
-                            confirmPassword: "",
-                          })
-                        }
-                        className="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm"
-                      >
-                        <FaTimes className="inline mr-2" />
-                        Clear
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm disabled:opacity-50"
-                      >
-                        <FaSave className="inline mr-2" />
-                        {loading ? "Changing..." : "Change Password"}
-                      </button>
-                    </div>
+                    )}
                   </form>
-                </div>
-              )}
-
-              {/* Notifications Tab */}
-              {activeTab === "notifications" && (
-                <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      Notification Settings
-                    </h2>
-                    <button
-                      onClick={() => handleSaveSettings("Notification")}
-                      disabled={loading}
-                      className="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm disabled:opacity-50"
-                    >
-                      <FaSave className="inline mr-2" />
-                      {loading ? "Saving..." : "Save Changes"}
-                    </button>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between p-4 border border-gray/30 rounded-lg">
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          Email Notifications
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          Receive notifications via email
-                        </p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="emailNotifications"
-                          checked={notificationSettings.emailNotifications}
-                          onChange={handleNotificationChange}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border border-gray/30 rounded-lg">
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          Push Notifications
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          Receive push notifications on your device
-                        </p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="pushNotifications"
-                          checked={notificationSettings.pushNotifications}
-                          onChange={handleNotificationChange}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border border-gray/30 rounded-lg">
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          Marketing Emails
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          Receive promotional emails and updates
-                        </p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="marketingEmails"
-                          checked={notificationSettings.marketingEmails}
-                          onChange={handleNotificationChange}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border border-gray/30 rounded-lg">
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          Security Alerts
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          Get notified about security-related activities
-                        </p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="securityAlerts"
-                          checked={notificationSettings.securityAlerts}
-                          onChange={handleNotificationChange}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                      </label>
-                    </div>
-                  </div>
                 </div>
               )}
 
               {/* Terms & Conditions Tab */}
               {activeTab === "terms" && (
                 <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      Terms & Conditions
-                    </h2>
-                  </div>
-
-                  <div className="prose max-w-none">
-                    <div className="bg-gray-50 p-6 rounded-lg">
-                      <h3 className="text-lg font-semibold mb-4">
-                        GymPlify Terms of Service
-                      </h3>
-
-                      <div className="space-y-4 text-sm text-gray-700">
-                        <div>
-                          <h4 className="font-medium mb-2">
-                            1. Acceptance of Terms
-                          </h4>
-                          <p>
-                            By accessing and using GymPlify, you accept and
-                            agree to be bound by the terms and provision of this
-                            agreement.
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-2">2. Use License</h4>
-                          <p>
-                            Permission is granted to temporarily download one
-                            copy of GymPlify per device for personal,
-                            non-commercial transitory viewing only.
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-2">3. Disclaimer</h4>
-                          <p>
-                            The materials on GymPlify are provided on an 'as is'
-                            basis. GymPlify makes no warranties, expressed or
-                            implied, and hereby disclaims and negates all other
-                            warranties.
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-2">4. Limitations</h4>
-                          <p>
-                            In no event shall GymPlify or its suppliers be
-                            liable for any damages (including, without
-                            limitation, damages for loss of data or profit, or
-                            due to business interruption) arising out of the use
-                            or inability to use GymPlify.
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-2">
-                            5. Privacy Policy
-                          </h4>
-                          <p>
-                            Your privacy is important to us. Please review our
-                            Privacy Policy, which also governs your use of the
-                            service.
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-medium mb-2">
-                            6. Contact Information
-                          </h4>
-                          <p>
-                            If you have any questions about these Terms &
-                            Conditions, please contact us at
-                            support@gymplify.com
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 bg-blue-50 p-4 rounded-lg">
-                      <p className="text-sm text-blue-800">
-                        <strong>Last Updated:</strong> December 15, 2023
-                      </p>
-                      <p className="text-sm text-blue-800 mt-1">
-                        By using GymPlify, you acknowledge that you have read
-                        and understood these terms.
-                      </p>
-                    </div>
+                  <div className="bg-white rounded-lg max-h-[calc(100vh-200px)] overflow-y-auto p-6">
+                    <MarkdownRenderer filePath="/terms-and-conditions.md" />
                   </div>
                 </div>
               )}
-            </div>
+              </div>
+            )}
+
+            {/* Logout Tab */}
+            {activeTab === "logout" && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ marginLeft: '0', marginTop: '0' }}>
+                <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4 text-center animate-fadeIn">
+                  <div className="mb-6">
+                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <FaSignOutAlt className="text-4xl text-red-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                      Logout
+                    </h2>
+                    <p className="text-gray-600">
+                      Are you sure you want to logout from your account?
+                    </p>
+                  </div>
+
+                  <div className="flex gap-4 justify-center">
+                    <button
+                      onClick={() => setActiveTab("profile")}
+                      disabled={logoutLoading}
+                      className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSignOut}
+                      disabled={logoutLoading}
+                      className="w-[120px] py-2.5 bg-danger text-white rounded-lg hover:bg-danger/90 transition-colors font-semibold disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      {logoutLoading ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      ) : (
+                        <>
+                          <FaSignOutAlt className="mr-2" />
+                          Logout
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

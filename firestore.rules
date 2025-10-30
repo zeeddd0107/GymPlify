@@ -56,8 +56,16 @@ service cloud.firestore {
     
     // Inventory collection
     match /inventory/{inventoryId} {
-      // Admin: Full CRUD access to inventory
-      allow read, write: if isAdmin();
+      // Helper function to validate quantity for writes
+      function isValidQuantity() {
+        return request.resource.data.quantity is int && 
+               request.resource.data.quantity > 0;
+      }
+      
+      // Admin: Full CRUD access to inventory with quantity validation for writes
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && isValidQuantity();
+      allow delete: if isAdmin();
       
       // Staff: Read-only access to inventory
       allow read: if isStaff();
@@ -104,11 +112,12 @@ service cloud.firestore {
       // Staff: No access to pending subscriptions
       allow read, write: if false;
       
-      // Allow authenticated users to read and write their own pending subscriptions (for clients and new users)
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Clients: can create and read ONLY their own pending subscription requests
+      // (no update/delete after creation; only admins can modify or delete)
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow delete: if false; // Users cannot delete pending subscriptions
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
     }
     
     // Subscription Plans collection
@@ -190,8 +199,14 @@ service cloud.firestore {
       allow read: if isStaff();
       allow write: if false; // Staff cannot modify notifications
       
-      // Allow authenticated users to read their own notifications (for clients and new users)
+      // Allow authenticated users to read and update their own notifications (for clients and new users)
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Allow authenticated users to create notifications (for subscription requests to admins)
+      // This allows clients to notify admins, and admins to notify clients
+      allow create: if isAuthenticated();
     }
     
     // Custom Targets collection (for guide target workouts)
@@ -205,6 +220,21 @@ service cloud.firestore {
       // Allow all authenticated users to read custom targets (for clients and guide creation)
       allow read: if isAuthenticated();
       allow write: if false; // Only staff and admin can modify custom targets
+    }
+    
+    // Blocked Dates collection
+    match /blockedDates/{blockedDateId} {
+      // Admin: Full CRUD access to blocked dates
+      allow read, write: if isAdmin();
+      
+      // Staff: Can read and write blocked dates
+      allow read, write: if isStaff();
+      
+      // Allow all authenticated users to read blocked dates (for clients to see blocked dates in calendar)
+      allow read: if isAuthenticated();
+      
+      // Only admin and staff can create/update/delete blocked dates
+      allow write: if isAdmin() || isStaff();
     }
   }
 }

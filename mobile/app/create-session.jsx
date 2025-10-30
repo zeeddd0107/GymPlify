@@ -38,6 +38,44 @@ export default function CreateSessionScreen() {
   const scheduleData = useSchedule();
   const { withLoading, loading, disabled } = useButton();
 
+  // Capacity UI-only guard (must match web limit)
+  const [slotCapacities, setSlotCapacities] = useState({});
+  const MAX_PER_SLOT = 5;
+  const ALL_TIME_SLOTS = [
+    "7:30 AM - 8:30 AM",
+    "9:30 AM - 10:30 AM",
+    "4:00 PM - 5:00 PM",
+    "5:30 PM - 6:30 PM",
+    "6:30 PM - 7:30 PM",
+    "7:30 PM - 8:30 PM",
+  ];
+
+  const fetchCapacitiesForDate = async (day, month, year) => {
+    try {
+      if (!day && day !== 0) return;
+      const start = new Date(year, month, day, 0, 0, 0, 0);
+      const end = new Date(year, month, day, 23, 59, 59, 999);
+      const startTs = firebase.firestore.Timestamp.fromDate(start);
+      const endTs = firebase.firestore.Timestamp.fromDate(end);
+      const capacities = {};
+      await Promise.all(
+        ALL_TIME_SLOTS.map(async (slot) => {
+          const snap = await firestore
+            .collection("sessions")
+            .where("status", "==", "scheduled")
+            .where("timeSlot", "==", slot)
+            .where("scheduledDate", ">=", startTs)
+            .where("scheduledDate", "<=", endTs)
+            .get();
+          capacities[slot] = snap.size;
+        }),
+      );
+      setSlotCapacities(capacities);
+    } catch (e) {
+      setSlotCapacities({});
+    }
+  };
+
   const {
     // State
     selectedDate,
@@ -48,6 +86,7 @@ export default function CreateSessionScreen() {
     isConfirming,
     currentYear,
     currentMonth,
+    customErrorMessage,
 
     // Constants
     monthNames,
@@ -63,6 +102,8 @@ export default function CreateSessionScreen() {
     isDateInPast,
     isTimeSlotInPast,
     isDateTimeValid,
+    isDateBlocked,
+    hasDuplicateSession,
 
     // Setters
     setShowConfirmationModal,
@@ -220,8 +261,12 @@ export default function CreateSessionScreen() {
         isDateTimeValid={isDateTimeValid}
         isDateInPast={isDateInPast}
         isTimeSlotInPast={isTimeSlotInPast}
+        isDateBlocked={isDateBlocked}
+        hasDuplicateSession={hasDuplicateSession}
         currentYear={currentYear}
         currentMonth={currentMonth}
+        endTime={endTime}
+        customError={customErrorMessage}
       />
 
       {/* Intermediate Confirmation Modal */}
@@ -245,12 +290,14 @@ export default function CreateSessionScreen() {
         onDateSelect={(day, month, year) => {
           handleDateSelectWithContext(day, month, year);
           // Don't close the modal automatically - let user keep selecting or click OK/Cancel
+          fetchCapacitiesForDate(day, month, year);
         }}
         selectedDate={selectedDate}
         currentYear={currentYear}
         currentMonth={currentMonth}
         monthNames={monthNames}
         dayNames={dayNames}
+        isDateBlocked={isDateBlocked}
       />
 
       {/* Custom Time Picker Modal */}
@@ -262,6 +309,11 @@ export default function CreateSessionScreen() {
           // Don't close the modal automatically - let user keep selecting
         }}
         selectedTime={endTime}
+        selectedDate={selectedDate}
+        currentYear={currentYear}
+        currentMonth={currentMonth}
+        capacityMap={slotCapacities}
+        maxCapacity={MAX_PER_SLOT}
       />
     </View>
   );

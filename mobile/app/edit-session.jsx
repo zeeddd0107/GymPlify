@@ -59,6 +59,7 @@ export default function EditSessionScreen() {
     showErrorModal,
     currentYear,
     currentMonth,
+    customErrorMessage,
 
     // Constants
     monthNames,
@@ -86,6 +87,44 @@ export default function EditSessionScreen() {
     setCurrentDate,
     setSelectedDate,
   } = scheduleData;
+
+  // Capacity UI-only guard for selected date (must match web limit)
+  const [slotCapacities, setSlotCapacities] = useState({});
+  const MAX_PER_SLOT = 5;
+  const ALL_TIME_SLOTS = [
+    "7:30 AM - 8:30 AM",
+    "9:30 AM - 10:30 AM",
+    "4:00 PM - 5:00 PM",
+    "5:30 PM - 6:30 PM",
+    "6:30 PM - 7:30 PM",
+    "7:30 PM - 8:30 PM",
+  ];
+
+  const fetchCapacitiesForDate = async (day, month, year) => {
+    try {
+      if (!day && day !== 0) return;
+      const start = new Date(year, month, day, 0, 0, 0, 0);
+      const end = new Date(year, month, day, 23, 59, 59, 999);
+      const startTs = firebase.firestore.Timestamp.fromDate(start);
+      const endTs = firebase.firestore.Timestamp.fromDate(end);
+      const capacities = {};
+      await Promise.all(
+        ALL_TIME_SLOTS.map(async (slot) => {
+          const snap = await firestore
+            .collection("sessions")
+            .where("status", "==", "scheduled")
+            .where("timeSlot", "==", slot)
+            .where("scheduledDate", ">=", startTs)
+            .where("scheduledDate", "<=", endTs)
+            .get();
+          capacities[slot] = snap.size;
+        }),
+      );
+      setSlotCapacities(capacities);
+    } catch (e) {
+      setSlotCapacities({});
+    }
+  };
 
   // Effect: Fetch session data on mount
   useEffect(() => {
@@ -515,6 +554,7 @@ export default function EditSessionScreen() {
         isTimeSlotInPast={isTimeSlotInPast}
         currentYear={currentYear}
         currentMonth={currentMonth}
+        customError={customErrorMessage}
       />
 
       {/* Group Selection Modal */}
@@ -581,6 +621,7 @@ export default function EditSessionScreen() {
         onClose={() => setShowCustomCalendarModal(false)}
         onDateSelect={(day, month, year) => {
           handleDateSelectWithContext(day, month, year);
+          fetchCapacitiesForDate(day, month, year);
         }}
         selectedDate={selectedDate}
         currentYear={currentYear}
@@ -597,6 +638,8 @@ export default function EditSessionScreen() {
           setEndTime(time);
         }}
         selectedTime={endTime}
+        capacityMap={slotCapacities}
+        maxCapacity={MAX_PER_SLOT}
       />
     </View>
   );

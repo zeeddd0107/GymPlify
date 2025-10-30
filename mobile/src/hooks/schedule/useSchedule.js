@@ -206,6 +206,8 @@ export const useSchedule = () => {
   const [scheduledSessions, setScheduledSessions] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(false);
+  const [blockedDates, setBlockedDates] = useState([]);
+  const [customErrorMessage, setCustomErrorMessage] = useState(null);
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
@@ -264,6 +266,79 @@ export const useSchedule = () => {
     }
   };
 
+  // Fetch blocked dates from Firebase
+  const fetchBlockedDates = async () => {
+    try {
+      const snapshot = await firestore
+        .collection("blockedDates")
+        .where("blocked", "==", true)
+        .get();
+
+      const blockedDatesData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      
+      console.log("Fetched blocked dates:", blockedDatesData.length);
+      setBlockedDates(blockedDatesData);
+    } catch (error) {
+      console.error("Error fetching blocked dates:", error);
+      setBlockedDates([]);
+    }
+  };
+
+  // Check if a date is blocked
+  const isDateBlocked = (date, year, month) => {
+    if (!date) return false;
+    
+    // Normalize the date to compare only the date part (year, month, day)
+    const dateToCheck = new Date(year, month, date);
+    dateToCheck.setHours(0, 0, 0, 0);
+    
+    const isBlocked = blockedDates.some(bd => {
+      const blockedDate = bd.date?.toDate ? bd.date.toDate() : new Date(bd.date);
+      blockedDate.setHours(0, 0, 0, 0);
+      
+      // Compare the timestamps (which are now normalized to midnight)
+      return blockedDate.getTime() === dateToCheck.getTime();
+    });
+    
+    if (isBlocked) {
+      console.log(`Date ${date}/${month}/${year} is BLOCKED`);
+    }
+    
+    return isBlocked;
+  };
+
+  // Check if a session already exists for the same date and time
+  const hasDuplicateSession = (date, timeSlot, year, month) => {
+    if (!date || !timeSlot) return false;
+    
+    // Get the scheduled start date for comparison
+    const scheduledStartDate = getScheduledStartDate(date, timeSlot, year, month);
+    if (!scheduledStartDate) return false;
+    
+    // Check if there's already a session with the same scheduledDate and timeSlot
+    const hasDuplicate = scheduledSessions.some(session => {
+      const sessionDate = session.scheduledDate?.toDate 
+        ? session.scheduledDate.toDate() 
+        : new Date(session.scheduledDate);
+      
+      // Compare dates (ignoring time differences)
+      const sessionDateOnly = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate());
+      const startDateOnly = new Date(scheduledStartDate.getFullYear(), scheduledStartDate.getMonth(), scheduledStartDate.getDate());
+      
+      // Check if same date and same time slot
+      return sessionDateOnly.getTime() === startDateOnly.getTime() && session.time === timeSlot;
+    });
+    
+    if (hasDuplicate) {
+      console.log(`Duplicate session found for ${date}/${month}/${year} at ${timeSlot}`);
+    }
+    
+    return hasDuplicate;
+  };
+
   // Handle booking confirmation
   const handleConfirmBooking = async () => {
     try {
@@ -271,6 +346,20 @@ export const useSchedule = () => {
       const user = firebase.auth().currentUser;
       if (!user) {
         throw new Error("User not authenticated");
+      }
+
+      // Check if the selected date is blocked
+      if (isDateBlocked(selectedDate, currentYear, currentMonth)) {
+        setShowErrorModal(true);
+        setShowIntermediateConfirmation(false);
+        return;
+      }
+
+      // Check if there's already a session with the same date and time
+      if (hasDuplicateSession(selectedDate, endTime, currentYear, currentMonth)) {
+        setShowErrorModal(true);
+        setShowIntermediateConfirmation(false);
+        return;
       }
 
       // Validate date and time
@@ -315,6 +404,48 @@ export const useSchedule = () => {
         throw new Error("Invalid date or time selection");
       }
 
+      // Check capacity for this time slot (must match web limit)
+      const MAX_PER_SLOT = 5;
+      const start = new Date(currentYear, currentMonth, selectedDate, 0, 0, 0, 0);
+      const end = new Date(currentYear, currentMonth, selectedDate, 23, 59, 59, 999);
+      const startTs = firebase.firestore.Timestamp.fromDate(start);
+      const endTs = firebase.firestore.Timestamp.fromDate(end);
+      
+      console.log("Capacity check - Looking for timeSlot:", endTime);
+      console.log("Capacity check - Date range:", start.toDateString(), "to", end.toDateString());
+      
+      try {
+        const capacitySnapshot = await firestore
+          .collection("sessions")
+          .where("status", "==", "scheduled")
+          .where("timeSlot", "==", endTime)
+          .where("scheduledDate", ">=", startTs)
+          .where("scheduledDate", "<=", endTs)
+          .get();
+        
+        console.log("Capacity check - Found sessions:", capacitySnapshot.size);
+        capacitySnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          console.log("  - Session timeSlot:", data.timeSlot, "| Date:", data.scheduledDate?.toDate?.()?.toDateString());
+        });
+        
+        if (capacitySnapshot.size >= MAX_PER_SLOT) {
+          throw new Error(`This time slot is full (${capacitySnapshot.size}/${MAX_PER_SLOT}). Please select a different time.`);
+        }
+      } catch (capacityError) {
+        // Check if it's an index building error
+        if (capacityError.code === 'failed-precondition' || capacityError.message?.includes('index')) {
+          console.warn("Firebase index is still building, skipping capacity check temporarily");
+          // Skip capacity check if index is building - allow booking to proceed
+        } else if (capacityError.message?.includes('full')) {
+          // Re-throw our custom "slot full" error
+          throw capacityError;
+        } else {
+          // Log other errors but don't block booking
+          console.error("Capacity check error:", capacityError);
+        }
+      }
+
       // Create session document
       const sessionData = {
         userId: user.uid,
@@ -345,7 +476,11 @@ export const useSchedule = () => {
       // Don't reset form here - let the confirmation modal show the details
       // Form will be reset when user closes the confirmation modal
     } catch (error) {
+      // Only log non-user-facing errors (not capacity/validation errors)
+      if (!error.message?.includes('full') && !error.message?.includes('selection')) {
       console.error("Error confirming booking:", error);
+      }
+      setCustomErrorMessage(error.message);
       setShowErrorModal(true);
       setShowIntermediateConfirmation(false);
     } finally {
@@ -357,6 +492,7 @@ export const useSchedule = () => {
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchExistingSessions();
+    await fetchBlockedDates();
     setRefreshing(false);
   };
 
@@ -391,6 +527,11 @@ export const useSchedule = () => {
       return; // Don't allow selection of past dates
     }
 
+    // Check if the selected date is blocked
+    if (isDateBlocked(date, year, month)) {
+      return; // Don't allow selection of blocked dates
+    }
+
     // Update the current context to match the selected date's month/year
     setCurrentDate(new Date(year, month, 1));
     setSelectedDate(date);
@@ -411,6 +552,18 @@ export const useSchedule = () => {
       return;
     }
 
+    // Check if the selected date is blocked
+    if (isDateBlocked(selectedDate, currentYear, currentMonth)) {
+      setShowErrorModal(true);
+      return;
+    }
+
+    // Check if there's already a session with the same date and time
+    if (hasDuplicateSession(selectedDate, endTime, currentYear, currentMonth)) {
+      setShowErrorModal(true);
+      return;
+    }
+
     if (!isDateTimeValid(selectedDate, endTime, currentYear, currentMonth)) {
       setShowErrorModal(true);
       return;
@@ -422,9 +575,10 @@ export const useSchedule = () => {
     setShowIntermediateConfirmation(true);
   };
 
-  // Fetch sessions on mount
+  // Fetch sessions and blocked dates on mount
   useEffect(() => {
     fetchExistingSessions();
+    fetchBlockedDates();
   }, []);
 
   return {
@@ -443,6 +597,7 @@ export const useSchedule = () => {
     scheduledSessions,
     refreshing,
     loadingSessions,
+    customErrorMessage,
 
     // Constants
     WORKOUT_SCHEDULE,
@@ -458,6 +613,8 @@ export const useSchedule = () => {
     isDateInPast,
     isTimeSlotInPast,
     isDateTimeValid,
+    isDateBlocked,
+    hasDuplicateSession,
     handlePrevMonth,
     handleNextMonth,
     handleDateSelect,
@@ -482,7 +639,13 @@ export const useSchedule = () => {
         setDescriptions("");
       }
     },
-    setShowErrorModal,
+    setShowErrorModal: (show) => {
+      setShowErrorModal(show);
+      if (!show) {
+        // Clear custom error message when closing error modal
+        setCustomErrorMessage(null);
+      }
+    },
     setShowIntermediateConfirmation,
     // Session type state
     sessionType,

@@ -54,7 +54,7 @@ const ConfirmationModal = ({
           </View>
 
           {/* Title */}
-          <Text style={styles.confirmationTitle}>Booking Confirmed!</Text>
+          <Text style={styles.confirmationTitle}>Session Confirmed!</Text>
 
           {/* Session Details */}
           <View style={styles.sessionDetailsContainer}>
@@ -86,8 +86,7 @@ const ConfirmationModal = ({
           {/* Additional Info */}
           <View style={styles.additionalInfo}>
             <Text style={styles.additionalInfoText}>
-              You'll receive a confirmation email shortly. Please arrive 10
-              minutes before your session.
+              Please arrive 10 minutes before your session.
             </Text>
           </View>
 

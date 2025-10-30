@@ -1,5 +1,5 @@
 import { EditModal, SubscriptionForm, ToastNotification } from "@/components";
-import { DeleteModal } from "@/components/modals";
+import { DeleteModal, QRCodeModal } from "@/components/modals";
 
 /**
  * Subscriptions Actions Component
@@ -21,6 +21,14 @@ const SubscriptionsActions = ({
   deleteItemType = "subscription",
   toast,
   onCloseToast,
+  // QR Code modal props
+  qrModalOpen,
+  selectedUser,
+  qrCodeValue,
+  qrCodeImage,
+  regeneratingQr,
+  onRegenerateQrCode,
+  onCloseQrModal,
 }) => {
   // Main render function - displays both edit and delete modals
   return (
@@ -51,6 +59,17 @@ const SubscriptionsActions = ({
         deleting={deleting}
         confirmText="Delete"
         cancelText="Cancel"
+      />
+
+      {/* QR Code Modal */}
+      <QRCodeModal
+        isOpen={qrModalOpen || false}
+        onClose={onCloseQrModal}
+        selectedUser={selectedUser}
+        qrCodeValue={qrCodeValue}
+        qrCodeImage={qrCodeImage}
+        regeneratingQr={regeneratingQr}
+        onRegenerateQrCode={onRegenerateQrCode}
       />
 
       {/* Toast Notification */}

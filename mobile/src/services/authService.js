@@ -1,9 +1,8 @@
 import { firebase, googleProvider } from "@/src/services/firebase";
 import { firestore } from "@/src/services/firebase";
-import { sendEmailVerification } from "firebase/auth";
 
 // Function to generate custom Member ID
-const generateCustomMemberId = async () => {
+export const generateCustomMemberId = async () => {
   try {
     // Get the counter document
     const counterRef = firestore.collection("counters").doc("memberId");
@@ -72,6 +71,7 @@ export async function upsertUserInFirestore(user, provider) {
         provider,
         displayName: user.displayName,
         name: user.displayName, // Also set name field for consistency
+        role: "client", // Add role field for existing users too
         photoURL: fallbackPhotoURL,
         qrCodeValue: userSnap.data().qrCodeValue || user.uid, // Preserve or set QR code value
         lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
@@ -87,10 +87,8 @@ export async function registerUser(email, password) {
     .createUserWithEmailAndPassword(email, password);
   const user = userCredential.user;
   await upsertUserInFirestore(user, "password");
-  // Send email verification
-  await sendEmailVerification(user);
 
-  // User registration completed - no automatic subscription creation
+  // Note: Email verification is handled by OTP system, not Firebase email links
   console.log("User registration completed successfully");
   return user;
 }
@@ -100,10 +98,10 @@ export async function loginUser(email, password) {
     .auth()
     .signInWithEmailAndPassword(email, password);
   const user = userCredential.user;
-  // Only allow login if email is verified
-  if (!user.emailVerified) {
-    throw new Error("Please verify your email address before logging in.");
-  }
+  
+  // Note: Email verification is handled by OTP system after login
+  // No need to check user.emailVerified here
+  
   // Only update lastLogin if user document exists
   const userDoc = await firestore.collection("users").doc(user.uid).get();
   if (userDoc.exists) {

@@ -160,9 +160,9 @@ async function MIGRATE_INVENTORY_IMAGES() {
     console.log(`Errors: ${errorCount}`);
 
     if (errorCount > 0) {
-      console.log("\n⚠️  Some migrations failed. Check the error logs above.");
+      console.log("\n  Some migrations failed. Check the error logs above.");
     } else {
-      console.log("\n✅ Migration completed successfully!");
+      console.log("\n Migration completed successfully!");
     }
   } catch (error) {
     console.error("Migration failed:", error);

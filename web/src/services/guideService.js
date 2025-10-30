@@ -32,11 +32,11 @@ class GuideService {
       let videoPath = "";
       if (guideData.videoFile) {
         const file = guideData.videoFile;
-        // Use guide ID if available (for updates), otherwise use timestamp + random string for uniqueness
-        const safeName = guideData.id
-          ? `${guideData.id}_${file.name}`
-          : `${Date.now()}_${Math.random().toString(36).substring(2)}_${file.name}`;
-        const path = `guides/${safeName}`;
+        // Create unique path using timestamp + random string for each video upload
+        // This ensures unlimited video uploads without overwriting previous ones
+        const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2)}`;
+        const safeFileName = file.name.replace(/[^a-zA-Z0-9\s.-]/g, "").replace(/\s+/g, "_");
+        const path = `guides/${uniqueId}_${safeFileName}`;
         const storageRef = ref(storage, path);
         const task = uploadBytesResumable(storageRef, file, {
           contentType: file.type || "video/mp4",
@@ -177,9 +177,11 @@ class GuideService {
 
       if (guideData.videoFile) {
         const file = guideData.videoFile;
-        // Use guide ID for consistent filename when updating
-        const safeName = `${guideId}_${file.name}`;
-        const path = `guides/${safeName}`;
+        // Create unique path using timestamp + random string for each video upload
+        // This ensures unlimited video uploads without overwriting previous ones
+        const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2)}`;
+        const safeFileName = file.name.replace(/[^a-zA-Z0-9\s.-]/g, "").replace(/\s+/g, "_");
+        const path = `guides/${uniqueId}_${safeFileName}`;
         const storageRef = ref(storage, path);
         const task = uploadBytesResumable(storageRef, file, {
           contentType: file.type || "video/mp4",
@@ -338,6 +340,14 @@ class GuideService {
 
       // Delete the Firestore document afterwards
       await deleteDoc(guideRef);
+      
+      // Clean up any unused custom targets after deleting the guide
+      try {
+        await this.cleanupUnusedCustomTargets();
+      } catch (cleanupError) {
+        console.warn("Failed to cleanup unused custom targets after guide deletion:", cleanupError);
+        // Don't throw error as guide deletion was successful
+      }
     } catch (error) {
       console.error("Error deleting guide:", error);
       throw new Error(`Failed to delete guide: ${error.message}`);
@@ -397,6 +407,65 @@ class GuideService {
       "Full Body",
       "Cardio",
     ];
+  }
+
+  async cleanupUnusedCustomTargets() {
+    try {
+      console.log("Starting cleanup of unused custom targets...");
+      
+      // Get all guides to see which targets are actually being used
+      const allGuides = await this.getAllGuides();
+      const usedTargets = new Set();
+      
+      // Extract all targets currently used in guides
+      allGuides.forEach((guide) => {
+        const guideTargets = Array.isArray(guide.target)
+          ? guide.target
+          : guide.target
+            ? [guide.target]
+            : [];
+        guideTargets.forEach((target) => usedTargets.add(target));
+      });
+      
+      console.log("Currently used targets:", Array.from(usedTargets));
+      
+      // Get all custom targets from database
+      const customTargetsRef = collection(db, this.customTargetsCollection);
+      const customTargetsSnapshot = await getDocs(customTargetsRef);
+      
+      const unusedTargets = [];
+      const deletePromises = [];
+      
+      // Check each custom target to see if it's still being used
+      customTargetsSnapshot.forEach((doc) => {
+        const targetName = doc.data().name;
+        
+        // Check if this target is still being used in any guide
+        const isStillUsed = usedTargets.has(targetName);
+        
+        if (!isStillUsed) {
+          console.log(`Target "${targetName}" is no longer used, marking for deletion`);
+          unusedTargets.push(targetName);
+          deletePromises.push(deleteDoc(doc.ref));
+        }
+      });
+      
+      // Delete all unused custom targets
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
+        console.log(`Cleaned up ${unusedTargets.length} unused custom targets:`, unusedTargets);
+      } else {
+        console.log("No unused custom targets found");
+      }
+      
+      return {
+        cleaned: unusedTargets.length,
+        removedTargets: unusedTargets,
+      };
+    } catch (error) {
+      console.error("Error cleaning up unused custom targets:", error);
+      throw new Error(`Failed to cleanup unused custom targets: ${error.message}`);
+    }
   }
 }
 

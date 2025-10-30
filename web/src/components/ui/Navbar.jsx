@@ -11,7 +11,7 @@ const Navbar = ({ title = "" }) => {
   const { notifications, markAsRead, markAllAsRead, deleteNotification } =
     useNotifications();
 
-  // Enhanced profile picture detection for Google users
+  // Enhanced profile picture detection for all users
   const getProfilePicture = (user) => {
     if (!user) return null;
 
@@ -19,18 +19,29 @@ const Navbar = ({ title = "" }) => {
     const photoURL =
       user.photoURL || user.photoUrl || user.picture || user.avatar;
 
-    // For Google users, ensure we have a valid photo URL
-    if (photoURL && photoURL.startsWith("http")) {
+    // Validate that we have a proper URL (http/https or Firebase Storage URL)
+    if (photoURL && (photoURL.startsWith("http") || photoURL.startsWith("gs://"))) {
+      console.log("Profile picture detected:", photoURL);
       return photoURL;
     }
 
+    console.log("No valid profile picture found in user object");
     return null;
   };
 
   // Update profile source when user changes
   useEffect(() => {
+    console.log("User object updated in Navbar:", user);
     const photoURL = getProfilePicture(user);
-    setProfileSrc(photoURL);
+    
+    // Add cache-busting parameter to force browser to reload the image
+    if (photoURL) {
+      const cacheBustedURL = `${photoURL}${photoURL.includes('?') ? '&' : '?'}t=${Date.now()}`;
+      setProfileSrc(cacheBustedURL);
+    } else {
+      setProfileSrc(null);
+    }
+    
     setImageError(false);
   }, [user]);
 
@@ -76,19 +87,6 @@ const Navbar = ({ title = "" }) => {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  // Debug logging (remove in production)
-  console.log("Navbar user data:", {
-    uid: user?.uid,
-    email: user?.email,
-    displayName: user?.displayName,
-    photoURL: user?.photoURL,
-    photoUrl: user?.photoUrl,
-    provider: user?.provider,
-    profileSrc,
-    imageError,
-    isAdmin,
-  });
-
   return (
     <div className="w-full h-[8ch] px-8 bg-zinc-50 shadow-md flex items-center justify-between sticky top-0 z-20">
       <h1 className="font-bold text-2xl text-[#4361EE]">
@@ -107,7 +105,6 @@ const Navbar = ({ title = "" }) => {
         {/* Profile Section */}
         <ProfileDropdown
           user={user}
-          isAdmin={isAdmin}
           profileSrc={profileSrc}
           imageError={imageError}
           getInitials={getInitials}

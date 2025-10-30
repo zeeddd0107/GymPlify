@@ -41,7 +41,8 @@ class LoginAttemptService {
       const attemptsSnap = await getDoc(attemptsRef);
       return attemptsSnap.exists() ? attemptsSnap.data() : null;
     } catch (error) {
-      console.error("Error reading login attempts from Firestore:", error);
+      // Silently fail - Firestore access is optional, localStorage is primary for web
+      // The OTP system uses Firebase Cloud Functions which have admin access
       return null;
     }
   }
@@ -57,7 +58,8 @@ class LoginAttemptService {
         updatedAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error("Error saving login attempts to Firestore:", error);
+      // Silently fail - Firestore access is optional, localStorage is primary for web
+      // The OTP system uses Firebase Cloud Functions which have admin access
     }
   }
 

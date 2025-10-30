@@ -32,6 +32,14 @@ const SubscriptionsUI = ({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  // QR Code modal props
+  qrModalOpen,
+  selectedUser,
+  qrCodeValue,
+  qrCodeImage,
+  regeneratingQr,
+  onRegenerateQrCode,
+  onCloseQrModal,
 }) => {
   // Get admin status from auth context
   const { isAdmin: _isAdmin } = useAuth();
@@ -57,6 +65,16 @@ const SubscriptionsUI = ({
                   : result.status;
                 return <StatusBadge status={actualStatus} />;
               }
+              case "qrCode":
+                // Display QR code button
+                return (
+                  <button
+                    onClick={() => result.onQrClick && result.onQrClick(result.subscription)}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  >
+                    View QR
+                  </button>
+                );
               case "actions":
                 // Display action buttons (edit/delete) for each row
                 return (
@@ -125,6 +143,13 @@ const SubscriptionsUI = ({
         deleteItemType="subscription"
         toast={toast}
         onCloseToast={onCloseToast}
+        qrModalOpen={qrModalOpen}
+        selectedUser={selectedUser}
+        qrCodeValue={qrCodeValue}
+        qrCodeImage={qrCodeImage}
+        regeneratingQr={regeneratingQr}
+        onRegenerateQrCode={onRegenerateQrCode}
+        onCloseQrModal={onCloseQrModal}
       />
     </div>
   );

@@ -85,22 +85,22 @@ async function main() {
     );
 
     console.log("==================================================");
-    console.log("✅ STAFF USER CREATED SUCCESSFULLY");
+    console.log("STAFF USER CREATED SUCCESSFULLY");
     console.log("==================================================");
-    console.log(`📧 Email: ${email}`);
-    console.log(`👤 Name: ${fullName}`);
-    console.log(`🆔 UID: ${user.uid}`);
-    console.log(`👥 Role: staff`);
-    console.log(`🕒 lastLogout: null (will be set on logout)`);
+    console.log(`Email: ${email}`);
+    console.log(`Name: ${fullName}`);
+    console.log(`UID: ${user.uid}`);
+    console.log(`Role: staff`);
+    console.log(`lastLogout: null (will be set on logout)`);
     console.log("");
-    console.log("🔑 LOGIN CREDENTIALS:");
-    console.log(`   📧 Email: ${email}`);
-    console.log(`   🔐 Password: ${temporaryPassword}`);
+    console.log("LOGIN CREDENTIALS:");
+    console.log(`   Email: ${email}`);
+    console.log(`   Password: ${temporaryPassword}`);
     console.log("");
-    console.log("📝 Instructions for staff member:");
-    console.log("   1. Use the credentials above to log in");
-    console.log("   2. Change password after first login");
-    console.log("   3. Password can be changed in profile settings");
+    console.log("Instructions for staff member:");
+    console.log("  1. Use the credentials above to log in");
+    console.log("  2. Change password after first login");
+    console.log("  3. Password can be changed in profile settings");
     console.log("");
     console.log("==================================================");
 

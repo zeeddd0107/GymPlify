@@ -28,11 +28,28 @@ const Subscriptions = () => {
     pageSize,
     setCurrentPage,
     setPageSize,
+    search,
+    setSearch,
+    filteredSubscriptions,
+    // QR Code state and actions
+    qrModalOpen,
+    selectedUser,
+    qrCodeValue,
+    qrCodeImage,
+    regeneratingQr,
+    handleQrCodeClick,
+    handleRegenerateQrCode,
+    handleCloseQrModal,
+    // Subscription details modal state and actions
+    subscriptionDetailsModalOpen,
+    selectedSubscription,
+    handleSubscriptionClick,
+    handleCloseSubscriptionDetailsModal,
   } = useSubscriptions();
 
   return (
     <SubscriptionsUI
-      subscriptions={subscriptions}
+      subscriptions={filteredSubscriptions}
       loading={loading}
       editModalOpen={editModalOpen}
       deleteModalOpen={deleteModalOpen}
@@ -58,6 +75,22 @@ const Subscriptions = () => {
         setPageSize(newPageSize);
         setCurrentPage(1); // Reset to first page when page size changes
       }}
+      search={search}
+      onSearchChange={setSearch}
+      // QR Code props
+      qrModalOpen={qrModalOpen}
+      selectedUser={selectedUser}
+      qrCodeValue={qrCodeValue}
+      qrCodeImage={qrCodeImage}
+      regeneratingQr={regeneratingQr}
+      onQrCodeClick={handleQrCodeClick}
+      onRegenerateQrCode={handleRegenerateQrCode}
+      onCloseQrModal={handleCloseQrModal}
+      // Subscription details modal props
+      subscriptionDetailsModalOpen={subscriptionDetailsModalOpen}
+      selectedSubscription={selectedSubscription}
+      onSubscriptionClick={handleSubscriptionClick}
+      onCloseSubscriptionDetailsModal={handleCloseSubscriptionDetailsModal}
     />
   );
 };

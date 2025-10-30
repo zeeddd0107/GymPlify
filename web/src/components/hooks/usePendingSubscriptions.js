@@ -26,7 +26,7 @@ export const usePendingSubscriptions = () => {
       const result = await approvePendingSubscription(requestId);
       if (result.success) {
         console.log(
-          "✅ Subscription approved and created:",
+          "Subscription approved and created:",
           result.subscriptionId,
         );
         return true;

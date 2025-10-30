@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Alert } from "react-native";
 import {
   fetchMembershipData,
@@ -13,10 +13,18 @@ export const useMembership = () => {
   const [membershipData, setMembershipData] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
   const { user: authUser, loading: authLoading } = useAuth();
+  const isFetchingRef = useRef(false);
 
   const fetchMembershipDataHook = async (forceRefresh = false) => {
+    // Prevent duplicate fetches
+    if (isFetchingRef.current && !forceRefresh) {
+      Logger.once("membership-skip-duplicate", "useMembership: Skipping duplicate fetch");
+      return;
+    }
+
     try {
-      Logger.hook("useMembership", "Fetching membership data");
+      isFetchingRef.current = true;
+      Logger.once("membership-fetch-start", "useMembership: Fetching membership data");
 
       // Don't fetch if authentication is still loading
       if (authLoading) {
@@ -38,7 +46,7 @@ export const useMembership = () => {
         return;
       }
 
-      Logger.hook("useMembership", `Fetching data for user: ${authUser.email}`);
+      Logger.once("membership-fetch-user", `useMembership: Fetching data for user: ${authUser.email}`);
 
       // Try to get active subscription from new system first
       const activeSubscription = await getUserActiveSubscription(
@@ -66,11 +74,13 @@ export const useMembership = () => {
       const activeSubs = await fetchActiveSubscriptions(authUser.id);
       setSubscriptions(activeSubs);
 
-      console.log("🔍 useMembership - Membership data fetch completed");
+      console.log("useMembership - Membership data fetch completed");
     } catch (error) {
       console.error("Error fetching membership data:", error);
       // Don't show alert for missing membership data since it's expected for new users
       // Alert.alert("Error", "Failed to load membership data");
+    } finally {
+      isFetchingRef.current = false;
     }
   };
 

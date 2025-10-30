@@ -4,22 +4,24 @@ import { firebase } from "@/src/services/firebase";
 import { useAuth } from "@/src/context";
 
 /**
- * Hook to monitor subscription status and handle redirects
+ * Hook to monitor subscription status
+ * Returns subscription state without redirecting users with expired subscriptions
  */
 export const useSubscriptionStatus = () => {
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [hasSubscription, setHasSubscription] = useState(false); // Has subscription (active or expired)
+  const [isExpired, setIsExpired] = useState(false);
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // console.log("🔍 useSubscriptionStatus hook - User:", user?.uid);
-    // console.log("🔍 useSubscriptionStatus hook - hasActiveSubscription state:", hasActiveSubscription);
-
     if (!user) {
-      // console.log("❌ No user found, setting hasActiveSubscription to false");
       setHasActiveSubscription(false);
+      setHasSubscription(false);
+      setIsExpired(false);
+      setSubscription(null);
       setLoading(false);
       return;
     }
@@ -29,7 +31,6 @@ export const useSubscriptionStatus = () => {
         setLoading(true);
 
         // Get user document
-        // console.log("🔍 Checking user document for:", user.uid);
         const userDoc = await firebase
           .firestore()
           .collection("users")
@@ -37,19 +38,20 @@ export const useSubscriptionStatus = () => {
           .get();
 
         if (!userDoc.exists) {
-          // console.log("❌ User document does not exist");
           setHasActiveSubscription(false);
+          setHasSubscription(false);
+          setIsExpired(false);
           setSubscription(null);
           setLoading(false);
           return;
         }
 
         const userData = userDoc.data();
-        // console.log("🔍 User data:", userData);
 
         if (!userData.activeSubscriptionId) {
-          // console.log("❌ No activeSubscriptionId found in user data");
           setHasActiveSubscription(false);
+          setHasSubscription(false);
+          setIsExpired(false);
           setSubscription(null);
           setLoading(false);
           return;
@@ -64,6 +66,8 @@ export const useSubscriptionStatus = () => {
 
         if (!subscriptionDoc.exists) {
           setHasActiveSubscription(false);
+          setHasSubscription(false);
+          setIsExpired(false);
           setSubscription(null);
           setLoading(false);
           return;
@@ -75,30 +79,19 @@ export const useSubscriptionStatus = () => {
         const now = new Date();
         const endDate = subscriptionData.endDate?.toDate?.() || new Date();
         const isActive = subscriptionData.status === "active" && endDate > now;
-
-        console.log("🔍 Subscription Status Debug:");
-        console.log("  - User ID:", user.uid);
-        console.log(
-          "  - Active Subscription ID:",
-          userData.activeSubscriptionId,
-        );
-        console.log("  - Subscription Status:", subscriptionData.status);
-        console.log("  - End Date:", endDate);
-        console.log("  - Current Date:", now);
-        console.log("  - Is Active:", isActive);
-        console.log("  - Status Check:", subscriptionData.status === "active");
-        console.log("  - Date Check:", endDate > now);
+        const isExpiredStatus = subscriptionData.status === "expired" || endDate < now;
 
         setHasActiveSubscription(isActive);
+        setHasSubscription(true); // User has a subscription (active or expired)
+        setIsExpired(isExpiredStatus);
         setSubscription(subscriptionData);
         setLoading(false);
 
-        // If user has active subscription, redirect to dashboard
+        // Only redirect if user just got an active subscription (not if they have expired one)
+        // This allows users with expired subscriptions to stay on dashboard
         if (isActive) {
-          console.log(
-            "✅ User has active subscription, redirecting to dashboard",
-          );
-          router.replace("/(tabs)");
+          console.log("User has active subscription");
+          // Don't redirect here - let the app handle navigation naturally
         }
       } catch (error) {
         console.error("Error checking subscription status:", error);
@@ -134,33 +127,40 @@ export const useSubscriptionStatus = () => {
                 subscriptionData.endDate?.toDate?.() || new Date();
               const isActive =
                 subscriptionData.status === "active" && endDate > now;
+              const isExpiredStatus = subscriptionData.status === "expired" || endDate < now;
 
               setHasActiveSubscription(isActive);
+              setHasSubscription(true);
+              setIsExpired(isExpiredStatus);
               setSubscription(subscriptionData);
 
-              // If user just got an active subscription, redirect to dashboard
-              if (isActive && !hasActiveSubscription) {
-                console.log(
-                  "🎉 Subscription approved! Redirecting to dashboard",
-                );
-                router.replace("/(tabs)");
+              // Only redirect if user just got an active subscription
+              if (isActive) {
+                console.log("Subscription approved! User can access full features");
+                // Don't force redirect - let app handle navigation
               }
             }
           } else {
             setHasActiveSubscription(false);
+            setHasSubscription(false);
+            setIsExpired(false);
             setSubscription(null);
           }
         } else {
           setHasActiveSubscription(false);
+          setHasSubscription(false);
+          setIsExpired(false);
           setSubscription(null);
         }
       });
 
     return () => unsubscribe();
-  }, [user, router, hasActiveSubscription]);
+  }, [user, router]);
 
   return {
     hasActiveSubscription,
+    hasSubscription, // New: indicates user has any subscription (active or expired)
+    isExpired, // New: indicates subscription is expired
     subscription,
     loading,
   };

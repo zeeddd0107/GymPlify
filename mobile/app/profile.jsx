@@ -36,9 +36,9 @@ export default function ProfileScreen() {
 
   const loadUserData = useCallback(async () => {
     try {
-      console.log("🔍 Profile - loadUserData called");
-      console.log("🔍 Profile - authLoading:", authLoading);
-      console.log("🔍 Profile - authUser:", authUser);
+      console.log("Profile - loadUserData called");
+      console.log("Profile - authLoading:", authLoading);
+      console.log("Profile - authUser:", authUser);
 
       // Don't load if authentication is still loading
       if (authLoading) {
@@ -72,7 +72,7 @@ export default function ProfileScreen() {
       });
       setEmail(authUser.email || "");
 
-      console.log("🔍 Profile - Profile data loaded:", {
+      console.log("Profile - Profile data loaded:", {
         email: authUser.email,
         displayName: authUser.name,
         uid: authUser.id,
@@ -93,69 +93,14 @@ export default function ProfileScreen() {
     router.push("/subscriptions");
   };
 
-  const handleLoginInformation = () => {
-    const userEmail = userData?.email || email;
-    Alert.alert(
-      "Login Information",
-      "Email: " +
-        userEmail +
-        "\n\nTo change your password, please contact support.",
-      [
-        {
-          text: "Copy Email",
-          onPress: () => {
-            // Note: Clipboard functionality requires expo-clipboard package
-            // For now, just show the email in an alert
-            Alert.alert("Email", userEmail);
-          },
-        },
-        {
-          text: "OK",
-          style: "default",
-        },
-      ],
-    );
+  const handleChangePassword = () => {
+    router.push("/change-password");
   };
 
   const handleTermsAndConditions = () => {
-    Alert.alert(
-      "Terms and Conditions",
-      "By using GymPlify, you agree to our terms and conditions. Please read the full document on our website.",
-      [
-        {
-          text: "View Full Terms",
-          onPress: () => {
-            // You can implement web view or navigation to terms page
-            Alert.alert("Opening terms and conditions...");
-          },
-        },
-        {
-          text: "OK",
-          style: "default",
-        },
-      ],
-    );
+    router.push("/terms-and-conditions");
   };
 
-  const handlePrivacyPolicy = () => {
-    Alert.alert(
-      "Privacy Policy",
-      "Your privacy is important to us. We collect and use your information as described in our privacy policy.",
-      [
-        {
-          text: "View Full Policy",
-          onPress: () => {
-            // You can implement web view or navigation to privacy policy page
-            Alert.alert("Opening privacy policy...");
-          },
-        },
-        {
-          text: "OK",
-          style: "default",
-        },
-      ],
-    );
-  };
 
   const handleSignOut = () => {
     setShowLogoutModal(true);
@@ -198,12 +143,6 @@ export default function ProfileScreen() {
 
   const profileOptions = [
     {
-      id: 1,
-      title: "Login Information",
-      icon: "key-outline",
-      onPress: handleLoginInformation,
-    },
-    {
       id: 2,
       title: "My QR Code",
       icon: "qr-code-outline",
@@ -223,9 +162,9 @@ export default function ProfileScreen() {
     },
     {
       id: 5,
-      title: "Privacy Policy",
-      icon: "shield-checkmark-outline",
-      onPress: handlePrivacyPolicy,
+      title: "Change Password",
+      icon: "key-outline",
+      onPress: handleChangePassword,
     },
     {
       id: 6,
@@ -276,17 +215,17 @@ export default function ProfileScreen() {
         style={[styles.userInfoSection, { backgroundColor: theme.background }]}
       >
         <View style={styles.userAvatar}>
-          {console.log("🔍 Profile - photoURL:", userData?.photoURL)}
+          {console.log("Profile - photoURL:", userData?.photoURL)}
           {userData?.photoURL ? (
             <Image
               source={{ uri: userData.photoURL }}
               style={styles.userPhoto}
               resizeMode="cover"
               onError={(error) => {
-                console.log("🔍 Profile - Image load error:", error);
+                console.log("Profile - Image load error:", error);
               }}
               onLoad={() => {
-                console.log("🔍 Profile - Image loaded successfully");
+                console.log("Profile - Image loaded successfully");
               }}
             />
           ) : (

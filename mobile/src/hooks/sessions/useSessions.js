@@ -78,7 +78,7 @@ export const useSessions = () => {
             id: session.id,
             status: session.status,
           });
-          return session.status === "scheduled";
+          return session.status === "scheduled" || session.status === "completed";
         })
         .sort((a, b) => {
           const dateA = a.scheduledDate?.toDate

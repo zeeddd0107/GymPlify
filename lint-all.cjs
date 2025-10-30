@@ -10,14 +10,14 @@ function runLint(name, cwd, ext) {
   }
 }
 
-console.log('🔍 Running ESLint checks for backend, web, and mobile...');
-runLint('📦 Linting backend...', 'backend', '.js');
-runLint('🌐 Linting web...', 'web', '.js,.jsx');
-runLint('📱 Linting mobile...', 'mobile', '.js,.jsx');
-console.log('✅ All lint checks passed!');
+console.log(' Running ESLint checks for backend, web, and mobile...');
+runLint(' Linting backend...', 'backend', '.js');
+runLint(' Linting web...', 'web', '.js,.jsx');
+runLint(' Linting mobile...', 'mobile', '.js,.jsx');
+console.log(' All lint checks passed!');
 
 try {
-  console.log('🧪 Running tests...');
+  console.log(' Running tests...');
   execSync('npm test', { stdio: 'inherit' });
 } catch (e) {
   console.error('Tests failed.');
@@ -25,11 +25,11 @@ try {
 }
 
 try {
-  console.log('🔎 Running lint-staged...');
+  console.log(' Running lint-staged...');
   execSync('npx lint-staged', { stdio: 'inherit' });
 } catch (e) {
   console.error('lint-staged failed.');
   process.exit(1);
 }
 
-console.log('✅ Pre-commit checks complete. Proceeding to commit...'); 
+console.log(' Pre-commit checks complete. Proceeding to commit...'); 

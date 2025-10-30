@@ -46,6 +46,14 @@ const NotificationDropdown = ({
         return <FaCalendarCheck className="w-4 h-4" />;
       case "subscription":
         return <FaUser className="w-4 h-4" />;
+      case "subscription_request":
+        return <FaClipboardList className="w-4 h-4" />;
+      case "subscription_approved":
+        return <FaCheck className="w-4 h-4" />;
+      case "subscription_rejected":
+        return <FaTimes className="w-4 h-4" />;
+      case "subscription_extended":
+        return <FaUser className="w-4 h-4" />;
       case "equipment":
         return <FaClipboardList className="w-4 h-4" />;
       case "warning":
@@ -64,6 +72,14 @@ const NotificationDropdown = ({
       case "checkout":
         return "text-blue-600 bg-blue-50";
       case "subscription":
+        return "text-purple-600 bg-purple-50";
+      case "subscription_request":
+        return "text-indigo-600 bg-indigo-50";
+      case "subscription_approved":
+        return "text-green-600 bg-green-50";
+      case "subscription_rejected":
+        return "text-red-600 bg-red-50";
+      case "subscription_extended":
         return "text-purple-600 bg-purple-50";
       case "equipment":
         return "text-orange-600 bg-orange-50";
@@ -100,17 +116,6 @@ const NotificationDropdown = ({
               Notifications
             </h3>
             <div className="flex items-center gap-2">
-              {unreadCount > 0 && (
-                <button
-                  onClick={() => {
-                    onMarkAllAsRead();
-                    setIsOpen(false);
-                  }}
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  Mark all as read
-                </button>
-              )}
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
@@ -146,9 +151,19 @@ const NotificationDropdown = ({
           {/* Footer */}
           {notifications.length > 0 && (
             <div className="p-3 border-t border-gray-200 bg-gray-50">
-              <button className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium">
-                View all notifications
+              {unreadCount > 0 ? (
+                <button
+                  onClick={() => {
+                    onMarkAllAsRead();
+                    setIsOpen(false);
+                  }}
+                  className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Mark all as read
               </button>
+              ) : (
+                <div className="text-center text-sm text-gray-500">No unread notifications</div>
+              )}
             </div>
           )}
         </div>

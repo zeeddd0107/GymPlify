@@ -7,7 +7,10 @@ class GuideService {
 
   async getAllGuides() {
     try {
-      const snapshot = await firestore.collection(this.collectionName).get();
+      const snapshot = await firestore
+        .collection(this.collectionName)
+        .where("status", "==", "Published")
+        .get();
       const guides = [];
 
       snapshot.forEach((doc) => {
@@ -29,6 +32,7 @@ class GuideService {
       const snapshot = await firestore
         .collection(this.collectionName)
         .where("category", "==", category)
+        .where("status", "==", "Published")
         .get();
 
       const guides = [];
@@ -54,10 +58,11 @@ class GuideService {
         .get();
 
       if (doc.exists) {
-        return {
-          id: doc.id,
-          ...doc.data(),
-        };
+        const data = doc.data();
+        if (data?.status === "Published") {
+          return { id: doc.id, ...data };
+        }
+        throw new Error("Guide not available");
       } else {
         throw new Error("Guide not found");
       }

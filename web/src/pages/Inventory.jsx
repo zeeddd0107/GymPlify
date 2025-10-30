@@ -63,9 +63,69 @@ const Inventory = () => {
   });
   const [itemCodePreview, setItemCodePreview] = useState("");
 
-  // Success notification states
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  // Success notification states - simultaneous toast system
+  const [activeToasts, setActiveToasts] = useState([]);
+
+  // Function to add a new toast with smart grouping
+  const addToast = (message, type = "success") => {
+    const toastId = Date.now() + Math.random();
+    
+    setActiveToasts(prev => {
+      // Limit to maximum 3 toasts at once
+      if (prev.length >= 3) {
+        // Remove oldest toast to make room
+        const sortedToasts = [...prev].sort((a, b) => a.timestamp - b.timestamp);
+        const filteredToasts = prev.filter(toast => toast.id !== sortedToasts[0].id);
+        
+        const newToast = { 
+          id: toastId, 
+          message, 
+          type,
+          timestamp: Date.now()
+        };
+        
+        return [...filteredToasts, newToast];
+      }
+      
+      // Check for similar operations and group them
+      const similarToast = prev.find(toast => 
+        toast.message === message && 
+        toast.type === type &&
+        (Date.now() - toast.timestamp) < 1000 // Within 1 second
+      );
+      
+      if (similarToast) {
+        // Update existing toast with count
+        const updatedToasts = prev.map(toast => 
+          toast.id === similarToast.id 
+            ? { ...toast, count: (toast.count || 1) + 1, timestamp: Date.now() }
+            : toast
+        );
+        return updatedToasts;
+      }
+      
+      // Add new toast
+      const newToast = { 
+        id: toastId, 
+        message, 
+        type,
+        timestamp: Date.now(),
+        count: 1
+      };
+      
+      return [...prev, newToast];
+    });
+    
+    // Auto-remove toast after 3 seconds
+    setTimeout(() => {
+      setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+    }, 3000);
+  };
+
+  // Function to remove a specific toast
+  const removeToast = (toastId) => {
+    setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+  };
 
   // Validation errors for Add New Item modal
   const [addItemErrors, setAddItemErrors] = useState({});
@@ -104,9 +164,7 @@ const Inventory = () => {
       // Show cancellation message
       const operationType =
         operation.type === "add" ? "Adding Item" : "Editing";
-      setSuccessMessage(`${operationType} cancelled`);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      addToast(`${operationType} cancelled`, "info");
     }
   };
   useEffect(() => {
@@ -404,9 +462,7 @@ const Inventory = () => {
       });
 
       // Show success notification only after actual update completes
-      setSuccessMessage("Item updated successfully!");
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      addToast("Item updated successfully!");
 
       console.log(
         "Item updated successfully:",
@@ -438,9 +494,7 @@ const Inventory = () => {
       });
 
       // Show error notification
-      setSuccessMessage("Failed to update item. Please try again.");
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      addToast("Failed to update item. Please try again.", "error");
     } finally {
       setSaving(false);
     }
@@ -459,8 +513,12 @@ const Inventory = () => {
     if (!newItem.name?.trim()) {
       errors.name = "Item Name is required";
     }
-    if (!newItem.quantity || newItem.quantity <= 0) {
+    if (!newItem.quantity || newItem.quantity === "") {
       errors.quantity = "Quantity is required";
+    } else if (!/^\d+$/.test(newItem.quantity)) {
+      errors.quantity = "Quantity must be a positive whole number";
+    } else if (parseInt(newItem.quantity) <= 0) {
+      errors.quantity = "Quantity must be greater than 0";
     }
     if (!newItem.category) {
       errors.category = "Category is required";
@@ -568,9 +626,7 @@ const Inventory = () => {
       });
 
       // Show success notification only after actual save completes
-      setSuccessMessage("Item added successfully!");
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      addToast("Item added successfully!");
     } catch (error) {
       console.error("Error adding item:", error);
 
@@ -593,9 +649,7 @@ const Inventory = () => {
       });
 
       // Show error notification
-      setSuccessMessage("Failed to add item. Please try again.");
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      addToast("Failed to add item. Please try again.", "error");
     } finally {
       setSaving(false);
     }
@@ -894,9 +948,7 @@ const Inventory = () => {
                       deleteTitle="Delete item"
                       onDeleteSuccess={() => {
                         // Show success notification
-                        setSuccessMessage("Item deleted successfully!");
-                        setShowSuccess(true);
-                        setTimeout(() => setShowSuccess(false), 3000);
+                        addToast("Item deleted successfully!");
 
                         // Refresh inventory after successful deletion
                         const loadInventory = async () => {
@@ -991,39 +1043,38 @@ const Inventory = () => {
               )}
             </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">
-                Item Code
-              </label>
-              <FormInput
-                type="text"
-                value={itemCodePreview}
-                placeholder="Auto-generated by system"
-                disabled={true}
-              />
-            </div>
 
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">
                 Quantity <span className="text-red-500">*</span>
               </label>
               <FormInput
-                type="number"
-                min="1"
-                step="1"
+                type="text"
                 value={newItem.quantity}
                 onChange={(e) => {
                   const value = e.target.value;
-                  // Only allow whole numbers (integers)
+                  // Completely reject any non-numeric characters - only allow digits
                   if (value === "" || /^\d+$/.test(value)) {
                     setNewItem((s) => ({ ...s, quantity: value }));
-                    // Clear error when user starts typing
+                    // Clear error when user enters valid input
                     if (addItemErrors.quantity) {
                       setAddItemErrors((prev) => ({ ...prev, quantity: "" }));
                     }
                   }
+                  // If user tries to enter non-numeric characters, completely ignore the input
+                  // This prevents characters like '-', '.', letters, etc. from being entered at all
                 }}
-                placeholder="Enter quantity"
+                onKeyDown={(e) => {
+                  // Block non-numeric keys except backspace, delete, arrow keys, tab, etc.
+                  const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
+                  const isNumber = e.key >= '0' && e.key <= '9';
+                  const isAllowedKey = allowedKeys.includes(e.key);
+                  
+                  if (!isNumber && !isAllowedKey) {
+                    e.preventDefault();
+                  }
+                }}
+                placeholder="Enter quantity (numbers only)"
                 required={true}
                 error={!!addItemErrors.quantity}
               />
@@ -1149,35 +1200,34 @@ const Inventory = () => {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">
-                  Item Code
-                </label>
-                <FormInput
-                  type="text"
-                  value={editingItem.inventoryCode || ""}
-                  placeholder="Auto-generated by system"
-                  disabled={true}
-                />
-              </div>
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
                   Quantity
                 </label>
                 <FormInput
-                  type="number"
-                  min="1"
-                  step="1"
+                  type="text"
                   value={editingItem.quantity || ""}
                   onChange={(e) => {
                     const value = e.target.value;
-                    // Only allow whole numbers (integers)
+                    // Completely reject any non-numeric characters - only allow digits
                     if (value === "" || /^\d+$/.test(value)) {
                       setEditingItem((s) => ({ ...s, quantity: value }));
                     }
+                    // If user tries to enter non-numeric characters, completely ignore the input
+                    // This prevents characters like '-', '.', letters, etc. from being entered at all
                   }}
-                  placeholder="Enter quantity"
+                  onKeyDown={(e) => {
+                    // Block non-numeric keys except backspace, delete, arrow keys, tab, etc.
+                    const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
+                    const isNumber = e.key >= '0' && e.key <= '9';
+                    const isAllowedKey = allowedKeys.includes(e.key);
+                    
+                    if (!isNumber && !isAllowedKey) {
+                      e.preventDefault();
+                    }
+                  }}
+                  placeholder="Enter quantity (numbers only)"
                   required={true}
                 />
               </div>
@@ -1243,14 +1293,26 @@ const Inventory = () => {
           )}
         </EditModal>
 
-        {/* Toast Notification */}
-        <ToastNotification
-          isVisible={showSuccess}
-          onClose={() => setShowSuccess(false)}
-          message={successMessage}
-          type="success"
-          position="top-right"
-        />
+        {/* Toast Notifications - Multiple simultaneous toasts */}
+        {activeToasts.map((toast, index) => (
+          <div
+            key={toast.id}
+            style={{
+              position: 'fixed',
+              top: `${20 + (index * 80)}px`, // Stack toasts vertically
+              right: '20px',
+              zIndex: 1000 + index,
+            }}
+          >
+            <ToastNotification
+              isVisible={true}
+              onClose={() => removeToast(toast.id)}
+              message={toast.count > 1 ? `${toast.message} (${toast.count}x)` : toast.message}
+              type={toast.type}
+              position="top-right"
+            />
+          </div>
+        ))}
       </div>
     );
   } catch (error) {
@@ -1285,3 +1347,4 @@ const Inventory = () => {
 };
 
 export default Inventory;
+

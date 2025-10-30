@@ -7,6 +7,7 @@ const {
   listUsers,
   deleteUser,
   setAdminClaim,
+  createStaff,
 } = require("../controllers/authController");
 const isAdmin = require("../middleware/isAdmin");
 
@@ -23,5 +24,8 @@ router.get("/admin/panel", isAdmin, (req, res) => {
 
 // Set admin claim for a user (admin only)
 router.post("/admin/set-admin", isAdmin, setAdminClaim);
+
+// Create staff account (admin only)
+router.post("/admin/create-staff", isAdmin, createStaff);
 
 module.exports = router;

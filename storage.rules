@@ -16,6 +16,17 @@ service firebase.storage {
       allow write, delete: if isAdmin();
     }
 
+    // Profile pictures - organized by user ID
+    match /profile-pictures/{userId}/{file} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() 
+                   && request.auth.uid == userId // Users can only write to their own folder
+                   && request.resource.size < 5 * 1024 * 1024 // Max 5MB
+                   && request.resource.contentType.matches('image/.*'); // Only images
+      allow delete: if isSignedIn() && request.auth.uid == userId; // Users can only delete their own pictures
+      allow list: if isSignedIn() && request.auth.uid == userId; // Users can list their own folder
+    }
+
     // Default deny
     match /{path=**} {
       allow read, write: if false;

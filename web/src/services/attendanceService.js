@@ -255,3 +255,53 @@ export const getAttendanceStatistics = async (startDate, endDate) => {
     throw error;
   }
 };
+
+/**
+ * Auto-checkout any open attendances from previous days by setting
+ * checkOutTime to 23:59 of the same day and computing duration.
+ * Safe to call on dashboard load; ignores already-checked-out records.
+ */
+export const autoCheckoutStaleAttendance = async () => {
+  try {
+    const attendanceRef = collection(db, ATTENDANCE_COLLECTION);
+    const q = query(attendanceRef, orderBy("checkInTime", "desc"), limit(300));
+    const snap = await getDocs(q);
+
+    const now = new Date();
+    const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+    const updates = [];
+
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data.checkOutTime) return;
+      const checkIn = data.checkInTime?.toDate ? data.checkInTime.toDate() : null;
+      if (!checkIn) return;
+      const key = `${checkIn.getFullYear()}-${checkIn.getMonth()}-${checkIn.getDate()}`;
+      if (key !== todayKey) {
+        const endOfDay = new Date(
+          checkIn.getFullYear(),
+          checkIn.getMonth(),
+          checkIn.getDate(),
+          23,
+          59,
+          0,
+          0,
+        );
+        const duration = Math.max(0, Math.round((endOfDay - checkIn) / 60000));
+        updates.push(
+          updateDoc(doc(db, ATTENDANCE_COLLECTION, docSnap.id), {
+            checkOutTime: endOfDay,
+            duration,
+            updatedAt: serverTimestamp(),
+          }),
+        );
+      }
+    });
+
+    if (updates.length) {
+      await Promise.allSettled(updates);
+    }
+  } catch (error) {
+    console.error("Auto-checkout failed:", error);
+  }
+};

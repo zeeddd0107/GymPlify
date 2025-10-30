@@ -15,6 +15,7 @@ import {
   arrayUnion as _arrayUnion,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
+import notificationService from "./notificationService";
 
 // Helper function to add exactly one month (handles edge cases like Jan 31 -> Feb 28/29)
 const addExactMonth = (startDate) => {
@@ -150,6 +151,13 @@ export const approvePendingSubscription = async (requestId) => {
 
           if (endDate > now) {
             // User has an active subscription - check if this is an extension
+            console.log("Checking subscription type match:", {
+              currentPlan,
+              newPlan,
+              currentPlanId: activeSubscriptionData.planId,
+              newPlanId: requestData.planId,
+            });
+
             const isCurrentWalkin =
               currentPlan.toLowerCase().includes("walkin") ||
               currentPlan.toLowerCase().includes("walk-in");
@@ -167,9 +175,18 @@ export const approvePendingSubscription = async (requestId) => {
               currentPlan.toLowerCase().includes("coaching") ||
               currentPlan.toLowerCase().includes("solo");
 
+            console.log("Plan type flags:", {
+              isCurrentWalkin,
+              isNewWalkin,
+              isCurrentMonthly,
+              isNewMonthly,
+              isCurrentCoaching,
+              isNewCoaching,
+            });
+
             if (isCurrentWalkin && isNewWalkin) {
               isExtension = true;
-              console.log("✅ Processing Walk-in to Walk-in extension");
+              console.log("Processing Walk-in to Walk-in extension");
 
               // Calculate extension details
               const currentEndDate =
@@ -244,7 +261,7 @@ export const approvePendingSubscription = async (requestId) => {
                 updatedAt: serverTimestamp(),
               });
 
-              console.log("📝 Created new Walk-in extension subscription:", {
+              console.log("Created new Walk-in extension subscription:", {
                 newSubscriptionId: subscriptionRef.id,
                 previousSubscriptionId: activeSubscriptionRef.id,
                 totalExtensionDays:
@@ -259,31 +276,58 @@ export const approvePendingSubscription = async (requestId) => {
                 },
               );
 
-              console.log("✅ Walk-in subscription extended successfully");
+              console.log("Walk-in subscription extended successfully");
             } else if (isCurrentWalkin && isNewMonthly) {
               isExtension = true;
-              console.log("✅ Processing Walk-in to Monthly extension");
+              console.log("Processing Walk-in to Monthly extension");
 
               // Calculate extension details
               const currentEndDate =
                 activeSubscriptionData.endDate?.toDate?.() || new Date();
               const now = new Date();
 
-              // Calculate remaining time from current Walk-in
-              const currentRemainingTime = Math.max(
-                0,
-                currentEndDate.getTime() - now.getTime(),
+              // Use the same date calculation logic as mobile app (start of day comparison)
+              const currentEndDateOnly = new Date(
+                currentEndDate.getFullYear(),
+                currentEndDate.getMonth(),
+                currentEndDate.getDate(),
+              );
+              const nowOnly = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
               );
 
-              // Calculate period left for new Monthly subscription (1 full month)
-              const newMonthlyPeriod = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+              // Calculate remaining time from current Walk-in (using start-of-day comparison)
+              const currentRemainingTime = Math.max(
+                0,
+                currentEndDateOnly.getTime() - nowOnly.getTime(),
+              );
+              const remainingDays = Math.ceil(
+                currentRemainingTime / (24 * 60 * 60 * 1000),
+              );
+
+              // Calculate new monthly period - use exact calendar month
+              const currentWalkinEndDate = new Date(
+                nowOnly.getTime() + currentRemainingTime,
+              );
+              const newMonthlyEndDate = addExactMonth(currentWalkinEndDate);
+              const newMonthlyPeriod =
+                newMonthlyEndDate.getTime() - currentWalkinEndDate.getTime();
 
               // Total extension time = current remaining + new Monthly period
               const totalExtensionTime =
                 currentRemainingTime + newMonthlyPeriod;
 
               // Calculate new end date
-              const newEndDate = new Date(now.getTime() + totalExtensionTime);
+              const newEndDate = new Date(
+                nowOnly.getTime() + totalExtensionTime,
+              );
+
+              // Calculate the actual remaining days from now to the new end date
+              const actualRemainingDays = Math.ceil(
+                totalExtensionTime / (24 * 60 * 60 * 1000),
+              );
 
               // Create a NEW subscription record for the extension
               const extensionSubscriptionData = {
@@ -296,9 +340,7 @@ export const approvePendingSubscription = async (requestId) => {
                 status: "active",
                 startDate: now, // Start from current time
                 endDate: newEndDate,
-                daysRemaining: Math.ceil(
-                  totalExtensionTime / (24 * 60 * 60 * 1000),
-                ),
+                daysRemaining: actualRemainingDays, // Actual remaining days from now to end date
                 paymentMethod: requestData.paymentMethod || "counter",
                 approvedBy: "admin",
                 approvedAt: new Date(),
@@ -308,13 +350,11 @@ export const approvePendingSubscription = async (requestId) => {
                 extensionType: "walkin_to_monthly",
                 previousSubscriptionId: activeSubscriptionRef.id,
                 previousEndDate: activeSubscriptionData.endDate,
-                currentRemainingDays: Math.ceil(
-                  currentRemainingTime / (24 * 60 * 60 * 1000),
+                currentRemainingDays: Math.max(0, remainingDays),
+                newMonthlyDays: Math.ceil(
+                  newMonthlyPeriod / (24 * 60 * 60 * 1000),
                 ),
-                newMonthlyDays: 30,
-                totalExtensionDays: Math.ceil(
-                  totalExtensionTime / (24 * 60 * 60 * 1000),
-                ),
+                totalExtensionDays: actualRemainingDays,
                 reason: "Walk-in upgraded to Monthly subscription",
               };
 
@@ -339,12 +379,15 @@ export const approvePendingSubscription = async (requestId) => {
               });
 
               console.log(
-                "📝 Created new Walk-in to Monthly extension subscription:",
+                "Created new Walk-in to Monthly extension subscription:",
                 {
                   newSubscriptionId: subscriptionRef.id,
                   previousSubscriptionId: activeSubscriptionRef.id,
-                  totalExtensionDays:
-                    extensionSubscriptionData.totalExtensionDays,
+                  currentRemainingDays: Math.max(0, remainingDays),
+                  newMonthlyDays: Math.ceil(
+                    newMonthlyPeriod / (24 * 60 * 60 * 1000),
+                  ),
+                  totalExtensionDays: actualRemainingDays,
                 },
               );
 
@@ -357,12 +400,12 @@ export const approvePendingSubscription = async (requestId) => {
               );
 
               console.log(
-                "✅ Walk-in to Monthly subscription extended successfully",
+                "Walk-in to Monthly subscription extended successfully",
               );
             } else if (isCurrentMonthly && isNewCoaching) {
               // Monthly to Coaching/Solo upgrade - REPLACE current subscription
               console.log(
-                "✅ Processing Monthly to Coaching/Solo upgrade - REPLACING subscription",
+                "Processing Monthly to Coaching/Solo upgrade - REPLACING subscription",
               );
 
               // Mark current monthly subscription as replaced
@@ -374,7 +417,7 @@ export const approvePendingSubscription = async (requestId) => {
               });
 
               console.log(
-                "📝 Marked current monthly subscription as replaced:",
+                "Marked current monthly subscription as replaced:",
                 activeSubscriptionRef.id,
               );
 
@@ -441,12 +484,12 @@ export const approvePendingSubscription = async (requestId) => {
               );
 
               console.log(
-                "✅ Monthly to Coaching subscription upgraded successfully",
+                "Monthly to Coaching subscription upgraded successfully",
               );
             } else if (isCurrentWalkin && isNewCoaching) {
               // Walk-in to Coaching/Solo upgrade - REPLACE current subscription
               console.log(
-                "✅ Processing Walk-in to Coaching/Solo upgrade - REPLACING subscription",
+                "Processing Walk-in to Coaching/Solo upgrade - REPLACING subscription",
               );
 
               // Mark current walk-in subscription as replaced
@@ -458,7 +501,7 @@ export const approvePendingSubscription = async (requestId) => {
               });
 
               console.log(
-                "📝 Marked current walk-in subscription as replaced:",
+                "Marked current walk-in subscription as replaced:",
                 activeSubscriptionRef.id,
               );
 
@@ -527,13 +570,21 @@ export const approvePendingSubscription = async (requestId) => {
               );
 
               console.log(
-                "✅ Walk-in to Coaching subscription upgraded successfully",
+                "Walk-in to Coaching subscription upgraded successfully",
               );
             } else if (isCurrentMonthly && isNewMonthly) {
+              isExtension = true;
               // Monthly to Monthly extension - MERGE remaining days
               console.log(
-                "✅ Processing Monthly to Monthly extension - MERGING days",
+                "Processing Monthly to Monthly extension - MERGING days",
               );
+              console.log("Current subscription data:", {
+                id: activeSubscriptionRef.id,
+                planName: activeSubscriptionData.planName,
+                startDate: activeSubscriptionData.startDate,
+                endDate: activeSubscriptionData.endDate,
+                daysRemaining: activeSubscriptionData.daysRemaining,
+              });
 
               // Calculate remaining time from current monthly subscription
               const currentEndDate =
@@ -604,17 +655,21 @@ export const approvePendingSubscription = async (requestId) => {
               subscriptionRef = activeSubscriptionRef;
 
               console.log(
-                "✅ Monthly to Monthly subscription extended successfully",
+                "Monthly to Monthly subscription extended successfully",
               );
-              console.log("📊 Monthly Extension Summary:", {
-                originalMonthlyEndDate: currentEndDate,
-                newMonthlyEndDate: newEndDate,
-                remainingDays: Math.max(0, remainingDays),
+              console.log("Monthly Extension Summary:", {
+                originalMonthlyEndDate: currentEndDate.toISOString(),
+                newMonthlyEndDate: newEndDate.toISOString(),
+                currentRemainingDays: Math.max(0, remainingDays),
                 newMonthlyDays: Math.ceil(
                   newMonthlyPeriod / (24 * 60 * 60 * 1000),
                 ),
                 totalExtensionDays: actualRemainingDays,
                 subscriptionId: subscriptionRef.id,
+                extensionData: {
+                  endDate: newEndDate.toISOString(),
+                  daysRemaining: actualRemainingDays,
+                },
                 planData: {
                   daysRemaining: planData.daysRemaining,
                   period: planData.period,
@@ -628,8 +683,9 @@ export const approvePendingSubscription = async (requestId) => {
                 newPlan.toLowerCase().includes("solo"))
             ) {
               // Solo to Solo extension - MERGE remaining sessions
+              isExtension = true;
               console.log(
-                "✅ Processing Solo to Solo extension - MERGING sessions",
+                "Processing Solo to Solo extension - MERGING sessions",
               );
 
               // Calculate remaining time from current solo subscription
@@ -722,8 +778,8 @@ export const approvePendingSubscription = async (requestId) => {
               // Use the existing subscription reference
               subscriptionRef = activeSubscriptionRef;
 
-              console.log("✅ Solo to Solo subscription extended successfully");
-              console.log("📊 Solo Extension Summary:", {
+              console.log("Solo to Solo subscription extended successfully");
+              console.log("Solo Extension Summary:", {
                 originalSoloEndDate: currentEndDate,
                 newSoloEndDate: newEndDate,
                 remainingDays: Math.max(0, remainingDays),
@@ -744,7 +800,7 @@ export const approvePendingSubscription = async (requestId) => {
             } else if (isCurrentCoaching && isNewWalkin) {
               // Coaching/Solo to Walk-in - NOT ALLOWED
               console.log(
-                "✅ Matched Coaching/Solo to Walk-in case - NOT ALLOWED",
+                "Matched Coaching/Solo to Walk-in case - NOT ALLOWED",
               );
               throw new Error(
                 "This user has an active coaching program subscription. They must wait until their coaching program ends before purchasing walk-in sessions.",
@@ -752,7 +808,7 @@ export const approvePendingSubscription = async (requestId) => {
             } else if (isCurrentCoaching && isNewMonthly) {
               // Coaching/Solo to Monthly - NOT ALLOWED
               console.log(
-                "✅ Matched Coaching/Solo to Monthly case - NOT ALLOWED",
+                "Matched Coaching/Solo to Monthly case - NOT ALLOWED",
               );
               throw new Error(
                 "This user has an active coaching program subscription. They must wait until their coaching program ends before purchasing a monthly plan.",
@@ -766,8 +822,9 @@ export const approvePendingSubscription = async (requestId) => {
                   newPlan.toLowerCase().includes("group")))
             ) {
               // Coaching-Group to Coaching-Group extension - MERGE remaining days
+              isExtension = true;
               console.log(
-                "✅ Processing Coaching-Group to Coaching-Group extension - MERGING days",
+                "Processing Coaching-Group to Coaching-Group extension - MERGING days",
               );
 
               // Calculate remaining time from current coaching-group subscription
@@ -839,9 +896,9 @@ export const approvePendingSubscription = async (requestId) => {
               subscriptionRef = activeSubscriptionRef;
 
               console.log(
-                "✅ Coaching-Group to Coaching-Group subscription extended successfully",
+                "Coaching-Group to Coaching-Group subscription extended successfully",
               );
-              console.log("📊 Coaching-Group Extension Summary:", {
+              console.log("Coaching-Group Extension Summary:", {
                 originalCoachingEndDate: currentEndDate,
                 newCoachingEndDate: newEndDate,
                 remainingDays: Math.max(0, remainingDays),
@@ -864,7 +921,7 @@ export const approvePendingSubscription = async (requestId) => {
             ) {
               // Coaching-Group to Solo - NOT ALLOWED
               console.log(
-                "✅ Matched Coaching-Group to Solo case - NOT ALLOWED",
+                "Matched Coaching-Group to Solo case - NOT ALLOWED",
               );
               throw new Error(
                 "This user has an active group coaching program subscription. They must wait until their group coaching program ends before switching to solo coaching.",
@@ -879,7 +936,7 @@ export const approvePendingSubscription = async (requestId) => {
             ) {
               // Solo to Coaching-Group - NOT ALLOWED
               console.log(
-                "✅ Matched Solo to Coaching-Group case - NOT ALLOWED",
+                "Matched Solo to Coaching-Group case - NOT ALLOWED",
               );
               throw new Error(
                 "This user has an active solo coaching program subscription. They must wait until their solo coaching program ends before switching to group coaching.",
@@ -897,6 +954,47 @@ export const approvePendingSubscription = async (requestId) => {
 
     // If not an extension, create a new subscription
     if (!isExtension) {
+      // Get previous active subscription's daysRemaining if available
+      let daysRemainingToUse = planData.daysRemaining || 31;
+      
+      try {
+        if (userDoc && userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          // Check if there's an active subscription
+          if (userData && userData.activeSubscriptionId) {
+            const activeSubscriptionRef = doc(
+              db,
+              "subscriptions",
+              userData.activeSubscriptionId,
+            );
+            const activeSubscriptionDoc = await getDoc(activeSubscriptionRef);
+            
+            if (activeSubscriptionDoc.exists()) {
+              const activeSubscriptionData = activeSubscriptionDoc.data();
+              
+              // Use previous subscription's daysRemaining if status is active
+              if (activeSubscriptionData && 
+                  activeSubscriptionData.status === "active" && 
+                  activeSubscriptionData.daysRemaining &&
+                  typeof activeSubscriptionData.daysRemaining === "number") {
+                daysRemainingToUse = activeSubscriptionData.daysRemaining;
+                console.log("Using previous active subscription's daysRemaining:", daysRemainingToUse);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error checking previous subscription:", error);
+        // Continue with default daysRemaining if there's an error
+      }
+
+      // Ensure daysRemainingToUse is a valid number
+      if (typeof daysRemainingToUse !== "number" || isNaN(daysRemainingToUse) || daysRemainingToUse <= 0) {
+        daysRemainingToUse = planData.daysRemaining || 31;
+        console.log("Invalid daysRemaining, using default:", daysRemainingToUse);
+      }
+
       // Calculate subscription dates
       const startDate = new Date();
       const endDate = new Date();
@@ -906,8 +1004,8 @@ export const approvePendingSubscription = async (requestId) => {
         // For session-based plans, end date is same as start date
         endDate.setDate(startDate.getDate() + 1); // 1 day for session
       } else if (planData.period === "per month") {
-        // For monthly plans, add the daysRemaining days
-        endDate.setDate(startDate.getDate() + (planData.daysRemaining || 31));
+        // For monthly plans, use the daysRemainingToUse value
+        endDate.setDate(startDate.getDate() + daysRemainingToUse);
       }
 
       // Create subscription document
@@ -921,7 +1019,7 @@ export const approvePendingSubscription = async (requestId) => {
         status: "active",
         startDate: startDate,
         endDate: endDate,
-        daysRemaining: planData.daysRemaining || 31,
+        daysRemaining: daysRemainingToUse, // Use previous subscription's daysRemaining if available
         maxSessions: planData.maxSessions || null, // Add session tracking for solo coaching
         usedSessions: 0, // Initialize used sessions
         paymentMethod: requestData.paymentMethod || "counter",
@@ -939,9 +1037,17 @@ export const approvePendingSubscription = async (requestId) => {
 
       // Update user document with active subscription reference and add to history
       const userRef = doc(db, "users", requestData.userId);
-      const userDoc = await getDoc(userRef);
-      const userData = userDoc.data();
-      const existingHistory = userData?.subscriptionHistory || [];
+      
+      // Use existing userDoc if available, otherwise fetch it
+      let finalUserData;
+      if (userDoc.exists()) {
+        finalUserData = userDoc.data();
+      } else {
+        const finalUserDoc = await getDoc(userRef);
+        finalUserData = finalUserDoc.exists() ? finalUserDoc.data() : {};
+      }
+      
+      const existingHistory = finalUserData?.subscriptionHistory || [];
 
       // Add new subscription ID to history if not already present
       const updatedHistory = existingHistory.includes(subscriptionRef.id)
@@ -964,9 +1070,14 @@ export const approvePendingSubscription = async (requestId) => {
       });
 
       console.log(
-        "✅ New subscription created successfully:",
+        "New subscription created successfully:",
         subscriptionRef.id,
       );
+    }
+
+    // Ensure subscriptionRef is set before proceeding
+    if (!subscriptionRef) {
+      throw new Error("Failed to create subscription reference");
     }
 
     // Update the pending subscription request status
@@ -978,9 +1089,27 @@ export const approvePendingSubscription = async (requestId) => {
       subscriptionId: subscriptionRef.id, // Link to created subscription
     });
 
+    // Notify user about subscription approval
+    try {
+      await notificationService.createSubscriptionApprovedNotification(
+        requestData.userId,
+        requestData.planName,
+        subscriptionRef.id
+      );
+      console.log("User notification sent for subscription approval");
+    } catch (notificationError) {
+      console.error("Failed to send user notification:", notificationError);
+      // Don't fail the entire operation if notification fails
+    }
+
     return { success: true, subscriptionId: subscriptionRef.id };
   } catch (error) {
     console.error("Error approving subscription:", error);
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
     throw error;
   }
 };
@@ -991,11 +1120,30 @@ export const approvePendingSubscription = async (requestId) => {
 export const rejectPendingSubscription = async (requestId) => {
   try {
     const requestRef = doc(db, "pendingSubscriptions", requestId);
+    
+    // Get request data before rejecting to send notification
+    const requestDoc = await getDoc(requestRef);
+    const requestData = requestDoc.data();
+    
     await updateDoc(requestRef, {
       status: "rejected",
       rejectedAt: new Date(),
       updatedAt: new Date(),
     });
+
+    // Notify user about subscription rejection
+    try {
+      await notificationService.createSubscriptionRejectedNotification(
+        requestData.userId,
+        requestData.planName,
+        requestId
+      );
+      console.log("User notification sent for subscription rejection");
+    } catch (notificationError) {
+      console.error("Failed to send user notification:", notificationError);
+      // Don't fail the entire operation if notification fails
+    }
+
     return true;
   } catch (error) {
     console.error("Error rejecting subscription:", error);

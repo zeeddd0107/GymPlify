@@ -317,8 +317,13 @@ export default function PaymentConfirmationScreen() {
           <Pressable
             style={styles.skipButton}
             onPress={() => {
-              // TODO: Implement payment status logic
-              Logger.payment("Not paid yet - no action yet");
+              Logger.payment("Not paid yet - going back");
+              try {
+                router.back();
+              } catch (e) {
+                // Fallback: navigate to subscriptions if no history
+                try { router.push("/subscriptions"); } catch {}
+              }
             }}
           >
             <Text style={styles.skipButtonText}>No, I haven't paid yet</Text>

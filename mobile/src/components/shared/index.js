@@ -1,9 +1,9 @@
 export { default as FloatingActionButton } from "./FloatingActionButton";
-export { HelloWave } from "./HelloWave";
+// export { HelloWave } from "./HelloWave"; // Disabled: Requires react-native-reanimated which has version conflicts in Expo Go
 export { Collapsible } from "./Collapsible";
 export { IconSymbol } from "./IconSymbol";
 export { ThemeToggle } from "./ThemeToggle";
-export { default as ParallaxScrollView } from "./ParallaxScrollView";
+// export { default as ParallaxScrollView } from "./ParallaxScrollView"; // Disabled: Requires react-native-reanimated which has version conflicts in Expo Go
 export { default as TabBarUtils } from "./TabBarUtils";
 export { default as TabBarBackground } from "./TabBarBackground";
 export { HapticTab } from "./HapticTab";

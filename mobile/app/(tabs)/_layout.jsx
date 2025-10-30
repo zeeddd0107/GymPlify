@@ -7,6 +7,7 @@ import TabBarBackground from "@/src/components";
 import { useTheme } from "@/src/context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Entypo from "@expo/vector-icons/Entypo";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useDashboard } from "@/src/hooks";
 
 export default function TabLayout() {
@@ -47,9 +48,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="learn"
         options={{
-          title: "Learn",
+          title: "Guide",
           tabBarIcon: ({ color }) => (
-            <AntDesign size={24} name="play" color={color} />
+            <Ionicons size={28} name="play-circle-outline" color={color} />
           ),
         }}
       />

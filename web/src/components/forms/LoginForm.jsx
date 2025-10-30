@@ -4,9 +4,10 @@ import { faDumbbell, faUser, faLock } from "@fortawesome/free-solid-svg-icons";
 import { useAuthForm } from "../hooks";
 import FormInput from "../ui/FormInput";
 import ForgotPassword from "./ForgotPassword";
+import OTPVerification from "./OTPVerification";
 import Button from "../ui/Button";
 
-const LoginForm = () => {
+const LoginForm = ({ onLoginSuccess, onForgotPasswordFlow }) => {
   // I'm using my custom auth form hook to handle all the logic
   const {
     formData,
@@ -15,19 +16,55 @@ const LoginForm = () => {
     fieldErrors,
     handleInputChange,
     handleSubmit,
-  } = useAuthForm("login");
+  } = useAuthForm("login", onLoginSuccess);
 
   // I need to track whether to show the forgot password screen
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordOTP, setForgotPasswordOTP] = useState(null); // { email, otpId, expiresAt }
 
   // Let me handle going back to the login screen
   const handleBackToLogin = () => {
     setShowForgotPassword(false);
+    setForgotPasswordOTP(null);
   };
+
+  // Handle Forgot Password OTP sent
+  const handleForgotPasswordOTPSent = (email, otpId, expiresAt) => {
+    setForgotPasswordOTP({ email, otpId, expiresAt });
+    setShowForgotPassword(false);
+  };
+
+  // Handle Forgot Password OTP verified
+  const handleForgotPasswordOTPVerified = (response) => {
+    // Pass the reset code to the parent (App.jsx) for displaying ResetPassword screen
+    if (onForgotPasswordFlow) {
+      onForgotPasswordFlow(forgotPasswordOTP.email, response.resetCode);
+    }
+    setForgotPasswordOTP(null);
+  };
+
+  // Show Forgot Password OTP Verification
+  if (forgotPasswordOTP) {
+    return (
+      <OTPVerification
+        email={forgotPasswordOTP.email}
+        otpId={forgotPasswordOTP.otpId}
+        expiresAt={forgotPasswordOTP.expiresAt}
+        mode="forgot-password"
+        onVerified={handleForgotPasswordOTPVerified}
+        onBack={handleBackToLogin}
+      />
+    );
+  }
 
   // If they want to reset their password, show that screen instead
   if (showForgotPassword) {
-    return <ForgotPassword onBackToLogin={handleBackToLogin} />;
+    return (
+      <ForgotPassword
+        onBackToLogin={handleBackToLogin}
+        onOTPSent={handleForgotPasswordOTPSent}
+      />
+    );
   }
 
   return (
@@ -108,7 +145,6 @@ const LoginForm = () => {
             type="submit"
             disabled={isLoading}
             isLoading={isLoading}
-            loadingText="Processing..."
             className="w-full"
           >
             Sign In

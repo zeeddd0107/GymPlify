@@ -4,6 +4,7 @@ import {
   getRemainingDays,
   isSubscriptionExpired,
 } from "@/src/utils/dateUtils";
+import notificationService from "./notificationService";
 
 const firestore = firebase.firestore();
 
@@ -32,7 +33,7 @@ const getSubscriptionWarningMessage = (
   const currentTier = getSubscriptionTier(currentPlan);
   const newTier = getSubscriptionTier(newPlan);
 
-  console.log("🔍 Subscription Warning Debug:", {
+  console.log("Subscription Warning Debug:", {
     currentPlan,
     newPlan,
     currentPlanId,
@@ -73,7 +74,7 @@ const getSubscriptionWarningMessage = (
     (newPlan.toLowerCase().includes("walkin") ||
       newPlan.toLowerCase().includes("walk-in"))
   ) {
-    console.log("✅ Matched Walk-in to Walk-in case");
+    console.log("Matched Walk-in to Walk-in case");
     return {
       title: "Add More Walk-in Days!",
       message:
@@ -87,8 +88,8 @@ const getSubscriptionWarningMessage = (
       currentPlan.toLowerCase().includes("walk-in")) &&
     newPlan.toLowerCase().includes("monthly")
   ) {
-    console.log("✅ Matched Walk-in to Monthly case");
-    console.log("📋 Walk-in to Monthly Debug:", {
+    console.log("Matched Walk-in to Monthly case");
+    console.log("Walk-in to Monthly Debug:", {
       currentPlan: currentPlan,
       newPlan: newPlan,
       currentPlanLower: currentPlan.toLowerCase(),
@@ -107,7 +108,7 @@ const getSubscriptionWarningMessage = (
     (newPlan.toLowerCase().includes("walkin") ||
       newPlan.toLowerCase().includes("walk-in"))
   ) {
-    console.log("✅ Matched Monthly to Walk-in case - NOT ALLOWED");
+    console.log("Matched Monthly to Walk-in case - NOT ALLOWED");
     return {
       title: "Cannot Add Walk-in to Monthly Subscription",
       message:
@@ -123,7 +124,7 @@ const getSubscriptionWarningMessage = (
     (newPlan.toLowerCase().includes("walkin") ||
       newPlan.toLowerCase().includes("walk-in"))
   ) {
-    console.log("✅ Matched Coaching/Solo to Walk-in case - NOT ALLOWED");
+    console.log("Matched Coaching/Solo to Walk-in case - NOT ALLOWED");
     return {
       title: "Please Wait for Your Coaching Program to End",
       message:
@@ -138,7 +139,7 @@ const getSubscriptionWarningMessage = (
       currentPlan.toLowerCase().includes("solo")) &&
     newPlan.toLowerCase().includes("monthly")
   ) {
-    console.log("✅ Matched Coaching/Solo to Monthly case - NOT ALLOWED");
+    console.log("Matched Coaching/Solo to Monthly case - NOT ALLOWED");
     return {
       title: "Please Wait for Your Coaching Program to End",
       message:
@@ -154,7 +155,7 @@ const getSubscriptionWarningMessage = (
         currentPlan.toLowerCase().includes("group"))) &&
     (newPlanId === "coaching-solo" || newPlan.toLowerCase().includes("solo"))
   ) {
-    console.log("✅ Matched Coaching-Group to Solo case - NOT ALLOWED");
+    console.log("Matched Coaching-Group to Solo case - NOT ALLOWED");
     return {
       title: "Please Wait for Your Group Coaching to End",
       message:
@@ -170,8 +171,8 @@ const getSubscriptionWarningMessage = (
         currentPlan.toLowerCase().includes("solo"))) &&
     (newPlanId === "coaching-solo" || newPlan.toLowerCase().includes("solo"))
   ) {
-    console.log("✅ Matched Solo to Solo case - EXTENSION ALLOWED");
-    console.log("📋 Solo to Solo Debug:", {
+    console.log("Matched Solo to Solo case - EXTENSION ALLOWED");
+    console.log("Solo to Solo Debug:", {
       currentPlan: currentPlan,
       newPlan: newPlan,
       currentPlanId: currentPlanId,
@@ -194,9 +195,9 @@ const getSubscriptionWarningMessage = (
         newPlan.toLowerCase().includes("group")))
   ) {
     console.log(
-      "✅ Matched Coaching-Group to Coaching-Group case - EXTENSION ALLOWED",
+      "Matched Coaching-Group to Coaching-Group case - EXTENSION ALLOWED",
     );
-    console.log("📋 Coaching-Group to Coaching-Group Debug:", {
+    console.log("Coaching-Group to Coaching-Group Debug:", {
       currentPlan: currentPlan,
       newPlan: newPlan,
       currentPlanId: currentPlanId,
@@ -218,7 +219,7 @@ const getSubscriptionWarningMessage = (
       (newPlan.toLowerCase().includes("coaching") &&
         newPlan.toLowerCase().includes("group")))
   ) {
-    console.log("✅ Matched Solo to Coaching-Group case - NOT ALLOWED");
+    console.log("Matched Solo to Coaching-Group case - NOT ALLOWED");
     return {
       title: "Please Wait for Your Solo Coaching to End",
       message:
@@ -232,8 +233,8 @@ const getSubscriptionWarningMessage = (
     currentPlan.toLowerCase().includes("monthly") &&
     newPlan.toLowerCase().includes("monthly")
   ) {
-    console.log("✅ Matched Monthly to Monthly case");
-    console.log("📋 Monthly to Monthly Debug:", {
+    console.log("Matched Monthly to Monthly case");
+    console.log("Monthly to Monthly Debug:", {
       currentPlan: currentPlan,
       newPlan: newPlan,
       currentPlanLower: currentPlan.toLowerCase(),
@@ -252,7 +253,7 @@ const getSubscriptionWarningMessage = (
     (newPlan.toLowerCase().includes("coaching") ||
       newPlan.toLowerCase().includes("solo"))
   ) {
-    console.log("✅ Matched Monthly to Coaching/Solo case - UPGRADE ALLOWED");
+    console.log("Matched Monthly to Coaching/Solo case - UPGRADE ALLOWED");
     return {
       title: "Upgrade to Coaching Program!",
       message:
@@ -267,7 +268,7 @@ const getSubscriptionWarningMessage = (
     (newPlan.toLowerCase().includes("coaching") ||
       newPlan.toLowerCase().includes("solo"))
   ) {
-    console.log("✅ Matched Walk-in to Coaching/Solo case - UPGRADE ALLOWED");
+    console.log("Matched Walk-in to Coaching/Solo case - UPGRADE ALLOWED");
     return {
       title: "Upgrade to Coaching Program!",
       message:
@@ -281,7 +282,7 @@ const getSubscriptionWarningMessage = (
     currentPlan.toLowerCase().includes("coaching program") &&
     newPlan.toLowerCase().includes("monthly")
   ) {
-    console.log("✅ Matched Solo to Monthly case");
+    console.log("Matched Solo to Monthly case");
     return {
       title: "You already have an active subscription!",
       message:
@@ -291,7 +292,7 @@ const getSubscriptionWarningMessage = (
 
   // Same tier or downgrade - start after current ends
   if (newTier <= currentTier) {
-    console.log("✅ Matched Same tier or downgrade case");
+    console.log("Matched Same tier or downgrade case");
     return {
       title: "You already have an active subscription!",
       message:
@@ -300,7 +301,7 @@ const getSubscriptionWarningMessage = (
   }
 
   // Upgrade - can start now or next month
-  console.log("✅ Matched Upgrade case");
+  console.log("Matched Upgrade case");
   return {
     title: "You already have an active subscription!",
     message:
@@ -364,11 +365,11 @@ export const createPendingSubscription = async (
 ) => {
   try {
     console.log(
-      "📝 SubscriptionService: Creating pending subscription for user:",
+      " SubscriptionService: Creating pending subscription for user:",
       userId,
     );
     console.log(
-      "📝 SubscriptionService: User context provided:",
+      " SubscriptionService: User context provided:",
       !!userContext,
     );
 
@@ -381,13 +382,13 @@ export const createPendingSubscription = async (
     const userDoc = await firestore.collection("users").doc(userId).get();
     if (!userDoc.exists) {
       console.log(
-        "📝 SubscriptionService: User document not found, creating it...",
+        " SubscriptionService: User document not found, creating it...",
       );
 
       // Use user context data if available, otherwise try Firebase
       let userData;
       if (userContext) {
-        console.log("📝 SubscriptionService: Using user context data");
+        console.log("SubscriptionService: Using user context data");
         userData = {
           email: userContext.email,
           displayName: userContext.name || userContext.displayName,
@@ -404,7 +405,7 @@ export const createPendingSubscription = async (
             "No authenticated user found and no user context provided",
           );
         }
-        console.log("📝 SubscriptionService: Using Firebase auth data");
+        console.log("SubscriptionService: Using Firebase auth data");
         userData = {
           email: currentUser.email,
           displayName: currentUser.displayName,
@@ -416,9 +417,9 @@ export const createPendingSubscription = async (
       }
 
       await firestore.collection("users").doc(userId).set(userData);
-      console.log("📝 SubscriptionService: User document created successfully");
+      console.log("SubscriptionService: User document created successfully");
     } else {
-      console.log("📝 SubscriptionService: User document found");
+      console.log("SubscriptionService: User document found");
     }
 
     // Get user data for subscription creation
@@ -463,7 +464,7 @@ export const createPendingSubscription = async (
             const currentPlan = activeSubscriptionData.planName || "Unknown";
             const newPlan = planData.name || "Unknown";
 
-            console.log("🔍 Active Subscription Debug:", {
+            console.log("Active Subscription Debug:", {
               activeSubscriptionId: userData.activeSubscriptionId,
               currentPlan: currentPlan,
               newPlan: newPlan,
@@ -498,7 +499,7 @@ export const createPendingSubscription = async (
         }
       }
     }
-    console.log("📝 SubscriptionService: Plan data retrieved:", {
+    console.log("SubscriptionService: Plan data retrieved:", {
       planId: planData.id,
       name: planData.name,
       price: planData.price,
@@ -524,7 +525,7 @@ export const createPendingSubscription = async (
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
 
-    console.log("📝 SubscriptionService: Pending subscription object:", {
+    console.log("SubscriptionService: Pending subscription object:", {
       userId: pendingSubscription.userId,
       userEmail: pendingSubscription.userEmail,
       planId: pendingSubscription.planId,
@@ -538,7 +539,13 @@ export const createPendingSubscription = async (
       .collection("pendingSubscriptions")
       .add(pendingSubscription);
 
-    console.log("✅ Pending subscription created:", docRef.id);
+    console.log("Pending subscription created:", docRef.id);
+
+    // Note: Admin notifications are sent from the web app (admin side)
+    // when admins check the Requests page or via Cloud Functions in production.
+    // Client-side cannot query for admin users due to Firestore security rules.
+    console.log("Subscription request created - admins will be notified via web app");
+
     return {
       success: true,
       subscriptionId: docRef.id,
@@ -627,7 +634,7 @@ export const hasActiveSubscription = async (userId) => {
 const _extendWalkinSubscription = async (userId, subscriptionId) => {
   try {
     console.log(
-      "📝 SubscriptionService: Extending Walk-in subscription:",
+      " SubscriptionService: Extending Walk-in subscription:",
       subscriptionId,
     );
 
@@ -682,7 +689,7 @@ const _extendWalkinSubscription = async (userId, subscriptionId) => {
     });
 
     const totalDays = Math.ceil(totalExtensionTime / (24 * 60 * 60 * 1000));
-    console.log("✅ Walk-in subscription extended successfully");
+    console.log("Walk-in subscription extended successfully");
 
     return {
       success: true,
@@ -738,7 +745,7 @@ export const getUserSubscriptionHistory = async (userId) => {
       }))
       .sort((a, b) => b.startDate - a.startDate); // Sort by start date, newest first
 
-    console.log("📚 Retrieved subscription history:", {
+    console.log("Retrieved subscription history:", {
       userId,
       historyCount: history.length,
       subscriptionIds: subscriptionHistory,

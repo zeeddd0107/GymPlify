@@ -128,7 +128,7 @@ async function setupSubscriptionPlansWithPeriodLeft() {
         );
       }
     } else {
-      console.log("📝 Creating new subscriptionPlans collection...");
+      console.log(" Creating new subscriptionPlans collection...");
 
       for (const plan of subscriptionPlans) {
         await collectionRef.doc(plan.id).set(plan);
@@ -138,8 +138,8 @@ async function setupSubscriptionPlansWithPeriodLeft() {
       }
     }
 
-    console.log("\n🎉 subscriptionPlans collection setup complete!");
-    console.log("📋 Plan configurations:");
+    console.log("\n subscriptionPlans collection setup complete!");
+    console.log(" Plan configurations:");
     console.log("   - Walk-in: 1 day, no session limits");
     console.log("   - Solo Coaching: Exactly one calendar month, 10 sessions");
     console.log(
@@ -154,7 +154,7 @@ async function setupSubscriptionPlansWithPeriodLeft() {
 
     process.exit(0);
   } catch (error) {
-    console.error("❌ Error setting up subscriptionPlans collection:", error);
+    console.error(" Error setting up subscriptionPlans collection:", error);
     process.exit(1);
   }
 }

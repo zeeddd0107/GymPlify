@@ -92,6 +92,12 @@ class AuthService {
         );
       }
 
+      // IMPORTANT: Set OTP pending flag BEFORE signing in
+      // This prevents the race condition where onAuthStateChanged fires before we can set the flag
+      localStorage.setItem("otpPending", "true");
+      localStorage.setItem("pendingEmail", email);
+
+      // Validate credentials by signing in temporarily
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
@@ -105,27 +111,35 @@ class AuthService {
       // And clear any local attempts to keep things clean
       loginAttemptService.clearAllLocalAttempts();
 
-      // Let me update their last login time in Firestore
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          lastLogin: serverTimestamp(),
-        },
-        { merge: true },
-      );
+      // Try to get backend token (optional - may fail if backend is not running)
+      // Silently fail if backend is unavailable - OTP flow doesn't require it
+      try {
+        const response = await api.post("/auth/login", {
+          email,
+          password,
+        });
 
-      // Now let me get the custom token from our backend
-      const response = await api.post("/auth/login", {
-        email,
-        password,
-      });
-
-      if (response.data.token) {
-        localStorage.setItem("authToken", response.data.token);
+        if (response.data.token) {
+          localStorage.setItem("authToken", response.data.token);
+        }
+      } catch (backendError) {
+        // Silently continue - backend token is optional for web OTP flow
       }
 
-      return userCredential.user;
+      // IMPORTANT: Sign out immediately - user needs to verify OTP first
+      await signOut(auth);
+
+      // Return indicator that OTP verification is needed
+      return {
+        requiresOTP: true,
+        email: email,
+        user: null,
+      };
     } catch (error) {
+      // Clear OTP pending flags on error
+      localStorage.removeItem("otpPending");
+      localStorage.removeItem("pendingEmail");
+      
       // Firebase is giving me some specific error codes to handle
       if (error.code === "auth/invalid-email") {
         throw new Error("Please enter a valid email address.");
@@ -302,23 +316,40 @@ class AuthService {
       }
 
       // Let me update their Firebase Auth profile
-      await updateProfile(user, {
+      const updateData = {
         displayName: profileData.displayName,
         phoneNumber: profileData.phoneNumber,
-      });
+      };
+
+      // Include photoURL if provided
+      if (profileData.photoURL) {
+        updateData.photoURL = profileData.photoURL;
+      }
+
+      await updateProfile(user, updateData);
 
       // And update their Firestore user document
+      const firestoreData = {
+        displayName: profileData.displayName,
+        phoneNumber: profileData.phoneNumber,
+        updatedAt: serverTimestamp(),
+      };
+
+      // Include photoURL in Firestore if provided
+      if (profileData.photoURL) {
+        firestoreData.photoURL = profileData.photoURL;
+      }
+
       await setDoc(
         doc(db, "users", user.uid),
-        {
-          displayName: profileData.displayName,
-          phoneNumber: profileData.phoneNumber,
-          updatedAt: serverTimestamp(),
-        },
+        firestoreData,
         { merge: true },
       );
 
-      return user;
+      // Force a refresh of the user's token to trigger auth state change
+      await user.reload();
+
+      return auth.currentUser;
     } catch (error) {
       throw new Error(error.message);
     }

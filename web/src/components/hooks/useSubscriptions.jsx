@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { db } from "@/config/firebase";
 import {
   collection,
@@ -20,6 +20,7 @@ import {
   isSubscriptionExpired,
   getSubscriptionStatus,
 } from "@/components/utils";
+import api from "@/services/api";
 
 /**
  * Custom hook for Subscriptions page logic
@@ -48,12 +49,46 @@ export const useSubscriptions = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  // Search state
+  const [search, setSearch] = useState("");
+
   // Toast notification state
   const [toast, setToast] = useState({
     isVisible: false,
     message: "",
     type: "success",
   });
+
+  // QR code management state
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [qrCodeValue, setQrCodeValue] = useState("");
+  const [qrCodeImage, setQrCodeImage] = useState("");
+  const [regeneratingQr, setRegeneratingQr] = useState(false);
+
+  // Subscription details modal state
+  const [subscriptionDetailsModalOpen, setSubscriptionDetailsModalOpen] = useState(false);
+  const [selectedSubscription, setSelectedSubscription] = useState(null);
+
+  // Prevent background scrolling when modals are open
+  useEffect(() => {
+    if (qrModalOpen || subscriptionDetailsModalOpen) {
+      // Store the current scrollbar width to prevent layout shift
+      const scrollbarWidth =
+        window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = "hidden";
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    } else {
+      document.body.style.overflow = "unset";
+      document.body.style.paddingRight = "0px";
+    }
+
+    // Cleanup function to restore scrolling when component unmounts
+    return () => {
+      document.body.style.overflow = "unset";
+      document.body.style.paddingRight = "0px";
+    };
+  }, [qrModalOpen, subscriptionDetailsModalOpen]);
 
   const looksLikeEmail = (text) =>
     typeof text === "string" && text.includes("@");
@@ -176,7 +211,7 @@ export const useSubscriptions = () => {
       // Show success toast notification
       setToast({
         isVisible: true,
-        message: `Subscription for ${editFormData.displayName} has been updated successfully! Status automatically set to ${calculatedStatus}.`,
+        message: `Subscription for ${editFormData.displayName} has been updated successfully!`,
         type: "success",
       });
     } catch (error) {
@@ -336,6 +371,92 @@ export const useSubscriptions = () => {
     }
   };
 
+  // QR Code management functions
+  const generateNewQrValue = (uid) => {
+    // Generate a new unique QR value (ex. UID + timestamp + random)
+    return `${uid}_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+  };
+
+  const handleQrCodeClick = async (subscription) => {
+    setSelectedUser(subscription);
+    setQrModalOpen(true);
+    
+    try {
+      // Fetch current QR code value from user document
+      const userDoc = await getDoc(doc(db, "users", subscription.userId));
+      const userData = userDoc.data();
+      const currentQrValue = userData?.qrCodeValue || generateNewQrValue(subscription.userId);
+      
+      setQrCodeValue(currentQrValue);
+      
+      // Generate QR code image
+      const response = await api.post("/qr/generate", { uid: subscription.userId });
+      setQrCodeImage(response.data.qrCode);
+    } catch (error) {
+      console.error("Error fetching QR code:", error);
+      setToast({
+        isVisible: true,
+        message: "Failed to load QR code. Please try again.",
+        type: "error",
+      });
+    }
+  };
+
+  const handleRegenerateQrCode = async () => {
+    if (!selectedUser) return;
+    
+    setRegeneratingQr(true);
+    try {
+      const newQrValue = generateNewQrValue(selectedUser.userId);
+      
+      // Update user document with new QR code value
+      await updateDoc(doc(db, "users", selectedUser.userId), {
+        qrCodeValue: newQrValue,
+        updatedAt: new Date(),
+      });
+      
+      setQrCodeValue(newQrValue);
+      
+      // Generate new QR code image
+      const response = await api.post("/qr/generate", { uid: selectedUser.userId });
+      setQrCodeImage(response.data.qrCode);
+      
+      setToast({
+        isVisible: true,
+        message: `QR code for ${selectedUser.displayName} has been regenerated successfully!`,
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Error regenerating QR code:", error);
+      setToast({
+        isVisible: true,
+        message: "Failed to regenerate QR code. Please try again.",
+        type: "error",
+      });
+    } finally {
+      setRegeneratingQr(false);
+    }
+  };
+
+  const handleCloseQrModal = () => {
+    setQrModalOpen(false);
+    setSelectedUser(null);
+    setQrCodeValue("");
+    setQrCodeImage("");
+    setRegeneratingQr(false);
+  };
+
+  // Subscription details modal functions
+  const handleSubscriptionClick = (subscription) => {
+    setSelectedSubscription(subscription);
+    setSubscriptionDetailsModalOpen(true);
+  };
+
+  const handleCloseSubscriptionDetailsModal = () => {
+    setSubscriptionDetailsModalOpen(false);
+    setSelectedSubscription(null);
+  };
+
   // Column definitions for the DataTable
   const getColumns = (onDeleteSuccess, onDeleteError) => [
     {
@@ -381,6 +502,15 @@ export const useSubscriptions = () => {
         subscription: row,
       }),
     },
+    ...(isAdmin ? [{
+      key: "qrCode",
+      label: "QR Code",
+      render: (value, row) => ({
+        type: "qrCode",
+        subscription: row,
+        onQrClick: handleQrCodeClick,
+      }),
+    }] : []),
     {
       key: "actions",
       label: "Actions",
@@ -455,6 +585,7 @@ export const useSubscriptions = () => {
                   : cleanDisplayName,
                 customMemberId:
                   sub.customMemberId || userData?.customMemberId || null,
+                photoURL: userData?.photoURL || null,
               };
             } catch (error) {
               console.error("Error fetching user data:", error);
@@ -464,6 +595,7 @@ export const useSubscriptions = () => {
                   ? "Unknown User"
                   : sub.displayName || "Unknown User",
                 customMemberId: sub.customMemberId || null,
+                photoURL: null,
               };
             }
           }),
@@ -483,6 +615,44 @@ export const useSubscriptions = () => {
     if (user) fetchSubscriptions();
   }, [user, isAdmin]);
 
+  // Filter subscriptions based on search query
+  const filteredSubscriptions = useMemo(() => {
+    if (!search.trim()) {
+      return subscriptions;
+    }
+
+    const searchLower = search.toLowerCase().trim();
+
+    return subscriptions.filter((subscription) => {
+      // Search by display name
+      const displayName = (subscription.displayName || "").toLowerCase();
+      
+      // Search by custom member ID
+      const customMemberId = (subscription.customMemberId || "").toLowerCase();
+      
+      // Search by member ID (formatted)
+      const memberId = (getDisplayMemberId(subscription) || "").toLowerCase();
+      
+      // Search by email
+      const userEmail = (subscription.userEmail || "").toLowerCase();
+      
+      // Search by plan
+      const plan = (subscription.plan || "").toLowerCase();
+      
+      // Search by status
+      const status = (getSubscriptionStatus(subscription) || "").toLowerCase();
+
+      return (
+        displayName.includes(searchLower) ||
+        customMemberId.includes(searchLower) ||
+        memberId.includes(searchLower) ||
+        userEmail.includes(searchLower) ||
+        plan.includes(searchLower) ||
+        status.includes(searchLower)
+      );
+    });
+  }, [subscriptions, search]);
+
   return {
     // State
     subscriptions,
@@ -496,6 +666,17 @@ export const useSubscriptions = () => {
     deleting,
     statusOptions,
     getColumns,
+
+    // QR Code state
+    qrModalOpen,
+    selectedUser,
+    qrCodeValue,
+    qrCodeImage,
+    regeneratingQr,
+
+    // Subscription details modal state
+    subscriptionDetailsModalOpen,
+    selectedSubscription,
 
     // Actions
     handleEditClick,
@@ -513,5 +694,17 @@ export const useSubscriptions = () => {
     pageSize,
     setCurrentPage,
     setPageSize,
+    search,
+    setSearch,
+    filteredSubscriptions,
+
+    // QR Code actions
+    handleQrCodeClick,
+    handleRegenerateQrCode,
+    handleCloseQrModal,
+
+    // Subscription details actions
+    handleSubscriptionClick,
+    handleCloseSubscriptionDetailsModal,
   };
 };

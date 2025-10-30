@@ -11,6 +11,7 @@ import {
   doc,
   serverTimestamp,
   getDocs,
+  getDoc,
   writeBatch,
 } from "firebase/firestore";
 
@@ -44,12 +45,15 @@ class NotificationService {
   // Create a new notification
   async createNotification(notificationData) {
     try {
+      console.log("Creating notification:", notificationData);
       const notificationsRef = collection(db, "notifications");
       const docRef = await addDoc(notificationsRef, {
         ...notificationData,
         timestamp: serverTimestamp(),
         read: false,
       });
+      console.log("Notification created with ID:", docRef.id);
+      console.log("Cloud Function will handle push notification automatically");
       return docRef.id;
     } catch (error) {
       console.error("Error creating notification:", error);
@@ -160,6 +164,150 @@ class NotificationService {
       message: `${itemName} is running low (${quantity} items left)`,
       priority: "high",
     });
+  }
+
+  // Subscription-related notifications
+  async createSubscriptionRequestNotification(
+    adminUserId,
+    userName,
+    subscriptionName,
+    requestId,
+  ) {
+    return this.createNotification({
+      userId: adminUserId,
+      type: "subscription_request",
+      title: "New Subscription Request",
+      message: `${userName} requested ${subscriptionName}`,
+      requestId,
+      priority: "high",
+      actionUrl: "/requests",
+    });
+  }
+
+  async createSubscriptionApprovedNotification(
+    userId,
+    subscriptionName,
+    subscriptionId,
+  ) {
+    console.log("Creating approval notification for:", {
+      userId,
+      subscriptionName,
+      subscriptionId,
+    });
+    
+    return this.createNotification({
+      userId,
+      type: "subscription_approved",
+      title: "Subscription Approved!",
+      message: `Your ${subscriptionName} subscription has been approved and is now active`,
+      subscriptionId,
+      priority: "high",
+      actionUrl: "/subscriptions",
+    });
+  }
+
+  async createSubscriptionRejectedNotification(
+    userId,
+    subscriptionName,
+    requestId,
+  ) {
+    return this.createNotification({
+      userId,
+      type: "subscription_rejected",
+      title: "Subscription Request Rejected",
+      message: `Your ${subscriptionName} subscription request was not approved. Please contact the admin for more information.`,
+      requestId,
+      priority: "high",
+    });
+  }
+
+  async createSubscriptionExtendedNotification(
+    userId,
+    subscriptionName,
+    daysAdded,
+    subscriptionId,
+  ) {
+    return this.createNotification({
+      userId,
+      type: "subscription_extended",
+      title: "Subscription Extended",
+      message: `Your ${subscriptionName} subscription has been extended by ${daysAdded} days`,
+      subscriptionId,
+      priority: "normal",
+    });
+  }
+
+  async createSubscriptionExpiringSoonNotification(
+    userId,
+    subscriptionName,
+    daysRemaining,
+    subscriptionId,
+  ) {
+    let title = "";
+    let message = "";
+    
+    if (daysRemaining === 1) {
+      title = "Subscription Expiring Tomorrow ⏰";
+      message = `Your ${subscriptionName} subscription expires in 1 day. Renew now to avoid interruption.`;
+    } else if (daysRemaining === 2) {
+      title = "Subscription Expiring Soon ⏰";
+      message = `Your ${subscriptionName} subscription expires in 2 days. Renew now to continue enjoying gym services.`;
+    } else if (daysRemaining === 3) {
+      title = "Subscription Expiring Soon ⏰";
+      message = `Your ${subscriptionName} subscription expires in 3 days. Renew now to continue enjoying gym services.`;
+    } else {
+      title = "Subscription Expiring Soon ⏰";
+      message = `Your ${subscriptionName} subscription expires in ${daysRemaining} days. Renew now to continue enjoying gym services.`;
+    }
+    
+    return this.createNotification({
+      userId,
+      type: "subscription_expiring_soon",
+      title,
+      message,
+      subscriptionId,
+      priority: "high",
+      actionUrl: "/subscriptions",
+    });
+  }
+
+  async createSubscriptionExpiredNotification(
+    userId,
+    subscriptionName,
+    subscriptionId,
+  ) {
+    return this.createNotification({
+      userId,
+      type: "subscription_expired",
+      title: "Subscription Expired",
+      message: `Your ${subscriptionName} subscription has expired. Please renew to continue using gym services.`,
+      subscriptionId,
+      priority: "high",
+      actionUrl: "/subscriptions",
+    });
+  }
+
+  // Helper function to notify all admins
+  async notifyAllAdmins(notificationData) {
+    try {
+      // Query for all admin users
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("role", "==", "admin"));
+      const snapshot = await getDocs(q);
+
+      // Create notifications for each admin
+      const promises = snapshot.docs.map((doc) =>
+        this.createNotification({
+          ...notificationData,
+          userId: doc.id,
+        }),
+      );
+
+      await Promise.all(promises);
+    } catch (error) {
+      console.error("Error notifying admins:", error);
+      throw error;
+    }
   }
 
   // Unsubscribe from notifications

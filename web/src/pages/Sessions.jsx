@@ -15,6 +15,11 @@ import {
   getDocs,
   deleteDoc,
   addDoc,
+  updateDoc,
+  query,
+  where,
+  Timestamp,
+  increment,
 } from "firebase/firestore";
 
 // Workout schedule configuration (same as mobile)
@@ -48,9 +53,143 @@ const Sessions = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [userData, setUserData] = useState(null);
   const [deleteReason, setDeleteReason] = useState("");
+  const [showMoreSchedulesModal, setShowMoreSchedulesModal] = useState(false);
+  const [selectedDaySessions, setSelectedDaySessions] = useState([]);
+  const [selectedDayInfo, setSelectedDayInfo] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSession, setEditingSession] = useState(null);
+  const [editSessionData, setEditSessionData] = useState({
+    name: "",
+    date: "",
+    time: "",
+    title: "",
+    type: "solo",
+    descriptions: "",
+  });
+  const [isUpdatingSession, setIsUpdatingSession] = useState(false);
+  const [editNameSearch, setEditNameSearch] = useState("");
+  const [showEditNameDropdown, setShowEditNameDropdown] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showCreateSuccessModal, setShowCreateSuccessModal] = useState(false);
+  // Smart toast notification system
+  const [activeToasts, setActiveToasts] = useState([]);
+
+  // UI-only capacity: track counts per time slot for the selected date
+  const [slotCapacities, setSlotCapacities] = useState({});
+  const MAX_PER_SLOT = 5;
+  const ALL_TIME_SLOTS = [
+    "7:30 AM - 8:30 AM",
+    "9:30 AM - 10:30 AM",
+    "4:00 PM - 5:00 PM",
+    "5:30 PM - 6:30 PM",
+    "6:30 PM - 7:30 PM",
+    "7:30 PM - 8:30 PM",
+  ];
+
+  const getDateKey = (dateObj) => {
+    const d = dateObj?.toDate ? dateObj.toDate() : new Date(dateObj);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  const countLocalSessionsFor = (isoDateString, slot) => {
+    if (!isoDateString || !slot) return 0;
+    return sessions.filter((s) => {
+      if ((s.status || "").toLowerCase() !== "scheduled") return false;
+      const key = getDateKey(s.scheduledDate);
+      return key === isoDateString && s.timeSlot === slot;
+    }).length;
+  };
+
+  const fetchSlotCapacitiesForDate = async (isoDateString) => {
+    try {
+      if (!isoDateString) {
+        setSlotCapacities({});
+        return;
+      }
+      const [y, m, d] = isoDateString.split("-").map(Number);
+      const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+      const end = new Date(y, m - 1, d, 23, 59, 59, 999);
+
+      const result = {};
+      await Promise.all(
+        ALL_TIME_SLOTS.map(async (slot) => {
+          const qSlots = query(
+            collection(db, "sessions"),
+            where("status", "==", "scheduled"),
+            where("timeSlot", "==", slot),
+            where("scheduledDate", ">=", Timestamp.fromDate(start)),
+            where("scheduledDate", "<=", Timestamp.fromDate(end)),
+          );
+          const snap = await getDocs(qSlots);
+          result[slot] = snap.size;
+        }),
+      );
+      setSlotCapacities(result);
+    } catch (e) {
+      console.error("Capacity fetch failed:", e);
+      setSlotCapacities({});
+    }
+  };
+
+  // Function to add a new toast with smart grouping
+  const addToast = (message, type = "success") => {
+    const toastId = Date.now() + Math.random();
+    
+    setActiveToasts(prev => {
+      // Limit to maximum 3 toasts at once
+      if (prev.length >= 3) {
+        // Remove oldest toast to make room
+        const sortedToasts = [...prev].sort((a, b) => a.timestamp - b.timestamp);
+        const filteredToasts = prev.filter(toast => toast.id !== sortedToasts[0].id);
+        
+        const newToast = { 
+          id: toastId, 
+          message, 
+          type,
+          timestamp: Date.now()
+        };
+        
+        return [...filteredToasts, newToast];
+      }
+      
+      // Check for similar operations and group them
+      const similarToast = prev.find(toast => 
+        toast.message === message && 
+        toast.type === type &&
+        (Date.now() - toast.timestamp) < 1000 // Within 1 second
+      );
+      
+      if (similarToast) {
+        // Update existing toast with count
+        const updatedToasts = prev.map(toast => 
+          toast.id === similarToast.id 
+            ? { ...toast, count: (toast.count || 1) + 1, timestamp: Date.now() }
+            : toast
+        );
+        return updatedToasts;
+      }
+      
+      // Add new toast
+      const newToast = { 
+        id: toastId, 
+        message, 
+        type,
+        timestamp: Date.now(),
+        count: 1
+      };
+      
+      return [...prev, newToast];
+    });
+    
+    // Auto-remove toast after 3 seconds
+    setTimeout(() => {
+      setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+    }, 3000);
+  };
+
+  // Function to remove a specific toast
+  const removeToast = (toastId) => {
+    setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+  };
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [_selectedDate, setSelectedDate] = useState(null);
   const [createSessionData, setCreateSessionData] = useState({
@@ -78,6 +217,10 @@ const Sessions = () => {
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [upcomingDaysFilter, setUpcomingDaysFilter] = useState(7);
+  const [blockedDates, setBlockedDates] = useState([]);
+  const [showBlockDateModal, setShowBlockDateModal] = useState(false);
+  const [dateToBlock, setDateToBlock] = useState(null);
+  const [isBlockingDate, setIsBlockingDate] = useState(false);
 
   // Prevent background scrolling when modals are open
   useEffect(() => {
@@ -115,6 +258,20 @@ const Sessions = () => {
           .includes(nameSearch.toLowerCase()),
     );
   }, [subscriptions, nameSearch]);
+
+  const filteredEditSubscriptions = useMemo(() => {
+    if (!editNameSearch.trim()) return [];
+
+    return subscriptions.filter(
+      (subscription) =>
+        subscription.displayName
+          ?.toLowerCase()
+          .includes(editNameSearch.toLowerCase()) ||
+        subscription.customMemberId
+          ?.toLowerCase()
+          .includes(editNameSearch.toLowerCase()),
+    );
+  }, [subscriptions, editNameSearch]);
 
   const monthDays = useMemo(() => {
     const firstDay = new Date(
@@ -212,6 +369,49 @@ const Sessions = () => {
     return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   };
 
+  // Helper function to check if a time slot is in the past for the selected date
+  const isTimeSlotPast = (timeSlot, dateString) => {
+    // Use the provided date string or fall back to createSessionData.date
+    const selectedDate = dateString || createSessionData.date;
+    if (!selectedDate) return false;
+
+    // Parse the selected date
+    const [year, month, day] = selectedDate.split("-").map(Number);
+    const selectedDateObj = new Date(year, month - 1, day);
+
+    // Parse the time slot to get start time
+    let startHour = 0;
+    let startMinute = 0;
+    
+    if (timeSlot.includes("7:30 AM - 8:30 AM")) {
+      startHour = 7;
+      startMinute = 30;
+    } else if (timeSlot.includes("9:30 AM - 10:30 AM")) {
+      startHour = 9;
+      startMinute = 30;
+    } else if (timeSlot.includes("4:00 PM - 5:00 PM")) {
+      startHour = 16;
+      startMinute = 0;
+    } else if (timeSlot.includes("5:30 PM - 6:30 PM")) {
+      startHour = 17;
+      startMinute = 30;
+    } else if (timeSlot.includes("6:30 PM - 7:30 PM")) {
+      startHour = 18;
+      startMinute = 30;
+    } else if (timeSlot.includes("7:30 PM - 8:30 PM")) {
+      startHour = 19;
+      startMinute = 30;
+    }
+
+    // Create a date object with the selected date and time
+    const sessionDateTime = new Date(year, month - 1, day, startHour, startMinute, 0);
+    
+    // Compare with current date and time
+    const now = new Date();
+    
+    return sessionDateTime < now;
+  };
+
   // Handle session deletion
   const handleCellClick = (dayObj) => {
     // Create a date object for the clicked day
@@ -238,6 +438,16 @@ const Sessions = () => {
           ? currentMonth.getFullYear() + 1
           : currentMonth.getFullYear();
       clickedDate = new Date(nextYear, nextMonth, dayObj.day);
+    }
+
+    // Validate that the clicked date is not in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    clickedDate.setHours(0, 0, 0, 0);
+    
+    if (clickedDate < today) {
+      addToast("Cannot select past dates", "error");
+      return;
     }
 
     // Format date in local timezone to avoid UTC conversion issues
@@ -286,10 +496,12 @@ const Sessions = () => {
   const handleDateSelect = (day, month, year) => {
     const selectedDate = new Date(year, month, day);
     const today = new Date();
+    // Set both dates to midnight for proper comparison
     today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
 
     if (selectedDate < today) {
-      alert("Cannot select past dates");
+      addToast("Cannot select past dates", "error");
       return;
     }
 
@@ -311,12 +523,14 @@ const Sessions = () => {
     if (
       e.target.closest(".calendar-picker") ||
       e.target.closest(".date-input") ||
-      e.target.closest(".name-search-container")
+      e.target.closest(".name-search-container") ||
+      e.target.closest(".edit-name-search-container")
     ) {
       return;
     }
     setShowDatePicker(false);
     setShowNameDropdown(false);
+    setShowEditNameDropdown(false);
   };
 
   const handleNameSelect = (subscription) => {
@@ -330,15 +544,26 @@ const Sessions = () => {
     setShowNameDropdown(false);
   };
 
+  const handleEditNameSelect = (subscription) => {
+    setEditSessionData({
+      ...editSessionData,
+      name: subscription.displayName || subscription.name || subscription.id,
+    });
+    setEditNameSearch(
+      subscription.displayName || subscription.name || subscription.id,
+    );
+    setShowEditNameDropdown(false);
+  };
+
   // Add event listener for outside clicks
   useEffect(() => {
-    if (showDatePicker || showNameDropdown) {
+    if (showDatePicker || showNameDropdown || showEditNameDropdown) {
       document.addEventListener("mousedown", handleOutsideClick);
       return () => {
         document.removeEventListener("mousedown", handleOutsideClick);
       };
     }
-  }, [showDatePicker, showNameDropdown]);
+  }, [showDatePicker, showNameDropdown, showEditNameDropdown]);
 
   const navigateCalendarMonth = (direction) => {
     setCalendarView((prev) => {
@@ -365,6 +590,7 @@ const Sessions = () => {
 
     const days = [];
     const today = new Date();
+    // Set today to midnight for proper comparison
     today.setHours(0, 0, 0, 0);
 
     // Calculate the end of the current month's week
@@ -385,7 +611,10 @@ const Sessions = () => {
 
       const isCurrentMonth = currentDate.getMonth() === calendarView.month;
       const isNextMonth = currentDate.getMonth() === calendarView.month + 1;
-      const isPast = currentDate < today;
+      // Check if date is in the past by comparing with today's date at midnight
+      const currentDateCompare = new Date(currentDate);
+      currentDateCompare.setHours(0, 0, 0, 0);
+      const isPast = currentDateCompare < today;
       const isSelected =
         selectedDateInfo &&
         selectedDateInfo.day === currentDate.getDate() &&
@@ -489,6 +718,29 @@ const Sessions = () => {
         role: "admin",
       };
 
+      // UI guard: block if capacity for the selected slot is full
+      try {
+        const start = new Date(year, month - 1, day, 0, 0, 0, 0);
+        const end = new Date(year, month - 1, day, 23, 59, 59, 999);
+        const qCap = query(
+          collection(db, "sessions"),
+          where("status", "==", "scheduled"),
+          where("timeSlot", "==", createSessionData.time),
+          where("scheduledDate", ">=", Timestamp.fromDate(start)),
+          where("scheduledDate", "<=", Timestamp.fromDate(end)),
+        );
+        const capSnap = await getDocs(qCap);
+        const localExisting = countLocalSessionsFor(createSessionData.date, createSessionData.time);
+        const totalCount = capSnap.size + localExisting;
+        if (totalCount >= MAX_PER_SLOT) {
+          addToast(`This time slot is full (${MAX_PER_SLOT}/${MAX_PER_SLOT})`, "error");
+          return;
+        }
+      } catch (e) {
+        // Non-fatal; continue if capacity check fails
+        console.warn("Capacity check error:", e);
+      }
+
       // Add to Firestore
       await addDoc(collection(db, "sessions"), sessionData);
 
@@ -515,15 +767,152 @@ const Sessions = () => {
       });
 
       // Show success message
-      setShowCreateSuccessModal(true);
-      setTimeout(() => {
-        setShowCreateSuccessModal(false);
-      }, 3000);
+      addToast("Session successfully created");
+      // Refresh capacities after creating
+      if (createSessionData?.date) {
+        fetchSlotCapacitiesForDate(createSessionData.date);
+      }
     } catch (error) {
       console.error("Error creating session:", error);
       alert("Failed to create session. Please try again.");
     } finally {
       setIsCreatingSession(false);
+    }
+  };
+
+  const handleUpdateSession = async () => {
+    if (!editingSession) return;
+
+    setIsUpdatingSession(true);
+
+    try {
+      // Find the selected subscription to get subscriptionId and userId
+      const selectedSubscription = subscriptions.find(
+        (sub) =>
+          sub.displayName === editSessionData.name ||
+          sub.name === editSessionData.name,
+      );
+
+      if (!selectedSubscription) {
+        alert("Selected user not found. Please try again.");
+        return;
+      }
+
+      // Parse the time slot to get start time
+      const timeSlot = editSessionData.time;
+      let startTime = "";
+
+      if (timeSlot.includes("7:30 AM - 8:30 AM")) {
+        startTime = "07:30";
+      } else if (timeSlot.includes("9:30 AM - 10:30 AM")) {
+        startTime = "09:30";
+      } else if (timeSlot.includes("4:00 PM - 5:00 PM")) {
+        startTime = "16:00";
+      } else if (timeSlot.includes("5:30 PM - 6:30 PM")) {
+        startTime = "17:30";
+      } else if (timeSlot.includes("6:30 PM - 7:30 PM")) {
+        startTime = "18:30";
+      } else if (timeSlot.includes("7:30 PM - 8:30 PM")) {
+        startTime = "19:30";
+      }
+
+      // Combine date and time - ensure local timezone
+      const [year, month, day] = editSessionData.date.split("-").map(Number);
+      const [hours, minutes] = startTime.split(":").map(Number);
+      const scheduledDate = new Date(year, month - 1, day, hours, minutes, 0);
+
+      // Get workout info for the selected date
+      const workoutInfo = getWorkoutInfo(scheduledDate);
+
+      // Update session object with all required fields
+      const updateData = {
+        descriptions: editSessionData.descriptions || "",
+        scheduledDate: scheduledDate,
+        subscriptionId: selectedSubscription.id,
+        timeSlot: editSessionData.time,
+        title: editSessionData.title || "Untitled Session",
+        type: editSessionData.type || "solo",
+        updatedAt: new Date(),
+        userId: selectedSubscription.userId,
+        workoutType: workoutInfo ? workoutInfo.type : "Workout",
+      };
+
+      // Update the session in Firestore
+      const sessionRef = doc(db, "sessions", editingSession.id);
+      await updateDoc(sessionRef, updateData);
+
+      console.log("Session updated:", updateData);
+
+      // Show success message
+      addToast("Session updated successfully!");
+
+      // Close modal and reset form
+      setShowEditModal(false);
+      setEditingSession(null);
+      setEditSessionData({
+        name: "",
+        date: "",
+        time: "",
+        title: "",
+        type: "solo",
+        descriptions: "",
+      });
+    } catch (error) {
+      console.error("Error updating session:", error);
+      alert("Failed to update session. Please try again.");
+    } finally {
+      setIsUpdatingSession(false);
+    }
+  };
+
+  const handleMarkAsCompleted = async () => {
+    if (!selectedSession?.id) {
+      console.error("No session selected");
+      return;
+    }
+
+    try {
+      // Update session status to completed
+      const sessionRef = doc(db, "sessions", selectedSession.id);
+      await updateDoc(sessionRef, {
+        status: "completed",
+        completedAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+      
+      // If user has a coaching-solo subscription, increase usedSessions count (atomic)
+      if (selectedSession.subscriptionId) {
+        const subscriptionRef = doc(db, "subscriptions", selectedSession.subscriptionId);
+        const subscriptionSnap = await getDoc(subscriptionRef);
+        
+        if (subscriptionSnap.exists()) {
+          const subscriptionData = subscriptionSnap.data();
+          
+          // Some documents use planId rather than plan for identification
+          const planId = subscriptionData.planId || subscriptionData.plan;
+          
+          // Check if it's a coaching-solo plan
+          if (planId === "coaching-solo") {
+            const maxSessions = subscriptionData.maxSessions ?? 0;
+            const usedSessions = subscriptionData.usedSessions ?? 0;
+            
+            // Only increment if we have not exceeded maxSessions (if defined)
+            if (!maxSessions || usedSessions < maxSessions) {
+              await updateDoc(subscriptionRef, {
+                usedSessions: increment(1),
+                updatedAt: Timestamp.now(),
+              });
+              console.log("Incremented usedSessions for coaching-solo subscription");
+            }
+          }
+        }
+      }
+      
+      addToast("Session marked as completed");
+      setShowModal(false);
+    } catch (error) {
+      console.error("Error marking session as completed:", error);
+      alert("Failed to mark session as completed. Please try again.");
     }
   };
 
@@ -552,12 +941,7 @@ const Sessions = () => {
       setUserData(null);
 
       // Show success confirmation
-      setShowSuccessModal(true);
-
-      // Auto-close after 3 seconds
-      setTimeout(() => {
-        setShowSuccessModal(false);
-      }, 3000);
+      addToast("Session successfully deleted");
     } catch (error) {
       console.error("Error deleting session:", error);
       alert("Failed to delete session. Please try again.");
@@ -637,12 +1021,18 @@ const Sessions = () => {
       colRef,
       (snap) => {
         const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        console.log("Fetched sessions data:", data); // Debug: See all sessions data
-        if (data.length > 0) {
-          console.log("First session fields:", Object.keys(data[0])); // Debug: See fields in first session
-          console.log("First session description:", data[0].description); // Debug: Check description field
-        }
-        setSessions(data);
+        // Keep scheduled and completed sessions, sorted by scheduledDate ascending
+        const limited = data
+          .filter((s) => {
+            const status = (s.status || "").toLowerCase();
+            return status === "scheduled" || status === "completed";
+          })
+          .sort((a, b) => {
+            const aDate = a.scheduledDate?.toDate ? a.scheduledDate.toDate() : new Date(a.scheduledDate || 0);
+            const bDate = b.scheduledDate?.toDate ? b.scheduledDate.toDate() : new Date(b.scheduledDate || 0);
+            return aDate - bDate;
+          });
+        setSessions(limited);
         setLoading(false);
       },
       (err) => {
@@ -653,6 +1043,15 @@ const Sessions = () => {
     );
     return () => unsub();
   }, []);
+
+  // Recompute capacities when date changes in create modal
+  useEffect(() => {
+    if (createSessionData?.date) {
+      fetchSlotCapacitiesForDate(createSessionData.date);
+    } else {
+      setSlotCapacities({});
+    }
+  }, [createSessionData?.date]);
 
   // Fetch subscriptions data for the Name dropdown
   useEffect(() => {
@@ -723,6 +1122,75 @@ const Sessions = () => {
     fetchSubscriptions();
   }, []);
 
+  // Fetch blocked dates with real-time updates
+  useEffect(() => {
+    const blockedDatesRef = collection(db, "blockedDates");
+    const q = query(blockedDatesRef, where("blocked", "==", true));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const blockedDatesData = snap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setBlockedDates(blockedDatesData);
+      },
+      (err) => {
+        console.error("Error fetching blocked dates:", err);
+        setBlockedDates([]);
+      }
+    );
+
+    return () => unsub();
+  }, []);
+
+  // Handle blocking/unblocking a date
+  const handleBlockDate = async (date, isBlocked) => {
+    if (isBlockingDate) return;
+    
+    setIsBlockingDate(true);
+    try {
+      const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      if (isBlocked) {
+        // Unblock the date - delete the document
+        const existingBlock = blockedDates.find(bd => {
+          const blockedDate = bd.date?.toDate ? bd.date.toDate() : new Date(bd.date);
+          return blockedDate.toISOString().split('T')[0] === dateString;
+        });
+        
+        if (existingBlock) {
+          await deleteDoc(doc(db, "blockedDates", existingBlock.id));
+          addToast("Date unblocked successfully");
+        }
+      } else {
+        // Block the date - create a document
+        const blockData = {
+          date: date,
+          blocked: true,
+          createdAt: new Date(),
+        };
+        await addDoc(collection(db, "blockedDates"), blockData);
+        addToast("Date blocked successfully");
+      }
+    } catch (error) {
+      console.error("Error blocking/unblocking date:", error);
+      addToast("Failed to block/unblock date", "error");
+    } finally {
+      setIsBlockingDate(false);
+    }
+  };
+
+  // Check if a date is blocked
+  const isDateBlocked = (date) => {
+    if (!date) return false;
+    const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    return blockedDates.some(bd => {
+      const blockedDate = bd.date?.toDate ? bd.date.toDate() : new Date(bd.date);
+      return blockedDate.toISOString().split('T')[0] === dateString;
+    });
+  };
+
   // Get upcoming sessions based on selected filter
   const upcomingSessions = useMemo(() => {
     const today = new Date();
@@ -755,13 +1223,91 @@ const Sessions = () => {
   return (
     <div className="py-5 space-y-6">
       {/* Header Section with Add Session Button */}
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-3">
+        <button
+          onClick={() => setShowBlockDateModal(true)}
+          className="px-6 py-3 !text-sm font-medium rounded-xl border border-transparent bg-gray-600 text-white hover:bg-gray-700 focus:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 ease-in-out flex items-center gap-2"
+        >
+          Block Date
+        </button>
         <AddButton
           onClick={handleOpenCreateModal}
           text="Add Session"
           className=""
         />
       </div>
+
+      {/* Blocked Dates Section */}
+      {blockedDates.length > 0 && (
+        <div className="bg-white rounded-xl shadow-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Blocked Dates</h3>
+              <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                {blockedDates.length}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {blockedDates
+              .map((blockedDate) => {
+                const date = blockedDate.date?.toDate ? blockedDate.date.toDate() : new Date(blockedDate.date);
+                return { ...blockedDate, date };
+              })
+              .sort((a, b) => a.date - b.date)
+              .map((blockedDate) => {
+                const isPast = blockedDate.date < new Date();
+              
+              return (
+                <div
+                  key={blockedDate.id}
+                  className={`px-3 py-2 rounded-lg flex items-center gap-2 ${
+                    isPast ? 'bg-gray-100' : 'bg-red-50 border border-red-200'
+                  }`}
+                >
+                  <svg className={`w-4 h-4 ${isPast ? 'text-gray-500' : 'text-red-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className={`text-sm font-medium ${isPast ? 'text-gray-600' : 'text-red-700'}`}>
+                    {blockedDate.date.toLocaleDateString("en-US", { 
+                      weekday: "short", 
+                      month: "short", 
+                      day: "numeric", 
+                      year: "numeric" 
+                    })}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      await handleBlockDate(blockedDate.date, true);
+                    }}
+                    disabled={isBlockingDate}
+                    className={`ml-1 p-1 rounded hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isPast ? 'text-gray-400' : 'text-red-600'
+                    }`}
+                    title="Unblock this date"
+                  >
+                    {isBlockingDate ? (
+                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Calendar Section */}
       <div className="bg-white rounded-xl shadow-lg pt-5 px-0.4">
@@ -803,7 +1349,7 @@ const Sessions = () => {
           {monthDays.map((dayObj, idx) => (
             <div
               key={idx}
-              className={`h-36 border border-lightGray/70 cursor-pointer transition-colors relative group ${
+              className={`min-h-[120px] sm:min-h-[144px] md:min-h-[160px] border border-lightGray/70 cursor-pointer transition-colors relative group overflow-hidden ${
                 dayObj.isCurrentMonth
                   ? "bg-#FAF9F6 hover:bg-lightGray/80" // Background for current month
                   : dayObj.isNextMonth
@@ -846,53 +1392,108 @@ const Sessions = () => {
                     monthKey = `${nextMonth}-${dayObj.day}`;
                   }
 
+                  const daySessions = sessionsByDay[monthKey];
+                  const showMax = 3;
+                  const hasExtra = ((daySessions?.length) || 0) > showMax;
+                  const visibleSessions = (daySessions || []).slice(0, showMax);
+
                   return (
-                    sessionsByDay[monthKey] && (
-                      <div className="mt-1 space-y-1">
-                        {sessionsByDay[monthKey].map((it) => (
+                    daySessions && (
+                      <div className="mt-1 flex flex-col gap-1 max-h-44 overflow-y-auto">
+                        {visibleSessions.map((it) => {
+                          // Find the original session to get the scheduledDate
+                          const originalSession = sessions.find(s => s.id === it.id);
+                          const sessionDate = originalSession?.scheduledDate?.toDate ? originalSession.scheduledDate.toDate() : new Date();
+                          const isPastSession = sessionDate < new Date();
+                          const isCompletedSession = (originalSession?.status || "").toLowerCase() === "completed";
+                          
+                          return (
+                            <button
+                              key={it.id}
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation(); // Prevent cell click event
+                                const s =
+                                  sessions.find((x) => x.id === it.id) || null;
+                                setSelectedSession(s);
+                                setShowModal(true);
+
+                                // Fetch user data if session has a userId
+                                if (s && s.userId) {
+                                  const user = await fetchUserData(s.userId);
+                                  console.log("Fetched user data:", user); // Debug log
+                                  setUserData(user);
+                                } else {
+                                  setUserData(null);
+                                }
+
+                                // Debug: Log session data to see available fields
+                                console.log("Selected session data:", s);
+                                console.log(
+                                  "All session fields:",
+                                  Object.keys(s),
+                                );
+                                console.log(
+                                  "Session description field:",
+                                  s.description,
+                                );
+                                console.log("Session desc field:", s.desc);
+                                console.log("Session notes field:", s.notes);
+                                console.log("Session details field:", s.details);
+                              }}
+                              className={`w-11/12 mx-2 flex items-center justify-between text-[11px] px-2 py-1 rounded-md transition-colors ${
+                                isCompletedSession
+                                  ? "border border-green-200 bg-green-50/70 text-green-700 hover:bg-green-100 hover:border-green-300"
+                                  : isPastSession
+                                  ? "border border-red-200 bg-red-50/70 text-red-700 hover:bg-red-100 hover:border-red-300"
+                                  : "border border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300"
+                              }`}
+                            >
+                              <span className="truncate mr-2 font-medium">
+                                {it.title}
+                              </span>
+                              <span className="whitespace-nowrap">
+                                {it.timeLabel}
+                              </span>
+                            </button>
+                          );
+                        })}
+                        {hasExtra && (
                           <button
-                            key={it.id}
                             type="button"
-                            onClick={async (e) => {
-                              e.stopPropagation(); // Prevent cell click event
-                              const s =
-                                sessions.find((x) => x.id === it.id) || null;
-                              setSelectedSession(s);
-                              setShowModal(true);
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Open the All Sessions modal for this day
+                              const allDaySessions = (daySessions || [])
+                                .map((sessionItem) =>
+                                  sessions.find((s) => s.id === sessionItem.id),
+                                )
+                                .filter(Boolean);
 
-                              // Fetch user data if session has a userId
-                              if (s && s.userId) {
-                                const user = await fetchUserData(s.userId);
-                                console.log("Fetched user data:", user); // Debug log
-                                setUserData(user);
-                              } else {
-                                setUserData(null);
-                              }
+                              setSelectedDaySessions(allDaySessions);
 
-                              // Debug: Log session data to see available fields
-                              console.log("Selected session data:", s);
-                              console.log(
-                                "All session fields:",
-                                Object.keys(s),
-                              );
-                              console.log(
-                                "Session description field:",
-                                s.description,
-                              );
-                              console.log("Session desc field:", s.desc);
-                              console.log("Session notes field:", s.notes);
-                              console.log("Session details field:", s.details);
+                              const computedMonth = dayObj.isCurrentMonth
+                                ? currentMonth.getMonth()
+                                : dayObj.isPrevMonth
+                                  ? (currentMonth.getMonth() === 0
+                                      ? 11
+                                      : currentMonth.getMonth() - 1)
+                                  : (currentMonth.getMonth() === 11
+                                      ? 0
+                                      : currentMonth.getMonth() + 1);
+
+                              setSelectedDayInfo({
+                                day: dayObj.day,
+                                month: computedMonth,
+                                year: currentMonth.getFullYear(),
+                              });
+                              setShowMoreSchedulesModal(true);
                             }}
-                            className="w-11/12 mx-2 flex items-center justify-between text-[11px] px-2 py-1 rounded-md border border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors"
+                            className="w-11/12 mx-2 mt-1 px-2 py-1 rounded bg-white border border-blue-200 text-blue-600 text-xs hover:bg-blue-50 hover:text-blue-800 font-semibold transition-colors"
                           >
-                            <span className="truncate mr-2 font-medium">
-                              {it.title}
-                            </span>
-                            <span className="whitespace-nowrap">
-                              {it.timeLabel}
-                            </span>
+                            {`+${((daySessions?.length)||0) - showMax}`}
                           </button>
-                        ))}
+                        )}
                       </div>
                     )
                   );
@@ -1319,11 +1920,53 @@ const Sessions = () => {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="pb-5">
+                      <div className="pb-5 space-y-3">
+                        {/* Mark as Completed Button - Only show if not already completed */}
+                        {selectedSession.status !== "completed" && (
+                          <button
+                            onClick={handleMarkAsCompleted}
+                            className="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Mark as Completed
+                          </button>
+                        )}
+                        
+                        {/* Status badge if completed */}
+                        {selectedSession.status === "completed" && (
+                          <div className="w-full px-4 py-2.5 bg-green-50 border border-green-200 text-green-700 rounded-lg font-medium text-sm flex items-center justify-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Session Completed
+                          </div>
+                        )}
+                        
                         <EditDeleteButtons
                           onEdit={() => {
-                            // Handle reschedule action
-                            console.log("Reschedule session");
+                            // Handle reschedule action - open edit modal
+                            setEditingSession(selectedSession);
+                            
+                            // Populate edit form with current session data
+                            const sessionDate = selectedSession.scheduledDate?.toDate ? selectedSession.scheduledDate.toDate() : new Date();
+                            const dateString = sessionDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+                            
+                            setEditSessionData({
+                              name: selectedSession.name || "",
+                              date: dateString,
+                              time: selectedSession.timeSlot || "",
+                              title: selectedSession.title || "",
+                              type: selectedSession.type || "solo",
+                              descriptions: selectedSession.descriptions || "",
+                            });
+                            
+                            // Set the search field to show the current user
+                            setEditNameSearch(selectedSession.name || "");
+                            
+                            setShowEditModal(true);
+                            setShowModal(false); // Close the view modal
                           }}
                           onDelete={() => setShowDeleteConfirm(true)}
                           editText="Reschedule"
@@ -1451,27 +2094,28 @@ const Sessions = () => {
         </div>
       )}
 
-      {/* Success Toast Notification */}
-      <ToastNotification
-        isVisible={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
-        message="Session successfully deleted"
-        type="success"
-        duration={3000}
-        position="top-right"
-        className="!top-0"
-      />
-
-      {/* Session Created Success Toast Notification */}
-      <ToastNotification
-        isVisible={showCreateSuccessModal}
-        onClose={() => setShowCreateSuccessModal(false)}
-        message="Session successfully created"
-        type="success"
-        duration={3000}
-        position="top-right"
-        className="!top-0"
-      />
+      {/* Toast Notifications - Multiple simultaneous toasts */}
+      {activeToasts.map((toast, index) => (
+        <div
+          key={toast.id}
+          style={{
+            position: 'fixed',
+            top: `${20 + (index * 80)}px`, // Stack toasts vertically
+            right: '20px',
+            zIndex: 1000 + index,
+          }}
+        >
+          <ToastNotification
+            isVisible={true}
+            onClose={() => removeToast(toast.id)}
+            message={toast.count > 1 ? `${toast.message} (${toast.count}x)` : toast.message}
+            type={toast.type}
+            duration={3000}
+            position="top-right"
+            className="top-5"
+          />
+        </div>
+      ))}
 
       {/* Create Session Modal */}
       <EditModal
@@ -1491,7 +2135,7 @@ const Sessions = () => {
         savingText="Creating..."
         saving={isCreatingSession}
         maxWidth="max-w-md"
-        zIndex="z-[9999]"
+        zIndex="z-[100000]"
       >
         {/* Form */}
         <div className="space-y-4">
@@ -1826,12 +2470,17 @@ const Sessions = () => {
                 required
               >
                 <option value="">Select a Time</option>
-                <option value="7:30 AM - 8:30 AM">7:30 AM - 8:30 AM</option>
-                <option value="9:30 AM - 10:30 AM">9:30 AM - 10:30 AM</option>
-                <option value="4:00 PM - 5:00 PM">4:00 PM - 5:00 PM</option>
-                <option value="5:30 PM - 6:30 PM">5:30 PM - 6:30 PM</option>
-                <option value="6:30 PM - 7:30 PM">6:30 PM - 7:30 PM</option>
-                <option value="7:30 PM - 8:30 PM">7:30 PM - 8:30 PM</option>
+                {ALL_TIME_SLOTS.map((slot) => {
+                  const localCount = countLocalSessionsFor(createSessionData?.date, slot);
+                  const isFull = (slotCapacities[slot] || 0) + localCount >= MAX_PER_SLOT;
+                  const disabled = isTimeSlotPast(slot) || isFull;
+                  return (
+                    <option key={slot} value={slot} disabled={disabled}>
+                      {slot}
+                      {isFull ? ` (Full)` : ""}
+                    </option>
+                  );
+                })}
               </select>
 
               {/* Custom Arrow for Time */}
@@ -1895,8 +2544,6 @@ const Sessions = () => {
               >
                 <option value="solo">Solo</option>
                 <option value="group">Group</option>
-                <option value="personal">Personal Training</option>
-                <option value="class">Class</option>
               </select>
 
               {/* Custom Arrow for Type */}
@@ -1938,6 +2585,482 @@ const Sessions = () => {
           </div>
         </div>
       </EditModal>
+
+      {/* Edit Session Modal */}
+      <EditModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingSession(null);
+          setEditSessionData({
+            name: "",
+            date: "",
+            time: "",
+            title: "",
+            type: "solo",
+            descriptions: "",
+          });
+          setEditNameSearch("");
+          setShowEditNameDropdown(false);
+        }}
+        title="Reschedule Session"
+        onSave={handleUpdateSession}
+        saveText="Update Session"
+        savingText="Updating..."
+        saving={isUpdatingSession}
+        maxWidth="max-w-md"
+        zIndex="z-[9999]"
+      >
+        {/* Form */}
+        <div className="space-y-4">
+          {/* Name */}
+          <div className="edit-name-search-container relative pt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Name <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={editNameSearch}
+                onChange={(e) => {
+                  setEditNameSearch(e.target.value);
+                  setShowEditNameDropdown(true);
+                  if (!e.target.value.trim()) {
+                    setEditSessionData({
+                      ...editSessionData,
+                      name: "",
+                    });
+                  }
+                }}
+                onFocus={() => {
+                  setShowEditNameDropdown(true);
+                }}
+                placeholder="Search for a user..."
+                className="w-full py-3 border rounded-2xl text-base transition-colors focus:outline-blue-500 placeholder:font-normal placeholder:text-gray-400 pl-4 pr-12"
+                required
+              />
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <svg
+                  className="w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                  />
+                </svg>
+              </div>
+            </div>
+
+            {/* Search Results Dropdown */}
+            {showEditNameDropdown && filteredEditSubscriptions.length > 0 && (
+              <div className="absolute z-30 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {filteredEditSubscriptions.map((subscription) => (
+                  <button
+                    key={subscription.id}
+                    type="button"
+                    onClick={() => handleEditNameSelect(subscription)}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none transition-colors"
+                  >
+                    <div className="font-medium text-gray-900">
+                      {subscription.displayName ||
+                        subscription.name ||
+                        subscription.id}
+                    </div>
+                    {subscription.customMemberId && (
+                      <div className="text-sm text-gray-500">
+                        ID: {subscription.customMemberId}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* No Results Message */}
+            {showEditNameDropdown &&
+              editNameSearch.trim() &&
+              filteredEditSubscriptions.length === 0 && (
+                <div className="absolute z-30 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+                  <div className="px-3 py-2 text-gray-500 text-sm">
+                    No users found matching "{editNameSearch}"
+                  </div>
+                </div>
+              )}
+          </div>
+
+          {/* Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Date <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={editSessionData.date}
+              onChange={(e) => {
+                const selectedDate = new Date(e.target.value);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                selectedDate.setHours(0, 0, 0, 0);
+                
+                if (selectedDate < today) {
+                  addToast("Cannot select past dates", "error");
+                  return;
+                }
+                
+                setEditSessionData({
+                  ...editSessionData,
+                  date: e.target.value,
+                });
+              }}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full py-3 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 pl-4 pr-4"
+              required
+            />
+          </div>
+
+          {/* Time */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Time <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <select
+                value={editSessionData.time}
+                onChange={(e) =>
+                  setEditSessionData({
+                    ...editSessionData,
+                    time: e.target.value,
+                  })
+                }
+                className="w-full py-3 pr-8 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 appearance-none bg-white pl-4"
+                required
+              >
+                <option value="">Select time slot</option>
+                <option value="7:30 AM - 8:30 AM" disabled={isTimeSlotPast("7:30 AM - 8:30 AM", editSessionData.date)}>7:30 AM - 8:30 AM</option>
+                <option value="9:30 AM - 10:30 AM" disabled={isTimeSlotPast("9:30 AM - 10:30 AM", editSessionData.date)}>9:30 AM - 10:30 AM</option>
+                <option value="4:00 PM - 5:00 PM" disabled={isTimeSlotPast("4:00 PM - 5:00 PM", editSessionData.date)}>4:00 PM - 5:00 PM</option>
+                <option value="5:30 PM - 6:30 PM" disabled={isTimeSlotPast("5:30 PM - 6:30 PM", editSessionData.date)}>5:30 PM - 6:30 PM</option>
+                <option value="6:30 PM - 7:30 PM" disabled={isTimeSlotPast("6:30 PM - 7:30 PM", editSessionData.date)}>6:30 PM - 7:30 PM</option>
+                <option value="7:30 PM - 8:30 PM" disabled={isTimeSlotPast("7:30 PM - 8:30 PM", editSessionData.date)}>7:30 PM - 8:30 PM</option>
+              </select>
+
+              {/* Custom Arrow for Time */}
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                <svg
+                  className="w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Title
+            </label>
+            <input
+              type="text"
+              value={editSessionData.title}
+              onChange={(e) =>
+                setEditSessionData({
+                  ...editSessionData,
+                  title: e.target.value,
+                })
+              }
+              placeholder="Enter session title"
+              className="w-full py-3 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 placeholder:font-normal placeholder:text-gray-400 pl-4 pr-4"
+            />
+          </div>
+
+          {/* Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Type
+            </label>
+            <div className="relative">
+              <select
+                value={editSessionData.type}
+                onChange={(e) =>
+                  setEditSessionData({
+                    ...editSessionData,
+                    type: e.target.value,
+                  })
+                }
+                className="w-full py-3 pr-8 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 appearance-none bg-white pl-4"
+              >
+                <option value="solo">Solo</option>
+                <option value="group">Group</option>
+              </select>
+
+              {/* Custom Arrow for Type */}
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                <svg
+                  className="w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Descriptions */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Descriptions
+            </label>
+            <textarea
+              value={editSessionData.descriptions}
+              onChange={(e) =>
+                setEditSessionData({
+                  ...editSessionData,
+                  descriptions: e.target.value,
+                })
+              }
+              placeholder="Enter session description"
+              rows="2"
+              className="w-full py-3 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 resize-none placeholder:font-normal placeholder:text-gray-400 pl-4 pr-4"
+            />
+          </div>
+        </div>
+      </EditModal>
+
+      {/* More Schedules Modal */}
+      {showMoreSchedulesModal && selectedDaySessions && selectedDayInfo && (
+        <div
+          className="fixed bg-black bg-opacity-50 flex items-center justify-center z-50"
+          style={{
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            margin: 0,
+            padding: 0,
+            width: "100vw",
+            height: "100vh",
+            position: "fixed",
+          }}
+          onClick={() => setShowMoreSchedulesModal(false)}
+        >
+          <div
+            className="bg-white rounded-lg w-full max-w-lg mx-4 flex flex-col max-h-[90vh] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-6 py-4 sm:p-6 md:px-7 md:py-4 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-gray/20 flex-shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 pr-2">
+                All Sessions - {selectedDayInfo.day}/{selectedDayInfo.month + 1}/{selectedDayInfo.year}
+              </h2>
+              <button
+                onClick={() => setShowMoreSchedulesModal(false)}
+                className="p-2 sm:p-2.5 text-gray-900 hover:text-gray-600 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all duration-200 ease-in-out group flex-shrink-0"
+              >
+                <FaTimes className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform duration-200" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="px-6 sm:px-6 md:px-7 flex-1 overflow-y-auto">
+              <div className="py-6">
+                <div className="space-y-3">
+                  {selectedDaySessions.map((session) => {
+                    const sessionDate = session.scheduledDate?.toDate ? session.scheduledDate.toDate() : new Date();
+                    const timeLabel = sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    return (
+                      <button
+                        key={session.id}
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setSelectedSession(session);
+                          setShowModal(true);
+                          setShowMoreSchedulesModal(false);
+
+                          // Fetch user data if session has a userId
+                          if (session && session.userId) {
+                            const user = await fetchUserData(session.userId);
+                            setUserData(user);
+                          } else {
+                            setUserData(null);
+                          }
+                        }}
+                        className="w-full flex items-center justify-between text-sm px-4 py-3 rounded-lg border border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors"
+                      >
+                        <div className="flex-1 text-left">
+                          <div className="font-medium truncate">
+                            {session.title || session.name || session.type || "Session"}
+                          </div>
+                          {session.description && (
+                            <div className="text-xs text-indigo-600 mt-1 truncate">
+                              {session.description}
+                            </div>
+                          )}
+                        </div>
+                        <div className="ml-3 text-right">
+                          <div className="font-medium">{timeLabel}</div>
+                          {session.type && (
+                            <div className="text-xs text-indigo-600 capitalize">
+                              {session.type}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-4 mb-1 sm:mb-0 sm:px-6 md:px-7 pt-4 sm:pt-5 pb-4 sm:pb-6 flex-shrink-0">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowMoreSchedulesModal(false)}
+                  className="px-6 py-3 !text-sm font-medium rounded-xl border border-gray-300 bg-white text-primary hover:bg-gray-50 hover:border-primary focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 ease-in-out"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Block Date Modal */}
+      {showBlockDateModal && (
+        <div
+          className="fixed bg-black bg-opacity-50 flex items-center justify-center z-50"
+          style={{
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            margin: 0,
+            padding: 0,
+            width: "100vw",
+            height: "100vh",
+            position: "fixed",
+          }}
+          onClick={() => setShowBlockDateModal(false)}
+        >
+          <div
+            className="bg-white rounded-lg w-full max-w-md mx-4 flex flex-col max-h-[90vh] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Block / Unblock Date
+              </h2>
+              <button
+                onClick={() => setShowBlockDateModal(false)}
+                className="p-2 text-gray-500 hover:text-gray-600 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="px-6 py-4">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dateToBlock || ""}
+                    onChange={(e) => setDateToBlock(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full py-3 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 pl-4 pr-4"
+                  />
+                </div>
+                
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-sm text-yellow-800">
+                    Blocked dates will not be available for booking in the mobile application.
+                  </p>
+                </div>
+
+                {dateToBlock && (
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      Selected: <span className="font-medium">{new Date(dateToBlock).toLocaleDateString("en-US", { 
+                        weekday: "long", 
+                        year: "numeric", 
+                        month: "long", 
+                        day: "numeric" 
+                      })}</span>
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 flex justify-end gap-3 border-t border-gray-200">
+              <button
+                onClick={() => setShowBlockDateModal(false)}
+                className="px-6 py-3 !text-sm font-medium rounded-xl border border-red-600 bg-white text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 ease-in-out"
+              >
+                Cancel
+              </button>
+              {dateToBlock && (
+                <>
+                  {isDateBlocked(new Date(dateToBlock)) ? (
+                    <button
+                      onClick={async () => {
+                        await handleBlockDate(new Date(dateToBlock), true);
+                        setShowBlockDateModal(false);
+                        setDateToBlock(null);
+                      }}
+                      disabled={isBlockingDate}
+                      className="px-6 py-3 !text-sm font-medium rounded-xl border border-transparent bg-orange-600 text-white hover:bg-orange-700 focus:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-600"
+                    >
+                      {isBlockingDate ? "Unblocking..." : "Unblock Date"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        await handleBlockDate(new Date(dateToBlock), false);
+                        setShowBlockDateModal(false);
+                        setDateToBlock(null);
+                      }}
+                      disabled={isBlockingDate}
+                      className="px-6 py-3 !text-sm font-medium rounded-xl border border-transparent bg-red-600 text-white hover:bg-red-700 focus:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-600"
+                    >
+                      {isBlockingDate ? "Blocking..." : "Block Date"}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

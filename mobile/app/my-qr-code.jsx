@@ -18,7 +18,8 @@ import { useTheme } from "@/src/context";
 import { useDashboard } from "@/src/hooks/dashboard";
 import { getUserActiveSubscription } from "@/src/services/subscriptionService";
 import { StatusBar, setStatusBarStyle } from "expo-status-bar";
-import * as FileSystem from "expo-file-system";
+// Use legacy API for writeAsStringAsync to avoid SDK 54 deprecation errors
+import * as FileSystem from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
 
 function generateNewQrValue(uid) {
@@ -142,12 +143,18 @@ export default function MyQRCodeScreen() {
       qrRef.current.toDataURL(async (data) => {
         try {
           const fileUri = FileSystem.cacheDirectory + `qr_${Date.now()}.png`;
+          // Some environments may not expose FileSystem.EncodingType.Base64; use literal 'base64'
           await FileSystem.writeAsStringAsync(fileUri, data, {
-            encoding: FileSystem.EncodingType.Base64,
+            encoding: "base64",
           });
 
           const asset = await MediaLibrary.createAssetAsync(fileUri);
+          // Save to library; createAlbumAsync may fail on iOS if album doesn't exist
+          try {
           await MediaLibrary.createAlbumAsync("Download", asset, false);
+          } catch (_) {
+            await MediaLibrary.saveToLibraryAsync(fileUri);
+          }
 
           Alert.alert("Saved", "QR code has been saved to your gallery.");
         } catch (err) {
@@ -216,7 +223,11 @@ export default function MyQRCodeScreen() {
               <View style={styles.qrContainer}>
                 <QRCode
                   value={qrValue}
-                  size={250}
+                  size={300}
+                  color="#000000"
+                  backgroundColor="#FFFFFF"
+                  ecl="H"
+                  quietZone={16}
                   getRef={(c) => (qrRef.current = c)}
                 />
               </View>

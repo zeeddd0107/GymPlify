@@ -6,6 +6,8 @@ import {
   faUserTimes,
   faClock,
   faSpinner,
+  faSearch,
+  faUser,
 } from "@fortawesome/free-solid-svg-icons";
 import { FaTimes } from "react-icons/fa";
 import { db } from "@/config/firebase";
@@ -30,21 +32,33 @@ const QR = () => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [pendingCheckout, setPendingCheckout] = useState(null);
   const inputRef = useRef(null);
+  
+  // Mode toggle state (default: 'qr')
+  const [mode, setMode] = useState("qr"); // 'qr' or 'manual'
+  
+  // Manual check-in states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const searchRef = useRef(null);
 
   useEffect(() => {
-    // Focus input on mount
-    if (inputRef.current) inputRef.current.focus();
-    // Handler to refocus input on any keydown if not focused
-    const handleGlobalKeyDown = () => {
-      if (document.activeElement !== inputRef.current && !loading) {
-        inputRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleGlobalKeyDown);
-    };
-  }, [loading]);
+    // Only focus QR input when in QR mode
+    if (mode === "qr") {
+      if (inputRef.current) inputRef.current.focus();
+      // Handler to refocus input on any keydown if not focused
+      const handleGlobalKeyDown = () => {
+        if (document.activeElement !== inputRef.current && !loading) {
+          inputRef.current?.focus();
+        }
+      };
+      window.addEventListener("keydown", handleGlobalKeyDown);
+      return () => {
+        window.removeEventListener("keydown", handleGlobalKeyDown);
+      };
+    }
+  }, [loading, mode]);
 
   const handleInputChange = (e) => {
     setQrValue(e.target.value);
@@ -212,6 +226,150 @@ const QR = () => {
     setQrValue("");
   };
 
+  // Search for users by name in subscriptions
+  const searchUsers = async (searchTerm) => {
+    if (!searchTerm.trim() || searchTerm.length < 2) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      // Fetch all active subscriptions
+      const subscriptionsRef = collection(db, "subscriptions");
+      const subscriptionsQuery = query(
+        subscriptionsRef,
+        where("status", "==", "active")
+      );
+      const snapshot = await getDocs(subscriptionsQuery);
+      
+      const subscriptionsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      console.log("Active subscriptions found:", subscriptionsData.length);
+
+      // Enrich subscriptions with user data if needed
+      const enrichedResults = await Promise.all(
+        subscriptionsData.map(async (sub) => {
+          try {
+            // Check if we need to fetch user data
+            const hasDisplayName = sub.userDisplayName || sub.displayName;
+            
+            if (hasDisplayName && !hasDisplayName.includes("@")) {
+              // Use existing display name from subscription
+              return {
+                userId: sub.userId,
+                displayName: sub.userDisplayName || sub.displayName,
+                customMemberId: sub.customMemberId || "",
+                email: sub.userEmail || sub.email || "",
+                subscriptionId: sub.id,
+                status: sub.status
+              };
+            }
+            
+            // Fetch from users collection if display name not in subscription
+            const userDoc = await getDoc(doc(db, "users", sub.userId));
+            const userData = userDoc.data();
+            
+            return {
+              userId: sub.userId,
+              displayName: userData?.displayName || userData?.name || sub.displayName || "Unknown User",
+              customMemberId: userData?.customMemberId || sub.customMemberId || "",
+              email: userData?.email || sub.userEmail || sub.email || "",
+              subscriptionId: sub.id,
+              status: sub.status
+            };
+          } catch (error) {
+            console.error("Error enriching subscription data:", error);
+            return {
+              userId: sub.userId,
+              displayName: sub.userDisplayName || sub.displayName || "Unknown User",
+              customMemberId: sub.customMemberId || "",
+              email: sub.userEmail || sub.email || "",
+              subscriptionId: sub.id,
+              status: sub.status
+            };
+          }
+        })
+      );
+
+      // Filter by search term
+      const searchLower = searchTerm.toLowerCase();
+      const filtered = enrichedResults.filter(user => {
+        return (
+          user.displayName.toLowerCase().includes(searchLower) ||
+          user.customMemberId.toLowerCase().includes(searchLower) ||
+          user.email.toLowerCase().includes(searchLower)
+        );
+      });
+
+      console.log("Filtered results:", filtered.length);
+      setSearchResults(filtered);
+      setShowSearchResults(filtered.length > 0);
+    } catch (error) {
+      console.error("Error searching users:", error);
+      setSearchResults([]);
+      setShowSearchResults(false);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Handle search input change
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+  };
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.trim()) {
+        searchUsers(searchQuery);
+      } else {
+        setSearchResults([]);
+        setShowSearchResults(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Handle user selection for manual check-in
+  const handleUserSelect = async (user) => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setShowSearchResults(false);
+    
+    // Use the existing processQRCode function with the user's ID
+    await processQRCode(user.userId);
+  };
+
+  // Handle mode switching
+  const handleModeSwitch = (newMode) => {
+    setMode(newMode);
+    setStatus(""); // Clear status when switching modes
+    setQrValue(""); // Clear QR input
+    setSearchQuery(""); // Clear search query
+    setSearchResults([]);
+    setShowSearchResults(false);
+  };
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowSearchResults(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Determine status type and icon
   const getStatusInfo = () => {
     if (!status) return { type: "", icon: null, bgColor: "", textColor: "" };
@@ -262,20 +420,49 @@ const QR = () => {
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-4xl mx-auto">
-        {/* Main Scanner Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
-          <div className="max-w-2xl mx-auto">
-            {/* Scanner Input Section */}
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-full mb-4">
-                <FontAwesomeIcon
-                  icon={faQrcode}
-                  className="text-2xl text-white"
-                />
-              </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Scan QR Code
-              </h2>
+        {/* Mode Toggle Buttons */}
+        <div className="bg-white rounded-2xl shadow-xl p-4 mb-6">
+          <div className="flex gap-3 max-w-2xl mx-auto">
+            <button
+              onClick={() => handleModeSwitch("qr")}
+              className={`flex-1 py-3 px-6 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
+                mode === "qr"
+                  ? "bg-primary text-white shadow-md"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              <FontAwesomeIcon icon={faQrcode} className="text-lg" />
+              Scan QR Code
+            </button>
+            <button
+              onClick={() => handleModeSwitch("manual")}
+              className={`flex-1 py-3 px-6 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
+                mode === "manual"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              <FontAwesomeIcon icon={faSearch} className="text-lg" />
+              Manual Check-In
+            </button>
+          </div>
+        </div>
+
+        {/* QR Scanner Mode */}
+        {mode === "qr" && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+            <div className="max-w-2xl mx-auto">
+              {/* Scanner Input Section */}
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-full mb-4">
+                  <FontAwesomeIcon
+                    icon={faQrcode}
+                    className="text-2xl text-white"
+                  />
+                </div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                  Scan QR Code
+                </h2>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <FontAwesomeIcon
@@ -322,6 +509,111 @@ const QR = () => {
             )}
           </div>
         </div>
+        )}
+
+        {/* Manual Check-In Mode */}
+        {mode === "manual" && (
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="max-w-2xl mx-auto">
+              {/* Manual Check-In Section */}
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
+                  <FontAwesomeIcon
+                    icon={faSearch}
+                    className="text-2xl text-white"
+                  />
+                </div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                  Manual Check-In
+                </h2>
+              
+              {/* Search Input */}
+              <div className="relative" ref={searchRef}>
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <FontAwesomeIcon
+                    icon={searchLoading ? faSpinner : faSearch}
+                    className={`text-gray-400 ${searchLoading ? "animate-spin" : ""}`}
+                  />
+                </div>
+                <input
+                  type="text"
+                  className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all duration-200 placeholder-gray-400"
+                  placeholder="Search by name, member ID, or email..."
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onFocus={() => searchQuery && setShowSearchResults(true)}
+                  disabled={loading}
+                />
+                
+                {/* Search Results Dropdown */}
+                {showSearchResults && searchResults.length > 0 && (
+                  <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-80 overflow-y-auto">
+                    {searchResults.map((user) => (
+                      <button
+                        key={user.userId}
+                        onClick={() => handleUserSelect(user)}
+                        className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3"
+                      >
+                        <div className="flex-shrink-0 w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                          <FontAwesomeIcon icon={faUser} className="text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900 truncate">
+                            {user.displayName}
+                          </p>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            {user.customMemberId && (
+                              <span className="font-medium text-primary">
+                                {user.customMemberId}
+                              </span>
+                            )}
+                            <span className="truncate">{user.email}</span>
+                          </div>
+                        </div>
+                        <div className="flex-shrink-0">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Active
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
+                {/* No Results Message */}
+                {showSearchResults && searchQuery && searchResults.length === 0 && !searchLoading && (
+                  <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg p-4 text-center text-gray-600">
+                    No active members found matching "{searchQuery}"
+                  </div>
+                )}
+              </div>
+              
+              <p className="text-sm text-gray-500 mt-3">
+                Search for a member by name, member ID, or email to manually record their attendance.
+              </p>
+            </div>
+
+            {/* Status Display for Manual Mode */}
+            {status && !showConfirmation && (
+              <div
+                className={`p-4 rounded-xl border-2 ${statusInfo.bgColor} ${statusInfo.textColor} transition-all duration-300 mt-6`}
+              >
+                <div className="flex items-center">
+                  {statusInfo.icon && (
+                    <FontAwesomeIcon
+                      icon={statusInfo.icon}
+                      className="text-xl mr-3 flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium">{status}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        )}
 
         {/* Confirmation Modal */}
         {showConfirmation && (

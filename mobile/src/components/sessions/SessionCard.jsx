@@ -3,8 +3,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Fonts } from "@/src/constants/Fonts";
 
 const STATUS_COLORS = {
-  scheduled: "#4CAF50",
-  completed: "#2196F3",
+  scheduled: "#2196F3",
+  completed: "#4CAF50",
   cancelled: "#B0B0B0",
   missed: "#FF6B6B",
 };

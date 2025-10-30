@@ -10,63 +10,88 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme } from "@/src/context";
+import { useTheme, useAuth } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
-import { fetchNotifications } from "@/src/services/dashboardService";
-import { firebase } from "@/src/services/firebase";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNotifications } from "@/src/hooks/notifications/useNotifications";
+import notificationService from "@/src/services/notificationService";
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-
-  const [notifications, setNotifications] = useState([]);
+  const { user } = useAuth();
+  const { notifications, loading, unreadCount, markAsRead, markAllAsRead } =
+    useNotifications();
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadNotifications();
-  }, []);
-
-  const loadNotifications = async () => {
-    try {
-      const email = await AsyncStorage.getItem("userEmail");
-      if (email) {
-        const user = firebase.auth().currentUser;
-        if (user) {
-          const notifs = await fetchNotifications(user.uid);
-          setNotifications(notifs);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading notifications:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadNotifications();
-    setRefreshing(false);
+    // The notifications will auto-update via the real-time listener
+    setTimeout(() => setRefreshing(false), 500);
   };
 
-  const markAsRead = (notificationId) => {
-    setNotifications((prev) =>
-      prev.map((notif) =>
-        notif.id === notificationId ? { ...notif, unread: false } : notif,
-      ),
-    );
+  const handleMarkAsRead = async (notificationId) => {
+    await markAsRead(notificationId);
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((notif) => ({ ...notif, unread: false })),
-    );
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead();
   };
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const formatTimeAgo = (timestamp) => {
+    const now = new Date();
+    const notificationTime = new Date(timestamp);
+    const diffInMinutes = Math.floor((now - notificationTime) / (1000 * 60));
+
+    if (diffInMinutes < 1) return "Just now";
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+
+    return notificationTime.toLocaleDateString();
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case "subscription_approved":
+        return "checkmark-circle";
+      case "subscription_rejected":
+        return "close-circle";
+      case "subscription_extended":
+        return "time";
+      case "subscription_request":
+        return "document-text";
+      case "subscription_expiring_soon":
+        return "time-outline";
+      case "subscription_expired":
+        return "warning";
+      default:
+        return "notifications";
+    }
+  };
+
+  const getNotificationColor = (type) => {
+    switch (type) {
+      case "subscription_approved":
+        return "#10b981"; // Green
+      case "subscription_rejected":
+        return "#ef4444"; // Red
+      case "subscription_extended":
+        return "#8b5cf6"; // Purple
+      case "subscription_request":
+        return "#6366f1"; // Indigo
+      case "subscription_expiring_soon":
+        return "#f59e0b"; // Orange/Amber
+      case "subscription_expired":
+        return "#ef4444"; // Red
+      default:
+        return theme.tint;
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -78,23 +103,26 @@ export default function NotificationsScreen() {
         <Text style={[styles.headerTitle, { color: theme.text }]}>
           Notifications
         </Text>
-        {unreadCount > 0 && (
-          <Pressable style={styles.markAllButton} onPress={markAllAsRead}>
+        {unreadCount > 0 ? (
+          <Pressable style={styles.markAllButtonHeader} onPress={handleMarkAllAsRead}>
             <Text style={[styles.markAllText, { color: theme.tint }]}>
               Mark All Read
             </Text>
           </Pressable>
+        ) : (
+          <View style={styles.headerPlaceholder} />
         )}
-        {unreadCount === 0 && <View style={styles.headerPlaceholder} />}
       </View>
 
       {/* Unread Count Badge */}
       {unreadCount > 0 && (
-        <View style={styles.unreadBanner}>
-          <Text style={[styles.unreadBannerText, { color: theme.text }]}>
-            You have {unreadCount} unread notification
-            {unreadCount > 1 ? "s" : ""}
-          </Text>
+        <View style={styles.unreadSection}>
+          <View style={styles.unreadBanner}>
+            <Text style={[styles.unreadBannerText, { color: theme.text }]}>
+              You have {unreadCount} unread notification
+              {unreadCount > 1 ? "s" : ""}
+            </Text>
+          </View>
         </View>
       )}
 
@@ -137,15 +165,29 @@ export default function NotificationsScreen() {
                   styles.notificationItem,
                   {
                     borderBottomColor: theme.icon + "20",
-                    backgroundColor: notification.unread
+                    backgroundColor: !notification.read
                       ? theme.tint + "10"
                       : "transparent",
                   },
                 ]}
-                onPress={() => markAsRead(notification.id)}
+                onPress={() => handleMarkAsRead(notification.id)}
               >
                 <View style={styles.notificationHeader}>
-                  {notification.unread && <View style={styles.unreadDot} />}
+                  {!notification.read && <View style={styles.unreadDot} />}
+                  <View
+                    style={[
+                      styles.notificationIcon,
+                      {
+                        backgroundColor: getNotificationColor(notification.type) + "20",
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={getNotificationIcon(notification.type)}
+                      size={20}
+                      color={getNotificationColor(notification.type)}
+                    />
+                  </View>
                   <View style={styles.notificationContent}>
                     <Text
                       style={[styles.notificationTitle, { color: theme.text }]}
@@ -155,15 +197,17 @@ export default function NotificationsScreen() {
                     <Text
                       style={[styles.notificationTime, { color: theme.icon }]}
                     >
-                      {notification.timestamp}
+                      {formatTimeAgo(notification.timestamp)}
                     </Text>
                   </View>
                 </View>
-                <Text
-                  style={[styles.notificationMessage, { color: theme.icon }]}
-                >
-                  {notification.message}
-                </Text>
+                <View style={styles.notificationMessageContainer}>
+                  <Text
+                    style={[styles.notificationMessage, { color: theme.icon }]}
+                  >
+                    {notification.message}
+                  </Text>
+                </View>
               </Pressable>
             ))}
           </View>
@@ -183,6 +227,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingBottom: 20,
+    position: "relative",
   },
   backButton: {
     width: 40,
@@ -190,31 +235,39 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 1,
   },
   headerTitle: {
     fontFamily: Fonts.family.bold,
     fontSize: 22,
-    flex: 1,
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 55,
     textAlign: "center",
-  },
-  markAllButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    zIndex: 0,
   },
   markAllText: {
     fontFamily: Fonts.family.medium,
     fontSize: 14,
   },
+  markAllButtonHeader: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    zIndex: 1,
+  },
   headerPlaceholder: {
     width: 40,
+  },
+  unreadSection: {
+    marginHorizontal: 20,
+    marginBottom: 10,
   },
   unreadBanner: {
     backgroundColor: "rgba(255, 107, 107, 0.1)",
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
-    marginHorizontal: 20,
-    marginBottom: 10,
   },
   unreadBannerText: {
     fontFamily: Fonts.family.medium,
@@ -275,6 +328,15 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#FF6B6B",
     marginTop: 6,
+    marginRight: 8,
+    flexShrink: 0,
+  },
+  notificationIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
     flexShrink: 0,
   },
@@ -295,10 +357,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     flexShrink: 0,
   },
+  notificationMessageContainer: {
+    marginLeft: 56, // Align with content (8 + 36 + 12)
+  },
   notificationMessage: {
     fontFamily: Fonts.family.regular,
     fontSize: 14,
     lineHeight: 20,
-    marginLeft: 20,
   },
 });

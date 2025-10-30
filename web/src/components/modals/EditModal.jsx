@@ -1,5 +1,6 @@
 import { FaTimes } from "react-icons/fa";
 import { SaveCancelButtons } from "@/components";
+import ReactDOM from "react-dom";
 
 const EditModal = ({
   isOpen,
@@ -26,24 +27,13 @@ const EditModal = ({
   if (!isOpen) return null;
 
   // Main render function - displays edit modal with form and buttons
-  return (
+  const modal = (
     <div
-      className={`fixed bg-black bg-opacity-50 flex items-center justify-center ${zIndex}`}
-      style={{
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        margin: 0,
-        padding: 0,
-        width: "100vw",
-        height: "100vh",
-        position: "fixed",
-      }}
+      className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center ${zIndex}`}
       onClick={onClose}
     >
       <div
-        className={`bg-white rounded-lg w-full ${maxWidth} mx-4 flex flex-col ${maxHeight} ${
+        className={`bg-white rounded-lg w-full ${maxWidth} max-w-[95vw] flex flex-col ${maxHeight} ${
           noShadow ? "" : "shadow-2xl"
         } ${className}`}
         onClick={(e) => e.stopPropagation()}
@@ -83,6 +73,9 @@ const EditModal = ({
       </div>
     </div>
   );
+
+  // Render at document.body to avoid any parent clipping/spacing
+  return ReactDOM.createPortal(modal, document.body);
 };
 
 export default EditModal;

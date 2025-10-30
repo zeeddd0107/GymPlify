@@ -15,12 +15,30 @@ const MembershipOverview = ({
   const daysLeft = getDaysLeftFromSubscriptions();
 
   // Check if this is a solo coaching subscription with session tracking
-  const isSoloCoaching = membershipData.planId === "coaching-solo";
+  const planKey = (membershipData.planId || membershipData.plan || "").toLowerCase();
+  const isSoloCoaching = planKey === "coaching-solo" || planKey.includes("solo");
+  // Normalize across schemas
+  const maxSessions =
+    typeof membershipData.maxSessions === "number"
+      ? membershipData.maxSessions
+      : typeof membershipData.initialSessions === "number"
+        ? membershipData.initialSessions
+        : null;
+  const usedSessions =
+    typeof membershipData.usedSessions === "number"
+      ? membershipData.usedSessions
+      : null;
+  const sessionsRemainingField =
+    typeof membershipData.sessionsRemaining === "number"
+      ? membershipData.sessionsRemaining
+      : null;
+
   const hasSessionTracking =
-    membershipData.maxSessions && membershipData.maxSessions > 0;
-  const usedSessions = membershipData.usedSessions || 0;
-  const remainingSessions = hasSessionTracking
-    ? Math.max(0, membershipData.maxSessions - usedSessions)
+    (maxSessions !== null && maxSessions > 0) || sessionsRemainingField !== null;
+  const remainingSessions = sessionsRemainingField !== null
+    ? sessionsRemainingField
+    : maxSessions !== null
+      ? Math.max(0, maxSessions - (usedSessions || 0))
     : null;
 
   // Format the endDate from the subscription
@@ -77,7 +95,7 @@ const MembershipOverview = ({
         ) : null}
 
         <Text style={[styles.expiryText, { color: colors.icon }]}>
-          Expires: {formatEndDate(membershipData.endDate)}
+          Expires: {formatEndDate(membershipData.endDate || membershipData.expiryDate || membershipData.validUntil)}
         </Text>
 
         {/* Display session information for solo coaching */}
@@ -90,7 +108,8 @@ const MembershipOverview = ({
               </Text>
             </View>
             <Text style={[styles.sessionCount, { color: colors.tint }]}>
-              {remainingSessions} of {membershipData.maxSessions} remaining
+              {remainingSessions ?? "N/A"}
+              {maxSessions !== null ? ` of ${maxSessions} remaining` : ""}
             </Text>
             {membershipData.extensionType === "solo_to_solo" &&
               membershipData.newSoloSessions && (

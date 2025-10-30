@@ -3,15 +3,18 @@ import {
   ThemeProvider as NavigationThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import "react-native-reanimated";
+// import "react-native-reanimated"; // Removed: Causes version conflicts in Expo Go
+import { useEffect } from "react";
 
 import { ThemeProvider, AuthProvider } from "@/src/context";
 import { SessionTimeoutWrapper } from "@/src/components/shared/SessionTimeoutWrapper";
 import AuthGuard from "@/src/components/shared/AuthGuard";
+import { pushNotificationService } from "@/src/services";
 
 function AppContent() {
+  const router = useRouter();
   const [loaded] = useFonts({
     "Poppins-Regular": require("../assets/fonts/Poppins-Regular.ttf"),
     "Poppins-Medium": require("../assets/fonts/Poppins-Medium.ttf"),
@@ -19,6 +22,33 @@ function AppContent() {
     "Poppins-Bold": require("../assets/fonts/Poppins-Bold.ttf"),
     "Poppins-Light": require("../assets/fonts/Poppins-Light.ttf"),
   });
+
+  // Set up notification tap handler
+  useEffect(() => {
+    pushNotificationService.setNotificationTapHandler((data) => {
+      console.log("Notification tapped, navigating based on type:", data.type);
+      
+      // Navigate based on notification type
+      switch (data.type) {
+        case "subscription_approved":
+        case "subscription_rejected":
+        case "subscription_extended":
+        case "subscription_expiring_soon":
+        case "subscription_expired":
+          router.push("/subscriptions");
+          break;
+        case "session_reminder":
+          router.push("/(tabs)/sessions");
+          break;
+        default:
+          router.push("/notifications");
+      }
+    });
+
+    return () => {
+      pushNotificationService.removeListeners();
+    };
+  }, [router]);
 
   if (!loaded) {
     return null;
@@ -81,6 +111,26 @@ function AppContent() {
                   />
                   <Stack.Screen
                     name="equipment-info"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="otp-verification"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="forgot-password"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="reset-password"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="terms-and-conditions"
+                    options={{ headerShown: false }}
+                  />
+                  <Stack.Screen
+                    name="change-password"
                     options={{ headerShown: false }}
                   />
                 </Stack>

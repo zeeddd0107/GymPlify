@@ -20,6 +20,7 @@ export default function CustomCalendarModal({
   currentMonth,
   monthNames,
   dayNames,
+  isDateBlocked,
 }) {
   const [currentViewYear, setCurrentViewYear] = useState(currentYear);
   const [currentViewMonth, setCurrentViewMonth] = useState(currentMonth);
@@ -49,6 +50,9 @@ export default function CustomCalendarModal({
       const weekDays = [];
       for (let day = 0; day < 7; day++) {
         const isPast = currentDate < todayStart;
+        const isBlocked = isDateBlocked 
+          ? isDateBlocked(currentDate.getDate(), currentDate.getFullYear(), currentDate.getMonth())
+          : false;
         const dateObj = {
           date: new Date(currentDate),
           day: currentDate.getDate(),
@@ -56,6 +60,7 @@ export default function CustomCalendarModal({
           year: currentDate.getFullYear(),
           isCurrentMonth: currentDate.getMonth() === currentViewMonth,
           isPast: isPast,
+          isBlocked: isBlocked,
           isSelected:
             selectedDateInfo &&
             selectedDateInfo.day === currentDate.getDate() &&
@@ -69,7 +74,7 @@ export default function CustomCalendarModal({
     }
 
     return calendar;
-  }, [currentViewYear, currentViewMonth, selectedDateInfo]);
+  }, [currentViewYear, currentViewMonth, selectedDateInfo, isDateBlocked]);
 
   const handlePrevMonth = useCallback(() => {
     const today = new Date();
@@ -125,6 +130,10 @@ export default function CustomCalendarModal({
 
   const handleDatePress = useCallback(
     (dateObj) => {
+      if (dateObj.isBlocked) {
+        showWarningMessage("This date is not available for booking");
+        return;
+      }
       if (!dateObj.isPast) {
         const dateInfo = {
           day: dateObj.day,
@@ -220,6 +229,7 @@ export default function CustomCalendarModal({
                       dateObj.isSelected && styles.selectedDateCell,
                       !dateObj.isCurrentMonth && styles.otherMonthDate,
                       dateObj.isPast && styles.pastDate,
+                      dateObj.isBlocked && styles.blockedDate,
                     ]}
                     onPress={() => handleDatePress(dateObj)}
                   >
@@ -229,6 +239,7 @@ export default function CustomCalendarModal({
                         dateObj.isSelected && styles.selectedDateText,
                         !dateObj.isCurrentMonth && styles.otherMonthDateText,
                         dateObj.isPast && styles.pastDateText,
+                        dateObj.isBlocked && styles.blockedDateText,
                       ]}
                     >
                       {dateObj.day}
@@ -375,6 +386,14 @@ const styles = StyleSheet.create({
   },
   pastDateText: {
     color: "#999",
+  },
+  blockedDate: {
+    backgroundColor: "#FFE0E0",
+    opacity: 0.8,
+  },
+  blockedDateText: {
+    color: "#CC0000",
+    textDecorationLine: "line-through",
   },
   warningContainer: {
     flexDirection: "row",

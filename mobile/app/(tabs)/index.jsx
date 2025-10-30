@@ -49,6 +49,7 @@ export default function HomeScreen() {
     // eslint-disable-next-line no-unused-vars
     subscriptions,
     hasActiveSubscription,
+    hasSubscription,
     isDataLoaded,
     isUserDataLoading,
     onRefresh,
@@ -57,6 +58,7 @@ export default function HomeScreen() {
     getMembershipStatusColor,
     getDaysLeftFromSubscriptions,
     getProgressPercentage,
+    unreadCount,
   } = useDashboard();
 
   // Add loading state to prevent flash of SubscriptionPlans
@@ -101,19 +103,16 @@ export default function HomeScreen() {
             <Ionicons name="person-circle-outline" size={32} color="white" />
           </Pressable>
           <View style={styles.rightIcons}>
-            <Pressable style={styles.iconButton}>
-              <Ionicons name="settings-outline" size={28} color="white" />
-            </Pressable>
             <Pressable
               style={styles.iconButton}
               onPress={() => router.push("/notifications")}
             >
               <View style={styles.iconWrapper}>
                 <Ionicons name="mail-outline" size={28} color="white" />
-                {notifications.filter((n) => n.unread).length > 0 && (
+                {unreadCount > 0 && (
                   <View style={styles.notificationBadge}>
                     <Text style={styles.notificationBadgeText}>
-                      {notifications.filter((n) => n.unread).length}
+                      {unreadCount}
                     </Text>
                   </View>
                 )}
@@ -151,8 +150,9 @@ export default function HomeScreen() {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4361EE" />
           </View>
-        ) : hasActiveSubscription ? (
-          // Show home dashboard for users with active subscription
+        ) : hasSubscription ? (
+          // Show home dashboard for users with subscription (active or expired)
+          // Users with expired subscriptions can still view their records
           <>
             <MembershipOverview
               membershipData={membershipData}
@@ -176,7 +176,7 @@ export default function HomeScreen() {
             <WorkoutTip workoutTip={workoutTip} colors={colors} />
           </>
         ) : (
-          // Show subscription plans for users without active subscription
+          // Show subscription plans only for users with NO subscription at all
           <SubscriptionPlans
             colors={colors}
             onSelectPlan={(plan) => {
@@ -187,6 +187,7 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
+      {/* Only show QR code button for ACTIVE subscriptions, not expired ones */}
       {hasActiveSubscription && (
         <FloatingActionButton
           onPress={() => router.push("/my-qr-code")}

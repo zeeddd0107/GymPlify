@@ -1,53 +1,109 @@
 import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faKey, faArrowLeft } from "@fortawesome/free-solid-svg-icons";
-import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/config/firebase";
+import { sendOTP } from "@/services/otpService";
 import FormInput from "../ui/FormInput";
 import Button from "../ui/Button";
 
-const ForgotPassword = ({ onBackToLogin }) => {
+const ForgotPassword = ({ onBackToLogin, onOTPSent }) => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // Comprehensive email validation (same as mobile)
+  const validateEmail = (email) => {
+    const trimmedEmail = email.trim();
+    
+    if (!trimmedEmail) {
+      return { isValid: false, message: "Email address is required" };
+    }
+    
+    if (/\s/.test(trimmedEmail)) {
+      return { isValid: false, message: "Email address cannot contain spaces" };
+    }
+    
+    const atCount = (trimmedEmail.match(/@/g) || []).length;
+    if (atCount === 0) {
+      return { isValid: false, message: "Please enter a valid email address" };
+    }
+    if (atCount > 1) {
+      return { isValid: false, message: "Email address cannot contain multiple @ symbols" };
+    }
+    
+    const parts = trimmedEmail.split('@');
+    const localPart = parts[0];
+    const domain = parts[1];
+    
+    if (!localPart || localPart.length === 0) {
+      return { isValid: false, message: "Please enter a valid email address" };
+    }
+    
+    if (!domain || domain.length === 0) {
+      return { isValid: false, message: "Please enter a valid email address" };
+    }
+    
+    if (!domain.includes('.')) {
+      return { isValid: false, message: "Please enter a valid email address" };
+    }
+    
+    const domainParts = domain.split('.');
+    const tld = domainParts[domainParts.length - 1].toLowerCase();
+    
+    const validTLDs = [
+      'com', 'org', 'net', 'edu', 'gov', 'mil', 'int',
+      'co', 'uk', 'us', 'ca', 'au', 'de', 'fr', 'it', 'es', 'nl', 'be', 'ch', 'at',
+      'io', 'ai', 'app', 'dev', 'tech', 'online', 'site', 'website', 'store', 'shop',
+      'info', 'biz', 'me', 'tv', 'cc', 'ph', 'my', 'id', 'vn', 'th'
+    ];
+    
+    if (!validTLDs.includes(tld)) {
+      return { isValid: false, message: "Please enter a valid email address with a recognized domain" };
+    }
+    
+    const domainName = domainParts.length >= 2 ? domainParts[domainParts.length - 2].toLowerCase() : '';
+    
+    const commonProviders = {
+      'gmail': ['gmai', 'gmial', 'gmaill', 'gmails', 'gma1l', 'gma2l', 'gmali', 'gmsil', 'gnail'],
+      'yahoo': ['yaho', 'yahooo', 'yahoos', 'yshoo', 'yhoo'],
+      'hotmail': ['hotmai', 'hotmal', 'hotmial', 'hotmails', 'hotmil'],
+      'outlook': ['outlok', 'outloo', 'outlooks', 'putlook'],
+    };
+    
+    for (const [correct, typos] of Object.entries(commonProviders)) {
+      if (typos.includes(domainName)) {
+        return { isValid: false, message: `Did you mean ${correct}.${tld}? Please check your email address` };
+      }
+    }
+    
+    return { isValid: true, message: "" };
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!email.trim()) {
-      setError("Email is required");
-      return;
-    }
-
-    // Let me check if this email looks valid
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address");
+    // Validate email
+    const validation = validateEmail(email);
+    if (!validation.isValid) {
+      setError(validation.message);
       return;
     }
 
     setIsLoading(true);
     setError("");
-    setMessage("");
 
     try {
-      // Time to send that reset email through Firebase
-      await sendPasswordResetEmail(auth, email);
-      setMessage(
-        "Password reset instructions have been sent to your email. Please check your spam folder if you don't see it.",
-      );
-    } catch (error) {
-      // Firebase is giving me some specific error codes to work with
-      if (error.code === "auth/user-not-found") {
-        setError("No account found with this email address.");
-      } else if (error.code === "auth/invalid-email") {
-        setError("Please enter a valid email address.");
-      } else if (error.code === "auth/too-many-requests") {
-        setError("Too many requests. Please try again later.");
-      } else {
-        setError("Failed to send reset instructions. Please try again.");
+      // Send OTP to user's email for password reset
+      const response = await sendOTP(email.trim(), 'forgot-password');
+      
+      console.log('OTP sent for password reset:', response);
+      
+      // Call callback to show OTP verification screen
+      if (onOTPSent) {
+        onOTPSent(email.trim(), response.otpId, response.expiresAt);
       }
+    } catch (error) {
+      console.error('Error sending OTP:', error);
+      setError("Failed to send verification code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -72,16 +128,9 @@ const ForgotPassword = ({ onBackToLogin }) => {
         </h1>
 
         {/* Helpful subtitle */}
-        <p className="text-sm sm:text-base text-gray-600 mb-3">
+        <p className="text-sm sm:text-base text-gray-600 mb-6">
           No worries, we'll send you reset instructions.
         </p>
-
-        {/* Show any errors that come up */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm sm:text-base">
-            {error}
-          </div>
-        )}
 
         {/* The actual form */}
         <form onSubmit={handleSubmit} noValidate>
@@ -97,30 +146,27 @@ const ForgotPassword = ({ onBackToLogin }) => {
               id="email"
               placeholder="Enter your email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={!!error && error.includes("Email")}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError(""); // Clear error when typing
+              }}
+              error={!!error}
             />
-            {error && error.includes("Email") && (
-              <p className="text-red-500 text-sm text-left">{error}</p>
+            {error && (
+              <p className="text-red-500 text-sm text-left mt-1">
+                {error}
+              </p>
             )}
           </div>
-
-          {/* Show success message when email is sent */}
-          {message && (
-            <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded text-sm sm:text-base">
-              {message}
-            </div>
-          )}
 
           {/* The main action button */}
           <Button
             type="submit"
             disabled={isLoading}
             isLoading={isLoading}
-            loadingText="Sending..."
             className="w-full mb-4 sm:mb-6"
           >
-            Reset password
+            Send Verification Code
           </Button>
         </form>
 

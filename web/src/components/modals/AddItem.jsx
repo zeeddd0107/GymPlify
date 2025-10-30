@@ -26,11 +26,11 @@ const AddItem = ({
   // Main render function - displays add item modal with form and buttons
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 py-4 sm:py-8 md:py-4 lg:py-6 xl:py-8"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div
-        className={`bg-white rounded-lg w-full ${maxWidth} mx-4 flex flex-col ${maxHeight} ${
+        className={`bg-white rounded-lg w-full ${maxWidth} max-w-[95vw] flex flex-col ${maxHeight} ${
           noShadow ? "" : "shadow-2xl"
         } ${className}`}
         onClick={(e) => e.stopPropagation()}

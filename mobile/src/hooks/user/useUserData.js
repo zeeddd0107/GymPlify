@@ -54,7 +54,7 @@ export const useUserData = () => {
           return;
         }
       } catch (error) {
-        console.error("🔍 useUserData - Error reading AsyncStorage:", error);
+        console.error("useUserData - Error reading AsyncStorage:", error);
       }
 
       // No AsyncStorage data either, clear everything

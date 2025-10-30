@@ -89,7 +89,7 @@ const IntermediateConfirmationModal = ({
           {/* Confirmation Message */}
           <View style={styles.intermediateConfirmationMessage}>
             <Text style={styles.intermediateConfirmationText}>
-              Are you sure you want to book this session?
+              Are you sure you want to schedule this session?
             </Text>
           </View>
 

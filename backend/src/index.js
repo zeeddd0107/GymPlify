@@ -44,6 +44,9 @@ app.use("/auth", authRoutes);
 const qrRoutes = require("./routes/qr");
 app.use("/qr", qrRoutes);
 
+const notificationRoutes = require("./routes/notifications");
+app.use("/notifications", notificationRoutes);
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);

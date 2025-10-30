@@ -6,6 +6,10 @@ import {
   FaTimes,
   FaTh,
   FaFolder,
+  FaSearch,
+  FaChevronDown,
+  FaChevronRight,
+  FaPlus,
 } from "react-icons/fa";
 import {
   ref,
@@ -22,6 +26,7 @@ import {
   EditDeleteButtons,
   TargetWorkoutFilter,
   GuideFolderView,
+  ToastNotification,
 } from "@/components";
 import { DeleteModal } from "@/components/modals";
 import guideService from "@/services/guideService";
@@ -83,10 +88,69 @@ const Guide = () => {
     item: null,
   });
   const [deleting, setDeleting] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState(
-    "Guide updated successfully!",
-  );
+  // Smart toast notification system
+  const [activeToasts, setActiveToasts] = useState([]);
+
+  // Function to add a new toast with smart grouping
+  const addToast = (message, type = "success") => {
+    const toastId = Date.now() + Math.random();
+    
+    setActiveToasts(prev => {
+      // Limit to maximum 3 toasts at once
+      if (prev.length >= 3) {
+        // Remove oldest toast to make room
+        const sortedToasts = [...prev].sort((a, b) => a.timestamp - b.timestamp);
+        const filteredToasts = prev.filter(toast => toast.id !== sortedToasts[0].id);
+        
+        const newToast = { 
+          id: toastId, 
+          message, 
+          type,
+          timestamp: Date.now()
+        };
+        
+        return [...filteredToasts, newToast];
+      }
+      
+      // Check for similar operations and group them
+      const similarToast = prev.find(toast => 
+        toast.message === message && 
+        toast.type === type &&
+        (Date.now() - toast.timestamp) < 1000 // Within 1 second
+      );
+      
+      if (similarToast) {
+        // Update existing toast with count
+        const updatedToasts = prev.map(toast => 
+          toast.id === similarToast.id 
+            ? { ...toast, count: (toast.count || 1) + 1, timestamp: Date.now() }
+            : toast
+        );
+        return updatedToasts;
+      }
+      
+      // Add new toast
+      const newToast = { 
+        id: toastId, 
+        message, 
+        type,
+        timestamp: Date.now(),
+        count: 1
+      };
+      
+      return [...prev, newToast];
+    });
+    
+    // Auto-remove toast after 3 seconds
+    setTimeout(() => {
+      setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+    }, 3000);
+  };
+
+  // Function to remove a specific toast
+  const removeToast = (toastId) => {
+    setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+  };
   const [validationErrors, setValidationErrors] = useState({});
 
   // Filter state
@@ -94,6 +158,133 @@ const Guide = () => {
   const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'folder'
   const [customTarget, setCustomTarget] = useState("");
   const [customTargets, setCustomTargets] = useState([]);
+  const [showCustomTargets, setShowCustomTargets] = useState(false);
+  const [selectedMainCategory, setSelectedMainCategory] = useState("");
+  const [subcategoryInput, setSubcategoryInput] = useState("");
+  const [showSubcategorySuggestions, setShowSubcategorySuggestions] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Main target workout categories (required)
+  const MAIN_TARGET_CATEGORIES = [
+    "Shoulders",
+    "Back", 
+    "Chest",
+    "Arms",
+    "Legs",
+    "Core",
+    "Full Body",
+    "Cardio",
+  ];
+
+  // Helper function to show error notifications
+  const showErrorNotification = (message) => {
+    addToast(message, "error");
+  };
+
+  // Helper function to add target with optional subcategory
+  const addTargetWithSubcategory = () => {
+    if (!selectedMainCategory) {
+      showErrorNotification("Please select a main category first");
+      return;
+    }
+
+    const currentTargets = editing.target || [];
+    let targetName = selectedMainCategory;
+    
+    // Add subcategory if provided
+    if (subcategoryInput.trim()) {
+      targetName = `${selectedMainCategory} - ${subcategoryInput.trim()}`;
+    }
+
+    // Check if target already exists
+    if (currentTargets.includes(targetName)) {
+      showErrorNotification("This target workout already exists");
+      return;
+    }
+
+    setEditing((s) => ({
+      ...s,
+      target: [...currentTargets, targetName],
+    }));
+
+    // Reset form
+    setSelectedMainCategory("");
+    setSubcategoryInput("");
+  };
+
+  // Helper function to remove target
+  const removeTarget = (targetToRemove) => {
+    const currentTargets = editing.target || [];
+    setEditing((s) => ({
+      ...s,
+      target: currentTargets.filter((target) => target !== targetToRemove),
+    }));
+  };
+
+  // Extract existing subcategories for a given main category
+  const getExistingSubcategories = (mainCategory) => {
+    const subcategories = new Set();
+    
+    // Get subcategories from all guides
+    guides.forEach((guide) => {
+      const guideTargets = Array.isArray(guide.target) ? guide.target : guide.target ? [guide.target] : [];
+      guideTargets.forEach((target) => {
+        if (target.includes(' - ')) {
+          const [category, subcategory] = target.split(' - ');
+          if (category === mainCategory && subcategory) {
+            subcategories.add(subcategory.trim());
+          }
+        }
+      });
+    });
+
+    // Get subcategories from custom targets
+    if (Array.isArray(customTargets)) {
+      customTargets.forEach((target) => {
+        if (target.includes(' - ')) {
+          const [category, subcategory] = target.split(' - ');
+          if (category === mainCategory && subcategory) {
+            subcategories.add(subcategory.trim());
+          }
+        }
+      });
+    }
+
+    return Array.from(subcategories).sort();
+  };
+
+  // Get existing subcategories for the selected main category
+  const existingSubcategories = useMemo(() => {
+    if (!selectedMainCategory) return [];
+    return getExistingSubcategories(selectedMainCategory);
+  }, [selectedMainCategory, guides, customTargets]);
+
+  // Handle subcategory selection from suggestions
+  const selectSubcategory = (subcategory) => {
+    setSubcategoryInput(subcategory);
+    setShowSubcategorySuggestions(false);
+  };
+
+  // Handle main category change
+  const handleMainCategoryChange = (category) => {
+    setSelectedMainCategory(category);
+    setSubcategoryInput(""); // Clear subcategory when main category changes
+    setShowSubcategorySuggestions(false);
+  };
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showSubcategorySuggestions && !event.target.closest('.subcategory-suggestions')) {
+        setShowSubcategorySuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSubcategorySuggestions]);
 
   // Load guides from Firebase
   useEffect(() => {
@@ -123,7 +314,7 @@ const Guide = () => {
       } catch (error) {
         console.error("Error loading guides:", error);
         console.error("Error details:", error.message);
-        alert(`Failed to load guides: ${error.message}`);
+        showErrorNotification(`Failed to load guides: ${error.message}`);
         // Fallback to default guides if Firebase fails
         setGuides([
           {
@@ -221,7 +412,7 @@ const Guide = () => {
 
   const onSave = async () => {
     if (!user) {
-      alert("Please log in to save guides");
+      showErrorNotification("Please log in to save guides");
       return;
     }
 
@@ -238,6 +429,9 @@ const Guide = () => {
     }
     if (!editing.status || editing.status === "") {
       errors.status = "Status is required";
+    }
+    if (!editing.target || editing.target.length === 0) {
+      errors.target = "At least one target workout is required";
     }
     if (!editing.videoFile && !editing.videoUrl && !preUploaded.url) {
       errors.video = "Video upload is required";
@@ -262,11 +456,11 @@ const Guide = () => {
       setAbortController(controller);
       try {
         const file = editing.videoFile;
-        // Use guide ID if editing, otherwise use timestamp + random string for uniqueness
-        const safeName = editing.id
-          ? `${editing.id}_${file.name}`
-          : `${Date.now()}_${Math.random().toString(36).substring(2)}_${file.name}`;
-        const path = `guides/${safeName}`;
+        // Create unique path using timestamp + random string for each video upload
+        // This ensures unlimited video uploads without overwriting previous ones
+        const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2)}`;
+        const safeFileName = file.name.replace(/[^a-zA-Z0-9\s.-]/g, "").replace(/\s+/g, "_");
+        const path = `guides/${uniqueId}_${safeFileName}`;
         const task = uploadBytesResumable(ref(storage, path), file, {
           contentType: file.type || "video/mp4",
         });
@@ -316,7 +510,7 @@ const Guide = () => {
         setSaving(false);
         setAbortController(null);
         if (!/cancell?ed|canceled/i.test(error?.message || "")) {
-          alert(`Failed to upload video: ${error.message}`);
+          showErrorNotification(`Failed to upload video: ${error.message}`);
         }
         return;
       }
@@ -348,9 +542,7 @@ const Guide = () => {
         setGuides((prev) =>
           prev.map((g) => (g.id === editing.id ? updatedGuide : g)),
         );
-        setSuccessMessage("Guide updated successfully!");
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
+        addToast("Guide updated successfully!");
       } else {
         // Create new guide
         console.log("Creating new guide...");
@@ -378,9 +570,7 @@ const Guide = () => {
         );
         console.log("Created guide:", newGuide);
         setGuides((prev) => [newGuide, ...prev]);
-        setSuccessMessage("Guide uploaded successfully!");
-        setShowSuccess(true);
-        setTimeout(() => setShowSuccess(false), 3000);
+        addToast("Guide uploaded successfully!");
       }
       setEditing(null);
     } catch (error) {
@@ -389,7 +579,7 @@ const Guide = () => {
       if (error && /cancell?ed|canceled/i.test(error.message)) {
         // Swallow cancellation alerts; user intentionally canceled
       } else {
-        alert(`Failed to save guide: ${error.message}`);
+        showErrorNotification(`Failed to save guide: ${error.message}`);
       }
     } finally {
       setSaving(false);
@@ -407,12 +597,20 @@ const Guide = () => {
       setDeleting(true);
       await guideService.deleteGuide(guide.id);
       setGuides((prev) => prev.filter((g) => g.id !== guide.id));
-      setSuccessMessage("Guide deleted successfully!");
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      
+      // Refresh custom targets after deletion (cleanup may have removed unused ones)
+      try {
+        const updatedCustomTargets = await guideService.getCustomTargets();
+        setCustomTargets(updatedCustomTargets);
+        console.log("Refreshed custom targets after guide deletion:", updatedCustomTargets);
+      } catch (customTargetsError) {
+        console.warn("Failed to refresh custom targets after guide deletion:", customTargetsError);
+      }
+      
+      addToast("Guide deleted successfully!");
     } catch (error) {
       console.error("Error deleting guide:", error);
-      alert("Failed to delete guide. Please try again.");
+      showErrorNotification("Failed to delete guide. Please try again.");
     } finally {
       setDeleting(false);
       setConfirmDelete({ open: false, item: null });
@@ -437,8 +635,14 @@ const Guide = () => {
     return Array.from(targets);
   }, [guides, customTargets]);
 
-  // Filter guides based on selected targets
+  // Filter guides based on selected targets and search term
   const filteredGuides = guides.filter((guide) => {
+    // Filter by search term (guide title)
+    if (searchTerm && !guide.title?.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
+    }
+
+    // Filter by selected targets
     if (selectedTargets.length === 0) return true;
 
     const guideTargets = Array.isArray(guide.target)
@@ -455,7 +659,13 @@ const Guide = () => {
 
   const handleClearFilters = () => {
     setSelectedTargets([]);
+    setSearchTerm("");
   };
+
+  const handleSearchChange = (term) => {
+    setSearchTerm(term);
+  };
+
 
   const handleAddCustomTarget = () => {
     if (customTarget.trim() && !editing.target?.includes(customTarget.trim())) {
@@ -470,14 +680,6 @@ const Guide = () => {
 
   return (
     <div className="pl-1 pt-5">
-      {showSuccess && (
-        <div className="fixed top-4 right-4 z-[60] bg-green-500 text-white rounded-xl shadow px-4 py-3 flex items-center gap-2">
-          <span className="bg-white/20 rounded-full p-1">
-            <FaCheck className="w-4 h-4" />
-          </span>
-          <span className="font-medium text-sm">{successMessage}</span>
-        </div>
-      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
@@ -503,12 +705,14 @@ const Guide = () => {
             </button>
           </div>
         </div>
-        <button
-          onClick={openCreate}
-          className="px-4 sm:px-5 py-2 sm:py-3 bg-primary hover:bg-secondary text-white rounded-xl shadow text-sm w-full sm:w-auto"
-        >
-          Upload Guide
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <button
+            onClick={openCreate}
+            className="px-4 sm:px-5 py-2 sm:py-3 bg-primary hover:bg-secondary text-white rounded-xl shadow text-sm flex-1 sm:flex-none"
+          >
+            Upload Guide
+          </button>
+        </div>
       </div>
 
       {/* Filter Section */}
@@ -518,6 +722,8 @@ const Guide = () => {
           onTargetChange={handleTargetChange}
           onClearFilters={handleClearFilters}
           availableTargets={availableTargets}
+          guides={guides}
+          onSearchChange={handleSearchChange}
         />
       </div>
 
@@ -916,108 +1122,139 @@ const Guide = () => {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
-                  Target Workout
+                  Target Workout <span className="text-red-500">*</span>
                 </label>
                 <div
-                  className={`border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30 transition-colors ${uploadProgress > 0 && uploadProgress < 100 ? "opacity-80 pointer-events-none" : ""}`}
+                  className={`border border-slate-200 rounded-xl p-4 text-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30 transition-colors ${uploadProgress > 0 && uploadProgress < 100 ? "opacity-80 pointer-events-none" : ""}`}
                 >
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    {[
-                      "Shoulders",
-                      "Back",
-                      "Chest",
-                      "Arms",
-                      "Legs",
-                      "Core",
-                      "Full Body",
-                      "Cardio",
-                      ...(Array.isArray(customTargets)
-                        ? customTargets.sort()
-                        : []),
-                    ].map((t) => (
-                      <label
-                        key={t}
-                        className="flex items-center space-x-2 cursor-pointer"
+                  {/* Add New Target Section */}
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Add Target Workout</h4>
+                    
+                    {/* Main Category Selection */}
+                    <div className="mb-3">
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">
+                        Main Category <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={selectedMainCategory}
+                        onChange={(e) => handleMainCategoryChange(e.target.value)}
+                        disabled={uploadProgress > 0 && uploadProgress < 100}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                       >
+                        <option value="">Select main category...</option>
+                        {MAIN_TARGET_CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Optional Subcategory */}
+                    <div className="mb-3">
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">
+                        Subcategory <span className="text-gray-400">(Optional)</span>
+                      </label>
+                      <div className="relative">
                         <input
-                          type="checkbox"
-                          checked={editing.target?.includes(t) || false}
+                          type="text"
+                          value={subcategoryInput}
                           onChange={(e) => {
-                            const currentTargets = editing.target || [];
-                            if (e.target.checked) {
-                              setEditing((s) => ({
-                                ...s,
-                                target: [...currentTargets, t],
-                              }));
-                            } else {
-                              setEditing((s) => ({
-                                ...s,
-                                target: currentTargets.filter(
-                                  (target) => target !== t,
-                                ),
-                              }));
+                            setSubcategoryInput(e.target.value);
+                            setShowSubcategorySuggestions(e.target.value.length > 0);
+                          }}
+                          onFocus={() => setShowSubcategorySuggestions(subcategoryInput.length > 0 && existingSubcategories.length > 0)}
+                          placeholder="e.g., Lateral Deltoids, Upper Back, etc."
+                          disabled={uploadProgress > 0 && uploadProgress < 100}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                          onKeyPress={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addTargetWithSubcategory();
                             }
                           }}
-                          disabled={uploadProgress > 0 && uploadProgress < 100}
-                          className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                         />
-                        <span className="text-sm text-gray-700">{t}</span>
-                      </label>
-                    ))}
-                  </div>
-
-                  {/* Custom Target Input */}
-                  <div className="border-t border-gray-200 pt-3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={customTarget}
-                        onChange={(e) => setCustomTarget(e.target.value)}
-                        placeholder="Add custom target workout..."
-                        disabled={uploadProgress > 0 && uploadProgress < 100}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                        onKeyPress={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddCustomTarget();
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddCustomTarget}
-                        disabled={
-                          !customTarget.trim() ||
-                          (uploadProgress > 0 && uploadProgress < 100)
-                        }
-                        className="px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Add
-                      </button>
+                        
+                        {/* Subcategory Suggestions */}
+                        {showSubcategorySuggestions && existingSubcategories.length > 0 && (
+                          <div className="subcategory-suggestions absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                            <div className="p-2">
+                              <div className="text-xs text-gray-500 mb-2 font-medium">Existing subcategories:</div>
+                              {existingSubcategories
+                                .filter(sub => sub.toLowerCase().includes(subcategoryInput.toLowerCase()))
+                                .map((subcategory) => (
+                                  <button
+                                    key={subcategory}
+                                    type="button"
+                                    onClick={() => selectSubcategory(subcategory)}
+                                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                                  >
+                                    {subcategory}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Show existing subcategories when main category is selected */}
+                      {selectedMainCategory && existingSubcategories.length > 0 && (
+                        <div className="mt-2">
+                          <div className="text-xs text-gray-500 mb-1">Existing subcategories for {selectedMainCategory}:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {existingSubcategories.map((subcategory) => (
+                              <button
+                                key={subcategory}
+                                type="button"
+                                onClick={() => selectSubcategory(subcategory)}
+                                className="px-2 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors"
+                              >
+                                {subcategory}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-gray-500 mt-1">
+                        Add a specific area within the main category (e.g., "Lateral Deltoids" for Shoulders)
+                      </p>
                     </div>
+
+                    {/* Add Button */}
+                    <button
+                      type="button"
+                      onClick={addTargetWithSubcategory}
+                      disabled={!selectedMainCategory || (uploadProgress > 0 && uploadProgress < 100)}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <FaPlus className="w-3 h-3" />
+                      Add Target Workout
+                    </button>
                   </div>
 
-                  {/* Selected Custom Targets */}
+                  {/* Selected Targets Display */}
                   {editing.target && editing.target.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="pt-4 border-t border-gray-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-sm font-medium text-gray-700">
+                          Selected Target Workouts
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          ({editing.target.length})
+                        </span>
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         {editing.target.map((target, index) => (
                           <span
                             key={index}
-                            className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm rounded-full"
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm rounded-full border border-primary/20"
                           >
                             {target}
                             <button
                               type="button"
-                              onClick={() => {
-                                const currentTargets = editing.target || [];
-                                setEditing((s) => ({
-                                  ...s,
-                                  target: currentTargets.filter(
-                                    (_, i) => i !== index,
-                                  ),
-                                }));
-                              }}
+                              onClick={() => removeTarget(target)}
                               disabled={
                                 uploadProgress > 0 && uploadProgress < 100
                               }
@@ -1029,6 +1266,11 @@ const Guide = () => {
                         ))}
                       </div>
                     </div>
+                  )}
+                  {validationErrors.target && (
+                    <p className="text-xs text-red-500 mt-2 italic">
+                      {validationErrors.target}
+                    </p>
                   )}
                 </div>
               </div>
@@ -1109,7 +1351,7 @@ const Guide = () => {
                 >
                   <FormInput
                     type="textarea"
-                    rows={2}
+                    rows={4}
                     value={editing.instructions}
                     onChange={(e) => {
                       setEditing((s) => ({
@@ -1123,7 +1365,7 @@ const Guide = () => {
                         }));
                       }
                     }}
-                    placeholder="Enter detailed instructions"
+                    placeholder="Enter detailed instructions (press Enter for new lines)"
                     required={true}
                     disabled={uploadProgress > 0 && uploadProgress < 100}
                     className={
@@ -1210,10 +1452,7 @@ const Guide = () => {
                     disabled={uploadProgress > 0 && uploadProgress < 100}
                     options={[
                       { value: "Published", label: "Published" },
-                      { value: "Draft", label: "Draft" },
-                      ...(editing?.id
-                        ? [{ value: "Archive", label: "Archive" }]
-                        : []),
+                      { value: "Draft", label: "Draft" }
                     ]}
                     placeholder="Select Status"
                     required={true}
@@ -1326,6 +1565,27 @@ const Guide = () => {
         onConfirm={confirmDeleteGuide}
         deleting={deleting}
       />
+
+      {/* Toast Notifications - Multiple simultaneous toasts */}
+      {activeToasts.map((toast, index) => (
+        <div
+          key={toast.id}
+          style={{
+            position: 'fixed',
+            top: `${20 + (index * 80)}px`, // Stack toasts vertically
+            right: '20px',
+            zIndex: 1000 + index,
+          }}
+        >
+          <ToastNotification
+            isVisible={true}
+            onClose={() => removeToast(toast.id)}
+            message={toast.count > 1 ? `${toast.message} (${toast.count}x)` : toast.message}
+            type={toast.type}
+            position="top-right"
+          />
+        </div>
+      ))}
     </div>
   );
 };

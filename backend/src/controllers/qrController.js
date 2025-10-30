@@ -8,6 +8,7 @@ exports.generateQRCode = async (req, res) => {
   }
 
   try {
+    // Generate QR code with the same format as mobile app
     const qrCodeDataUrl = await createQRCodeForUser(uid);
     res.status(200).json({ qrCode: qrCodeDataUrl });
   } catch (err) {

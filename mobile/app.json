@@ -21,7 +21,14 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.zeeeddd.mobile"
+      "package": "com.gymplify.mobile",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "WAKE_LOCK",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -39,7 +46,17 @@
           "backgroundColor": "#FAFAFA"
         }
       ],
-      "expo-web-browser"
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#FF6B6B",
+          "androidMode": "exact",
+          "androidCollapsedTitle": "#{unread_notifications} new notifications"
+        }
+      ],
+      "expo-web-browser",
+      "expo-font"
     ],
     "extra": {
       "router": {},

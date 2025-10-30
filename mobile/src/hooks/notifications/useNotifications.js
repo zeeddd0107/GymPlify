@@ -1,61 +1,99 @@
-import { useState } from "react";
-import { Alert } from "react-native";
-import { fetchNotifications } from "@/src/services/dashboardService";
-import { useAuth } from "@/src/context";
-import Logger from "@/src/utils/logger";
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "../../context";
+import notificationService from "../../services/notificationService";
+import pushNotificationService from "../../services/pushNotificationService";
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState([]);
-  const { user: authUser, loading: authLoading } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
-  const fetchNotificationsHook = async () => {
-    try {
-      Logger.hook("useNotifications", "Fetching notifications");
-
-      // Don't fetch if authentication is still loading
-      if (authLoading) {
-        Logger.debug(
-          "Authentication still loading, skipping notifications fetch",
-        );
-        return;
-      }
-
-      // Don't fetch if no authenticated user
-      if (!authUser) {
-        Logger.debug("No authenticated user, skipping notifications fetch");
-        return;
-      }
-
-      // Don't fetch if user ID is not available
-      if (!authUser.id) {
-        Logger.debug("No user ID available, skipping notifications fetch");
-        return;
-      }
-
-      Logger.hook(
-        "useNotifications",
-        `Fetching data for user: ${authUser.email}`,
-      );
-      const notifs = await fetchNotifications(authUser.id);
-      setNotifications(notifs);
-      Logger.hook(
-        "useNotifications",
-        `Notifications fetched: ${notifs.length}`,
-      );
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      Alert.alert("Error", "Failed to load notifications");
+  // Subscribe to real-time notifications
+  useEffect(() => {
+    // Mobile app uses user.id instead of user.uid
+    const userId = user?.uid || user?.id;
+    
+    if (!userId) {
+      // Silently handle no user case (happens during logout/login)
+      setNotifications([]);
+      setLoading(false);
+      return;
     }
-  };
 
-  const getUnreadCount = () => {
-    return notifications.filter((n) => n.unread).length;
-  };
+    setLoading(true);
+
+    const unsubscribe = notificationService.subscribeToNotifications(
+      userId,
+      (allNotifications) => {
+        // Update state with all notifications
+        // Push notifications are handled by the service singleton
+        setNotifications(allNotifications);
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.uid, user?.id]);
+
+  // Mark notification as read
+  const markAsRead = useCallback(async (notificationId) => {
+    try {
+      await notificationService.markAsRead(notificationId);
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error);
+    }
+  }, []);
+
+  // Mark all notifications as read
+  const markAllAsRead = useCallback(async () => {
+    const userId = user?.uid || user?.id;
+    if (!userId) return;
+
+    try {
+      await notificationService.markAllAsRead(userId);
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+    }
+  }, [user?.uid, user?.id]);
+
+  // Delete notification
+  const deleteNotification = useCallback(async (notificationId) => {
+    try {
+      await notificationService.deleteNotification(notificationId);
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
+    }
+  }, []);
+
+  // Get unread count and update badge
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Update badge count when unread count changes
+  useEffect(() => {
+    pushNotificationService.setBadgeCount(unreadCount).catch((error) => {
+      console.error("Failed to update badge count:", error);
+    });
+  }, [unreadCount]);
+
+  // Get notifications by type
+  const getNotificationsByType = useCallback(
+    (type) => {
+      return notifications.filter((n) => n.type === type);
+    },
+    [notifications]
+  );
 
   return {
     notifications,
-    setNotifications,
-    fetchNotificationsHook,
-    getUnreadCount,
+    loading,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    getNotificationsByType,
   };
 };
+
+export default useNotifications;

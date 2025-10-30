@@ -112,12 +112,43 @@ export default function SessionsScreen() {
     router.push(url);
   };
 
-  // Check if user can book sessions (only coaching plans)
-  const canBookSessions = () => {
-    if (!subscriptionPlan) return false;
-    const planName = subscriptionPlan.name?.toLowerCase() || "";
-    return planName.includes("coaching");
-  };
+  // Add state for subscription expiry check
+  const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false);
+  const [canBookSessionsState, setCanBookSessionsState] = useState(false);
+  
+  // Check subscription expiry status and session booking eligibility
+  useEffect(() => {
+    const checkExpiryAndEligibility = async () => {
+      if (!authUser?.id) {
+        setIsSubscriptionExpired(false);
+        setCanBookSessionsState(false);
+        return;
+      }
+      
+      try {
+        const activeSubscription = await getUserActiveSubscription(authUser.id);
+        const isExpired = activeSubscription && activeSubscription.isExpired;
+        
+        setIsSubscriptionExpired(isExpired || false);
+        
+        // Check if user can book sessions (requires active subscription + coaching plan)
+        if (isExpired || !activeSubscription) {
+          setCanBookSessionsState(false);
+        } else if (subscriptionPlan) {
+          const planName = subscriptionPlan.name?.toLowerCase() || "";
+          setCanBookSessionsState(planName.includes("coaching"));
+        } else {
+          setCanBookSessionsState(false);
+        }
+      } catch (error) {
+        console.error("Error checking subscription expiry:", error);
+        setIsSubscriptionExpired(false);
+        setCanBookSessionsState(false);
+      }
+    };
+    
+    checkExpiryAndEligibility();
+  }, [authUser?.id, subscriptionPlan]);
 
   if (loading) {
     return (
@@ -165,7 +196,26 @@ export default function SessionsScreen() {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4361EE" />
           </View>
-        ) : !canBookSessions() ? (
+        ) : isSubscriptionExpired ? (
+          <View style={styles.restrictionContainer}>
+            <Ionicons name="time-outline" size={64} color="#DC2626" />
+            <Text style={[styles.restrictionTitle, { color: theme.text }]}>
+              Subscription Expired
+            </Text>
+            <Text style={[styles.restrictionSubtext, { color: theme.text }]}>
+              Your subscription has expired. Renew your subscription to access
+              session booking and other premium features.
+            </Text>
+            <Pressable
+              style={styles.upgradeButton}
+              onPress={() => router.push("/subscriptions")}
+            >
+              <Text style={styles.upgradeButtonText}>
+                Renew Subscription
+              </Text>
+            </Pressable>
+          </View>
+        ) : !canBookSessionsState ? (
           <View style={styles.restrictionContainer}>
             <Ionicons name="lock-closed-outline" size={64} color="#FF6B6B" />
             <Text style={[styles.restrictionTitle, { color: theme.text }]}>
@@ -197,11 +247,11 @@ export default function SessionsScreen() {
           </View>
         ) : sessions.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="calendar-outline" size={64} color="#CCC" />
+            <Ionicons name="calendar-outline" size={80} color="#666" />
             <Text style={[styles.emptyTitle, { color: theme.text }]}>
               No Sessions Yet
             </Text>
-            <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
+            <Text style={styles.emptySubtext}>
               Book your first workout session to get started
             </Text>
           </View>
@@ -218,8 +268,8 @@ export default function SessionsScreen() {
         )}
       </ScrollView>
 
-      {/* Create Session Floating Button - Only show for coaching plans */}
-      {canBookSessions() && (
+      {/* Create Session Floating Button - Only show for coaching plans AND active subscription */}
+      {!isSubscriptionExpired && canBookSessionsState && (
         <View style={styles.createSessionButtonContainer}>
           <Pressable
             style={styles.createSessionButton}
@@ -439,20 +489,24 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     alignItems: "center",
-    paddingVertical: 60,
+    paddingVertical: 80,
     paddingHorizontal: 20,
+    justifyContent: "center",
+    flex: 1,
   },
   emptyTitle: {
     fontFamily: Fonts.family.semiBold,
     fontSize: 24,
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 24,
+    marginBottom: 12,
   },
   emptySubtext: {
     fontFamily: Fonts.family.regular,
     fontSize: 16,
     textAlign: "center",
     lineHeight: 24,
+    color: "#666666",
+    marginTop: 4,
   },
   sectionTitle: {
     fontFamily: Fonts.family.semiBold,

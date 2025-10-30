@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { AppState, PanResponder } from "react-native";
+import { AppState } from "react-native";
 import { useAuth } from "@/src/context/AuthContext";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -14,6 +14,8 @@ export const useSessionTimeout = () => {
   const warningTimeoutRef = useRef(null);
   const lastActivityRef = useRef(Date.now());
   const appStateRef = useRef(AppState.currentState);
+  const isInitialMount = useRef(true);
+  const previousUserId = useRef(null);
   const [timeRemaining, setTimeRemaining] = useState(SESSION_WARNING_TIME);
   const [showWarning, setShowWarning] = useState(false);
 
@@ -23,13 +25,8 @@ export const useSessionTimeout = () => {
 
     // Don't reset if warning is already showing - this prevents the warning from being hidden
     if (showWarning) {
-      console.log("Session timeout: Warning is showing, skipping reset");
       return;
     }
-
-    console.log(
-      "Session timeout: Setting timeout for 15 minute (warning at 30 seconds)",
-    );
 
     // Clear existing timeouts
     if (timeoutRef.current) {
@@ -45,27 +42,33 @@ export const useSessionTimeout = () => {
     // Hide warning when resetting timeout
     setShowWarning(false);
 
-    // Set warning timeout (30 seconds)
+    // Set warning timeout (14.5 minutes)
     const warningDelay = INACTIVITY_TIMEOUT - SESSION_WARNING_TIME;
-    console.log(
-      `Session timeout: Warning will trigger in ${warningDelay}ms (${warningDelay / 1000} seconds)`,
-    );
 
     warningTimeoutRef.current = setTimeout(() => {
       console.log(
-        "Session timeout: Warning triggered after 30 seconds of inactivity",
+        "Session timeout: Warning triggered after 14.5 minutes of inactivity",
       );
       setShowWarning(true);
     }, warningDelay);
 
-    // Set logout timeout (1 minute) - this will be handled by the warning countdown
+    // Set logout timeout (15 minutes) - this will be handled by the warning countdown
     timeoutRef.current = setTimeout(() => {
       console.log(
         "Session timeout: Auto-logout due to inactivity (backup timeout)",
       );
-      logoutNow();
+      // Use a direct import to avoid dependency issues
+      import("@/src/services/authService").then(({ signOut: authSignOut }) => {
+        authSignOut().then(() => {
+          AsyncStorage.clear();
+          router.replace("/auth");
+        }).catch(() => {
+          AsyncStorage.clear();
+          router.replace("/auth");
+        });
+      });
     }, INACTIVITY_TIMEOUT);
-  }, [user, showWarning, logoutNow]);
+  }, [user, showWarning, router]);
 
   const updateActivity = useCallback(() => {
     // Only update activity if user is authenticated and app is active
@@ -73,11 +76,9 @@ export const useSessionTimeout = () => {
 
     // Don't reset timeout if warning is already showing
     if (showWarning) {
-      console.log("Session timeout: Warning is showing, ignoring activity");
       return;
     }
 
-    console.log("Session timeout: User activity detected, resetting timeout");
     lastActivityRef.current = Date.now();
     resetTimeout();
   }, [user, showWarning, resetTimeout]);
@@ -131,28 +132,11 @@ export const useSessionTimeout = () => {
     }
   }, [router]);
 
-  // Create PanResponder to track user touches
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => {
-        console.log("Session timeout: Touch detected (onStart)");
-        updateActivity();
-        return false; // Don't capture the touch, just track it
-      },
-      onMoveShouldSetPanResponder: () => {
-        console.log("Session timeout: Touch detected (onMove)");
-        updateActivity();
-        return false; // Don't capture the touch, just track it
-      },
-    }),
-  ).current;
+  // Remove PanResponder - we'll use simpler touch tracking in SessionTimeoutWrapper
 
   // Set initial time when warning first appears
   useEffect(() => {
     if (showWarning) {
-      console.log(
-        "Session timeout: Warning appeared, setting time to 30 seconds",
-      );
       setTimeRemaining(SESSION_WARNING_TIME);
     }
   }, [showWarning]);
@@ -161,21 +145,11 @@ export const useSessionTimeout = () => {
   useEffect(() => {
     if (!showWarning) return;
 
-    console.log("Session timeout: Starting countdown interval");
     const interval = setInterval(() => {
-      setTimeRemaining((prev) => {
-        const newTime = Math.max(0, prev - 1000);
-        console.log(
-          "Session timeout: countdown remaining:",
-          newTime / 1000,
-          "seconds",
-        );
-        return newTime;
-      });
+      setTimeRemaining((prev) => Math.max(0, prev - 1000));
     }, 1000);
 
     return () => {
-      console.log("Session timeout: Clearing countdown interval");
       clearInterval(interval);
     };
   }, [showWarning]);
@@ -198,11 +172,14 @@ export const useSessionTimeout = () => {
       handleAppStateChange,
     );
 
-    // Initialize timeout if user is authenticated
-    if (user) {
+    // Initialize timeout if user is authenticated (only log if not initial mount)
+    const userId = user?.id;
+    if (userId) {
+      if (!isInitialMount.current) {
       console.log("Session timeout: User authenticated, initializing timeout");
+      }
       resetTimeout();
-    } else {
+    } else if (!isInitialMount.current) {
       console.log(
         "Session timeout: No user authenticated, skipping timeout initialization",
       );
@@ -218,14 +195,26 @@ export const useSessionTimeout = () => {
         clearTimeout(warningTimeoutRef.current);
       }
     };
-  }, [user, resetTimeout, updateActivity]);
+  }, [user?.id, resetTimeout, updateActivity]);
 
-  // Reset timeout when user changes
+  // Reset timeout when user ID changes (not on every user object change)
   useEffect(() => {
-    if (user) {
+    const userId = user?.id;
+    
+    // Skip logging during initial mount and storage restoration
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      previousUserId.current = userId;
+      return;
+    }
+    
+    // Only log if user ID actually changed (not just object reference)
+    if (userId !== previousUserId.current) {
+    if (userId) {
       console.log("Session timeout: User changed, resetting timeout");
       resetTimeout();
-    } else {
+      } else if (previousUserId.current) {
+        // Only log logout if there was a previous user (not during initial auth flow)
       console.log("Session timeout: User logged out, clearing timeouts");
       // Clear timeout when user logs out
       if (timeoutRef.current) {
@@ -235,8 +224,10 @@ export const useSessionTimeout = () => {
         clearTimeout(warningTimeoutRef.current);
       }
       setShowWarning(false);
+      }
+      previousUserId.current = userId;
     }
-  }, [user, resetTimeout]);
+  }, [user?.id, resetTimeout]);
 
   return {
     resetTimeout,
@@ -245,6 +236,5 @@ export const useSessionTimeout = () => {
     logoutNow,
     showWarning,
     timeRemaining,
-    panResponder,
   };
 };

@@ -31,18 +31,6 @@ export default function AuthGuard({ children }) {
     }
   }, [user, loading, router]);
 
-  // Add a small delay to prevent rapid navigation changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!loading && !user) {
-        // console.log("🛡️ AuthGuard: Timeout - ensuring user is redirected to auth");
-        router.replace("/auth");
-      }
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [loading, user, router]);
-
   // Show loading screen while checking authentication state
   if (loading) {
     return (

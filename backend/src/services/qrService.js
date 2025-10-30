@@ -1,7 +1,11 @@
 const QRCode = require('qrcode');
 
 exports.createQRCodeForUser = async (uid) => {
-  const payload = JSON.stringify({ uid }); // The QR code will encode this JSON object
-  const qrDataUrl = await QRCode.toDataURL(payload); // Generates a base64 image
+  // Generate QR code with the same format as mobile app (uid_timestamp_random)
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 100000);
+  const qrValue = `${uid}_${timestamp}_${random}`;
+  
+  const qrDataUrl = await QRCode.toDataURL(qrValue); // Generates a base64 image
   return qrDataUrl;
 };

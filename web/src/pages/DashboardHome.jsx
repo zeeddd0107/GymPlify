@@ -44,6 +44,7 @@ import {
   getDocs,
   where,
   Timestamp,
+  onSnapshot,
 } from "firebase/firestore";
 
 // Helper formatters
@@ -65,7 +66,8 @@ const DashboardHome = () => {
   const [customDate, setCustomDate] = useState(""); // yyyy-mm-dd
   const [activeMembers, setActiveMembers] = useState(0);
   const [todaysCheckins, setTodaysCheckins] = useState(0);
-  const [lowStockItems, setLowStockItems] = useState(0);
+  const [upcomingSessionsCount, setUpcomingSessionsCount] = useState(0);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -76,17 +78,83 @@ const DashboardHome = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Toast notification state
-  const [toast, setToast] = useState({
-    isVisible: false,
-    message: "",
-    type: "success",
-  });
+  // Smart toast notification system
+  const [activeToasts, setActiveToasts] = useState([]);
+
+  // Function to add a new toast with smart grouping
+  const addToast = (message, type = "success") => {
+    const toastId = Date.now() + Math.random();
+    
+    setActiveToasts(prev => {
+      // Limit to maximum 3 toasts at once
+      if (prev.length >= 3) {
+        // Remove oldest toast to make room
+        const sortedToasts = [...prev].sort((a, b) => a.timestamp - b.timestamp);
+        const filteredToasts = prev.filter(toast => toast.id !== sortedToasts[0].id);
+        
+        const newToast = { 
+          id: toastId, 
+          message, 
+          type,
+          timestamp: Date.now()
+        };
+        
+        return [...filteredToasts, newToast];
+      }
+      
+      // Check for similar operations and group them
+      const similarToast = prev.find(toast => 
+        toast.message === message && 
+        toast.type === type &&
+        (Date.now() - toast.timestamp) < 1000 // Within 1 second
+      );
+      
+      if (similarToast) {
+        // Update existing toast with count
+        const updatedToasts = prev.map(toast => 
+          toast.id === similarToast.id 
+            ? { ...toast, count: (toast.count || 1) + 1, timestamp: Date.now() }
+            : toast
+        );
+        return updatedToasts;
+      }
+      
+      // Add new toast
+      const newToast = { 
+        id: toastId, 
+        message, 
+        type,
+        timestamp: Date.now(),
+        count: 1
+      };
+      
+      return [...prev, newToast];
+    });
+    
+    // Auto-remove toast after 3 seconds
+    setTimeout(() => {
+      setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+    }, 3000);
+  };
+
+  // Function to remove a specific toast
+  const removeToast = (toastId) => {
+    setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+  };
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
+        // Auto-close any stale attendance on dashboard open
+        try {
+          const { autoCheckoutStaleAttendance } = await import(
+            "@/services/attendanceService"
+          );
+          await autoCheckoutStaleAttendance();
+        } catch (autoErr) {
+          console.warn("Auto-checkout skipped:", autoErr?.message || autoErr);
+        }
         // Fetch latest attendance records
         const attendanceRef = collection(db, "attendance");
         const q = query(
@@ -166,13 +234,54 @@ const DashboardHome = () => {
         );
         setTodaysCheckins(attSnap.size);
 
-        // Temporarily align with Inventory card count
-        setLowStockItems(2);
+        // Live subscriptions handled below
       } catch {
         // keep defaults
       }
     };
     fetchTiles();
+  }, []);
+
+  // Live upcoming sessions (next 7 days), filter by status in-memory to avoid composite index
+  useEffect(() => {
+    const sessionsRef = collection(db, "sessions");
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const future = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const q = query(
+      sessionsRef,
+      where("scheduledDate", ">=", Timestamp.fromDate(start)),
+      where("scheduledDate", "<=", Timestamp.fromDate(future)),
+      orderBy("scheduledDate", "asc"),
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const count = snap.docs.filter((d) => ((d.data().status || "").toLowerCase() === "scheduled")).length;
+        setUpcomingSessionsCount(count);
+      },
+      (err) => {
+        console.warn("Upcoming sessions listener error:", err?.message || err);
+        setUpcomingSessionsCount(0);
+      },
+    );
+    return () => unsub();
+  }, []);
+
+  // Live pending requests (Requests tab uses 'pendingSubscriptions')
+  useEffect(() => {
+    const ref = collection(db, "pendingSubscriptions");
+    const unsub = onSnapshot(
+      query(ref, orderBy("requestDate", "desc")),
+      (snap) => {
+        setPendingRequestsCount(snap.size);
+      },
+      (err) => {
+        console.warn("Pending requests listener error:", err?.message || err);
+        setPendingRequestsCount(0);
+      },
+    );
+    return () => unsub();
   }, []);
 
   const isSameDay = (d1, d2) => {
@@ -335,19 +444,11 @@ const DashboardHome = () => {
       setEditingItem(null);
 
       // Show success toast notification
-      setToast({
-        isVisible: true,
-        message: `Attendance record for ${editingItem.name} has been updated successfully!`,
-        type: "success",
-      });
+      addToast(`Attendance record for ${editingItem.name} has been updated successfully!`);
     } catch (error) {
       console.error("Error saving edit:", error);
       // Show error toast notification
-      setToast({
-        isVisible: true,
-        message: "Failed to update attendance record. Please try again.",
-        type: "error",
-      });
+      addToast("Failed to update attendance record. Please try again.", "error");
     } finally {
       setSaving(false);
     }
@@ -421,19 +522,11 @@ const DashboardHome = () => {
           itemType="Attendance Record"
           onDeleteSuccess={(deletedId, deletedItem) => {
             // Show success toast notification
-            setToast({
-              isVisible: true,
-              message: `Attendance record for ${deletedItem?.name || "Unknown"} has been deleted successfully!`,
-              type: "success",
-            });
+            addToast(`Attendance record for ${deletedItem?.name || "Unknown"} has been deleted successfully!`);
           }}
           onDeleteError={() => {
             // Show error toast notification
-            setToast({
-              isVisible: true,
-              message: "Failed to delete attendance record. Please try again.",
-              type: "error",
-            });
+            addToast("Failed to delete attendance record. Please try again.", "error");
           }}
         />
       ),
@@ -468,14 +561,14 @@ const DashboardHome = () => {
         <StatTile
           icon={<FaClipboardList className="text-white text-2xl" />}
           bg="#ff9800"
-          value={2}
+          value={pendingRequestsCount}
           label="Pending Requests"
         />
         <StatTile
-          icon={<FaExclamationTriangle className="text-white text-2xl" />}
-          bg="#f44336"
-          value={lowStockItems}
-          label="Low Stock Items"
+          icon={<FaCalendarCheck className="text-white text-2xl" />}
+          bg="#8b5cf6"
+          value={upcomingSessionsCount}
+          label="Upcoming Sessions (7d)"
         />
       </div>
 
@@ -657,17 +750,31 @@ const DashboardHome = () => {
         )}
       </EditModal>
 
-      {/* Toast Notification */}
-      <ToastNotification
-        isVisible={toast.isVisible}
-        onClose={() => setToast((prev) => ({ ...prev, isVisible: false }))}
-        message={toast.message}
-        type={toast.type}
-        duration={4000}
-        position="top-right"
-      />
+      {/* Toast Notifications - Multiple simultaneous toasts */}
+      {activeToasts.map((toast, index) => (
+        <div
+          key={toast.id}
+          style={{
+            position: 'fixed',
+            top: `${20 + (index * 80)}px`, // Stack toasts vertically
+            right: '20px',
+            zIndex: 1000 + index,
+          }}
+        >
+          <ToastNotification
+            isVisible={true}
+            onClose={() => removeToast(toast.id)}
+            message={toast.count > 1 ? `${toast.message} (${toast.count}x)` : toast.message}
+            type={toast.type}
+            duration={4000}
+            position="top-right"
+          />
+        </div>
+      ))}
     </div>
   );
 };
 
 export default DashboardHome;
+
+

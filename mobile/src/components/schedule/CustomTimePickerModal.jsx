@@ -9,6 +9,11 @@ export default function CustomTimePickerModal({
   onClose,
   onTimeSelect,
   selectedTime,
+  selectedDate,
+  currentYear,
+  currentMonth,
+  capacityMap = {},
+  maxCapacity = 5,
 }) {
   const timeSlots = useMemo(
     () => [
@@ -22,12 +27,56 @@ export default function CustomTimePickerModal({
     [],
   );
 
+  // Helper function to check if a time slot is in the past for today
+  const isTimeSlotInPast = useCallback((timeSlot) => {
+    if (!selectedDate || !timeSlot) return false;
+
+    const today = new Date();
+
+    // Check if the selected date is today by comparing the actual dates
+    const selectedDateObj = new Date(currentYear, currentMonth, selectedDate);
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    );
+    const isToday = selectedDateObj.getTime() === todayStart.getTime();
+
+    if (!isToday) return false;
+
+    try {
+      // Parse the time slot (e.g., "4:00 PM - 5:00 PM")
+      const startPart = timeSlot.split("-")[0].trim(); // "4:00 PM"
+      const [time, meridiem] = startPart.split(" ");
+      let [hours, minutes] = time.split(":").map((t) => parseInt(t, 10));
+
+      if (meridiem?.toUpperCase() === "PM" && hours !== 12) hours += 12;
+      if (meridiem?.toUpperCase() === "AM" && hours === 12) hours = 0;
+
+      const timeSlotDate = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        hours,
+        minutes,
+      );
+      return timeSlotDate < today;
+    } catch (error) {
+      console.error("Error parsing time slot:", error);
+      return false;
+    }
+  }, [selectedDate, currentYear, currentMonth]);
+
   const handleTimeSelect = useCallback(
     (time) => {
+      // Don't allow selection of past time slots
+      if (isTimeSlotInPast(time)) {
+        return;
+      }
       onTimeSelect(time);
       // Don't close the modal - let user keep selecting until they click X or outside
     },
-    [onTimeSelect],
+    [onTimeSelect, isTimeSlotInPast],
   );
 
   useEffect(() => {
@@ -61,25 +110,35 @@ export default function CustomTimePickerModal({
 
           {/* Time Options */}
           <View style={styles.timeOptions}>
-            {timeSlots.map((time, index) => (
-              <Pressable
-                key={index}
-                style={[
-                  styles.timeOption,
-                  selectedTime === time && styles.timeOptionSelected,
-                ]}
-                onPress={() => handleTimeSelect(time)}
-              >
-                <Text
+            {timeSlots.map((time, index) => {
+              const isPast = isTimeSlotInPast(time);
+              const isFull = (capacityMap?.[time] || 0) >= maxCapacity;
+              const isSelected = selectedTime === time;
+              const isDisabled = isPast || isFull;
+              
+              return (
+                <Pressable
+                  key={index}
                   style={[
-                    styles.timeOptionText,
-                    selectedTime === time && styles.timeOptionTextSelected,
+                    styles.timeOption,
+                    isSelected && styles.timeOptionSelected,
+                    isDisabled && styles.timeOptionDisabled,
                   ]}
+                  onPress={() => handleTimeSelect(time)}
+                  disabled={isDisabled}
                 >
-                  {time}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text
+                    style={[
+                      styles.timeOptionText,
+                      isSelected && styles.timeOptionTextSelected,
+                      isDisabled && styles.timeOptionTextDisabled,
+                    ]}
+                  >
+                    {time}{isFull ? "  (Full)" : ""}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
 
           {/* Action Buttons */}
@@ -158,6 +217,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#4361EE", // Blue background for selected
     borderColor: "#4361EE",
   },
+  timeOptionDisabled: {
+    backgroundColor: "#F5F5F5", // Light gray background for disabled
+    borderColor: "#E0E0E0",
+    opacity: 0.5,
+  },
   timeOptionText: {
     fontFamily: Fonts.family.medium,
     fontSize: 16,
@@ -166,6 +230,9 @@ const styles = StyleSheet.create({
   },
   timeOptionTextSelected: {
     color: "white", // White text for selected
+  },
+  timeOptionTextDisabled: {
+    color: "#999", // Gray text for disabled
   },
   actionButtons: {
     flexDirection: "row",
