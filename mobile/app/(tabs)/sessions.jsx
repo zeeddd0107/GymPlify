@@ -8,10 +8,12 @@ import {
   RefreshControl,
   Modal,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { StatusBar, setStatusBarStyle } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
 import { useSessions } from "@/src/hooks";
@@ -23,6 +25,7 @@ export default function SessionsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { user: authUser } = useAuth();
+  const insets = useSafeAreaInsets();
   const [selectedSession, setSelectedSession] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [showWorkoutSchedulePopup, setShowWorkoutSchedulePopup] =
@@ -115,7 +118,7 @@ export default function SessionsScreen() {
   // Add state for subscription expiry check
   const [isSubscriptionExpired, setIsSubscriptionExpired] = useState(false);
   const [canBookSessionsState, setCanBookSessionsState] = useState(false);
-  
+
   // Check subscription expiry status and session booking eligibility
   useEffect(() => {
     const checkExpiryAndEligibility = async () => {
@@ -124,13 +127,13 @@ export default function SessionsScreen() {
         setCanBookSessionsState(false);
         return;
       }
-      
+
       try {
         const activeSubscription = await getUserActiveSubscription(authUser.id);
         const isExpired = activeSubscription && activeSubscription.isExpired;
-        
+
         setIsSubscriptionExpired(isExpired || false);
-        
+
         // Check if user can book sessions (requires active subscription + coaching plan)
         if (isExpired || !activeSubscription) {
           setCanBookSessionsState(false);
@@ -146,7 +149,7 @@ export default function SessionsScreen() {
         setCanBookSessionsState(false);
       }
     };
-    
+
     checkExpiryAndEligibility();
   }, [authUser?.id, subscriptionPlan]);
 
@@ -210,9 +213,7 @@ export default function SessionsScreen() {
               style={styles.upgradeButton}
               onPress={() => router.push("/subscriptions")}
             >
-              <Text style={styles.upgradeButtonText}>
-                Renew Subscription
-              </Text>
+              <Text style={styles.upgradeButtonText}>Renew Subscription</Text>
             </Pressable>
           </View>
         ) : !canBookSessionsState ? (
@@ -270,7 +271,12 @@ export default function SessionsScreen() {
 
       {/* Create Session Floating Button - Only show for coaching plans AND active subscription */}
       {!isSubscriptionExpired && canBookSessionsState && (
-        <View style={styles.createSessionButtonContainer}>
+        <View
+          style={[
+            styles.createSessionButtonContainer,
+            { bottom: 20 + insets.bottom },
+          ]}
+        >
           <Pressable
             style={styles.createSessionButton}
             onPress={handleCreateSession}
@@ -405,6 +411,11 @@ export default function SessionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    ...Platform.select({
+      ios: {
+        overflow: "visible",
+      },
+    }),
   },
   header: {
     flexDirection: "row",
@@ -437,9 +448,22 @@ const styles = StyleSheet.create({
   },
   createSessionButtonContainer: {
     position: "absolute",
-    bottom: 20,
     right: 20,
     zIndex: 1000,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: {
+          width: 0,
+          height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   createSessionButton: {
     width: 60,
@@ -448,14 +472,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#4361EE",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   loadingContainer: {
     flex: 1,

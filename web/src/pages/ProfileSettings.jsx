@@ -60,7 +60,6 @@ const ProfileSettings = () => {
     hasSpecialChar: false,
   });
 
-
   // Fetch user data from Firestore
   useEffect(() => {
     const fetchUserData = async () => {
@@ -146,14 +145,14 @@ const ProfileSettings = () => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setError('Please select a valid image file');
+      if (!file.type.startsWith("image/")) {
+        setError("Please select a valid image file");
         return;
       }
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        setError('Image size must be less than 5MB');
+        setError("Image size must be less than 5MB");
         return;
       }
 
@@ -163,7 +162,7 @@ const ProfileSettings = () => {
         setImagePreview(e.target.result);
       };
       reader.readAsDataURL(file);
-      
+
       // Show save button when image is changed
       setIsEditing(true);
     }
@@ -180,37 +179,42 @@ const ProfileSettings = () => {
 
       // Upload profile image to Firebase Storage if a new image was selected
       if (profileImage) {
-        const { ref, uploadBytes, getDownloadURL, deleteObject, listAll } = await import("firebase/storage");
+        const { ref, uploadBytes, getDownloadURL, deleteObject, listAll } =
+          await import("firebase/storage");
         const { storage } = await import("@/config/firebase");
-        
+
         // Create user-specific folder path
         const userFolder = `profile-pictures/${user.uid}`;
-        
+
         // Delete all old profile pictures in the user's folder
         try {
           const folderRef = ref(storage, userFolder);
           const filesList = await listAll(folderRef);
-          
+
           // Delete all existing files in the user's folder
-          const deletePromises = filesList.items.map((item) => deleteObject(item));
+          const deletePromises = filesList.items.map((item) =>
+            deleteObject(item),
+          );
           await Promise.all(deletePromises);
-          
+
           if (filesList.items.length > 0) {
-            console.log(`Deleted ${filesList.items.length} old profile picture(s)`);
+            console.log(
+              `Deleted ${filesList.items.length} old profile picture(s)`,
+            );
           }
         } catch (deleteError) {
           console.warn("Could not delete old profile pictures:", deleteError);
           // Continue even if delete fails
         }
-        
+
         // Create a reference to the new file location in user's folder
-        const fileExtension = profileImage.name.split('.').pop();
+        const fileExtension = profileImage.name.split(".").pop();
         const fileName = `profile_${Date.now()}.${fileExtension}`;
         const storageRef = ref(storage, `${userFolder}/${fileName}`);
-        
+
         // Upload the file
         await uploadBytes(storageRef, profileImage);
-        
+
         // Get the download URL
         photoURL = await getDownloadURL(storageRef);
         console.log("New profile picture uploaded to user folder:", photoURL);
@@ -226,10 +230,10 @@ const ProfileSettings = () => {
       // Refetch user data to ensure we have the latest information
       const updatedUserData = await getUserData(user.uid);
       setUserData(updatedUserData);
-      
+
       // Force image refresh by adding cache-busting timestamp
-      const cacheBustedURL = updatedUserData.photoURL 
-        ? `${updatedUserData.photoURL}${updatedUserData.photoURL.includes('?') ? '&' : '?'}t=${Date.now()}`
+      const cacheBustedURL = updatedUserData.photoURL
+        ? `${updatedUserData.photoURL}${updatedUserData.photoURL.includes("?") ? "&" : "?"}t=${Date.now()}`
         : user.photoURL || null;
       setImagePreview(cacheBustedURL);
 
@@ -303,7 +307,7 @@ const ProfileSettings = () => {
     }));
 
     // Update validation when typing new password
-    if (name === 'newPassword') {
+    if (name === "newPassword") {
       const validation = validatePassword(value, profileData.displayName);
       setPasswordValidation({
         minLength: validation.minLength,
@@ -313,7 +317,6 @@ const ProfileSettings = () => {
       });
     }
   };
-
 
   const togglePasswordVisibility = (field) => {
     setShowPasswords((prev) => ({
@@ -340,8 +343,16 @@ const ProfileSettings = () => {
 
     // Check for weak passwords
     const weakPasswords = [
-      'password', 'password123', '12345678', 'qwerty', 'abc123',
-      'letmein', 'welcome', 'monkey', '1234567890', 'password1'
+      "password",
+      "password123",
+      "12345678",
+      "qwerty",
+      "abc123",
+      "letmein",
+      "welcome",
+      "monkey",
+      "1234567890",
+      "password1",
     ];
     if (weakPasswords.includes(password.toLowerCase())) {
       validation.notWeakPassword = false;
@@ -377,23 +388,35 @@ const ProfileSettings = () => {
 
     // Step 2: FIRST verify the current password is correct
     try {
-      const { EmailAuthProvider, reauthenticateWithCredential } = await import("firebase/auth");
-      const credential = EmailAuthProvider.credential(user.email, passwordData.currentPassword);
+      const { EmailAuthProvider, reauthenticateWithCredential } = await import(
+        "firebase/auth"
+      );
+      const credential = EmailAuthProvider.credential(
+        user.email,
+        passwordData.currentPassword,
+      );
       await reauthenticateWithCredential(user, credential);
-      
+
       // Current password is correct, continue with validation
     } catch (error) {
       console.error("Current password verification error:", error);
-      
+
       // Handle authentication errors
-      let errorMessage = "The current password you entered is incorrect. Please check and try again.";
-      
-      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-login-credentials') {
-        errorMessage = "The current password you entered doesn't match our records. Please try again.";
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = "Too many failed attempts. Please wait a few minutes and try again.";
+      let errorMessage =
+        "The current password you entered is incorrect. Please check and try again.";
+
+      if (
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/invalid-credential" ||
+        error.code === "auth/invalid-login-credentials"
+      ) {
+        errorMessage =
+          "The current password you entered doesn't match our records. Please try again.";
+      } else if (error.code === "auth/too-many-requests") {
+        errorMessage =
+          "Too many failed attempts. Please wait a few minutes and try again.";
       }
-      
+
       setError(errorMessage);
       setLoading(false);
       return;
@@ -401,13 +424,18 @@ const ProfileSettings = () => {
 
     // Step 3: Check if new password and confirm password match
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setError("New password and confirm password do not match. Please make sure they are the same.");
+      setError(
+        "New password and confirm password do not match. Please make sure they are the same.",
+      );
       setLoading(false);
       return;
     }
 
     // Step 4: Validate new password requirements
-    const validation = validatePassword(passwordData.newPassword, profileData.displayName);
+    const validation = validatePassword(
+      passwordData.newPassword,
+      profileData.displayName,
+    );
     const requiredChecks = [
       validation.minLength,
       validation.hasUppercase,
@@ -417,19 +445,25 @@ const ProfileSettings = () => {
     const allRequirementsMet = requiredChecks.every(Boolean);
 
     if (!allRequirementsMet) {
-      setError("Your new password doesn't meet all the requirements. Please check the password requirements below.");
+      setError(
+        "Your new password doesn't meet all the requirements. Please check the password requirements below.",
+      );
       setLoading(false);
       return;
     }
 
     if (!validation.noPersonalData) {
-      setError("Your password should not contain your personal information. Please choose a different password.");
+      setError(
+        "Your password should not contain your personal information. Please choose a different password.",
+      );
       setLoading(false);
       return;
     }
 
     if (!validation.notWeakPassword) {
-      setError("This password is too common and easy to guess. Please choose a stronger password.");
+      setError(
+        "This password is too common and easy to guess. Please choose a stronger password.",
+      );
       setLoading(false);
       return;
     }
@@ -440,9 +474,11 @@ const ProfileSettings = () => {
         passwordData.currentPassword,
         passwordData.newPassword,
       );
-      
+
       // Success!
-      setSuccess("Great! Your password has been changed successfully. Please use your new password when logging in next time.");
+      setSuccess(
+        "Great! Your password has been changed successfully. Please use your new password when logging in next time.",
+      );
       setPasswordData({
         currentPassword: "",
         newPassword: "",
@@ -461,41 +497,21 @@ const ProfileSettings = () => {
       }, 5000);
     } catch (error) {
       console.error("Password change error:", error);
-      
+
       // Handle any remaining errors
       let errorMessage = "We couldn't change your password. Please try again.";
-      
-      if (error.code === 'auth/weak-password') {
-        errorMessage = "The new password is too weak. Please choose a stronger password.";
-      } else if (error.code === 'auth/requires-recent-login') {
-        errorMessage = "For security reasons, please log out and log in again before changing your password.";
+
+      if (error.code === "auth/weak-password") {
+        errorMessage =
+          "The new password is too weak. Please choose a stronger password.";
+      } else if (error.code === "auth/requires-recent-login") {
+        errorMessage =
+          "For security reasons, please log out and log in again before changing your password.";
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveSettings = async (section) => {
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      // Simulate API call for saving settings
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      setSuccess(`${section} settings saved successfully!`);
-
-      // Hide success message after 3 seconds
-      setTimeout(() => {
-        setSuccess("");
-      }, 3000);
-    } catch (error) {
-      setError(error.message || "Failed to save settings");
     } finally {
       setLoading(false);
     }
@@ -580,358 +596,426 @@ const ProfileSettings = () => {
               <div className="bg-white rounded-lg shadow-md px-8 py-6">
                 {/* Profile Information Tab */}
                 {activeTab === "profile" && (
-                <div>
-                  {userDataLoading && (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                      <span className="ml-3 text-gray-600">
-                        Loading profile data...
-                      </span>
-                    </div>
-                  )}
-                  {!userDataLoading && (
-                    <>
-                      {/* User Header Section */}
-                      <div className="mb-8">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-6">
-                            {/* Profile Avatar */}
-                            <div className="relative">
-                              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                                {imagePreview ? (
-                                  <img
-                                    key={imagePreview}
-                                    src={imagePreview}
-                                    alt="Profile"
-                                    className="w-full h-full object-cover"
+                  <div>
+                    {userDataLoading && (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <span className="ml-3 text-gray-600">
+                          Loading profile data...
+                        </span>
+                      </div>
+                    )}
+                    {!userDataLoading && (
+                      <>
+                        {/* User Header Section */}
+                        <div className="mb-8">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-6">
+                              {/* Profile Avatar */}
+                              <div className="relative">
+                                <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                                  {imagePreview ? (
+                                    <img
+                                      key={imagePreview}
+                                      src={imagePreview}
+                                      alt="Profile"
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <FaUser className="text-3xl text-gray-400" />
+                                  )}
+                                </div>
+                                <label className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full cursor-pointer hover:bg-primary/90 transition-colors shadow-md">
+                                  <FaCamera className="text-sm" />
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    className="hidden"
                                   />
-                                ) : (
-                                  <FaUser className="text-3xl text-gray-400" />
-                                )}
+                                </label>
                               </div>
-                              <label className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full cursor-pointer hover:bg-primary/90 transition-colors shadow-md">
-                                <FaCamera className="text-sm" />
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={handleImageUpload}
-                                  className="hidden"
-                                />
-                              </label>
+
+                              {/* User Info */}
+                              <div>
+                                <h2 className="text-2xl font-bold text-gray-900 mb-1">
+                                  {profileData.displayName}
+                                </h2>
+                                <p className="text-gray-600 text-sm">
+                                  {profileData.email}
+                                </p>
+                              </div>
                             </div>
 
-                            {/* User Info */}
+                            {/* Edit Button */}
+                            <button
+                              onClick={() => setIsEditing(true)}
+                              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold"
+                            >
+                              Edit Profile
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Profile Information Section */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          {/* Left Column */}
+                          <div className="space-y-6">
                             <div>
-                              <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                                {profileData.displayName}
-                              </h2>
-                              <p className="text-gray-600 text-sm">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Full Name
+                              </label>
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  name="displayName"
+                                  value={profileData.displayName}
+                                  onChange={handleInputChange}
+                                  className="w-full px-3 py-2 border border-gray/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-gray-900"
+                                  placeholder="Your Full Name"
+                                />
+                              ) : (
+                                <p className="text-gray-600 py-2">
+                                  {profileData.displayName}
+                                </p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Role
+                              </label>
+                              <p className="text-gray-600 py-2">
+                                {profileData.role}
+                              </p>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Last Login
+                              </label>
+                              <p className="text-gray-600 py-2">
+                                {profileData.lastLogin}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Right Column */}
+                          <div className="space-y-6">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Email Address
+                              </label>
+                              <p className="text-gray-600 py-2">
                                 {profileData.email}
                               </p>
                             </div>
-                          </div>
 
-                          {/* Edit Button */}
-                          <button
-                            onClick={() => setIsEditing(true)}
-                            className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold"
-                          >
-                            Edit Profile
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Profile Information Section */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Left Column */}
-                        <div className="space-y-6">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Full Name
-                            </label>
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                name="displayName"
-                                value={profileData.displayName}
-                                onChange={handleInputChange}
-                                className="w-full px-3 py-2 border border-gray/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-gray-900"
-                                placeholder="Your Full Name"
-                              />
-                            ) : (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Member Since
+                              </label>
                               <p className="text-gray-600 py-2">
-                                {profileData.displayName}
+                                {profileData.memberSince}
                               </p>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Role
-                            </label>
-                            <p className="text-gray-600 py-2">{profileData.role}</p>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Last Login
-                            </label>
-                            <p className="text-gray-600 py-2">
-                              {profileData.lastLogin}
-                            </p>
+                            </div>
                           </div>
                         </div>
 
-                        {/* Right Column */}
-                        <div className="space-y-6">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Email Address
-                            </label>
-                            <p className="text-gray-600 py-2">{profileData.email}</p>
+                        {/* Action Buttons for Editing */}
+                        {isEditing && (
+                          <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray/50">
+                            <button
+                              type="button"
+                              onClick={handleCancelEdit}
+                              disabled={loading}
+                              className="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <FaTimes className="inline mr-2" />
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleSaveProfile}
+                              disabled={loading}
+                              className="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm disabled:opacity-50"
+                            >
+                              <FaSave className="inline mr-2" />
+                              {loading ? "Saving..." : "Save Changes"}
+                            </button>
                           </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
 
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Member Since
-                            </label>
-                            <p className="text-gray-600 py-2">
-                              {profileData.memberSince}
-                            </p>
-                          </div>
+                {/* Change Password Tab */}
+                {activeTab === "password" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-2xl font-bold text-gray-900">
+                        Change Password
+                      </h2>
+                    </div>
+
+                    <form onSubmit={handleChangePassword} className="space-y-6">
+                      <div>
+                        <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
+                          Current Password
+                        </label>
+                        <div className="relative">
+                          <FontAwesomeIcon
+                            icon={faLock}
+                            className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"
+                          />
+                          <input
+                            type={showPasswords.current ? "text" : "password"}
+                            name="currentPassword"
+                            value={passwordData.currentPassword}
+                            onChange={handlePasswordChange}
+                            className="w-full py-3 pl-12 pr-12 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 focus:border-primary placeholder:font-normal placeholder:text-gray-500 bg-white autofill:bg-white autofill:shadow-[inset_0_0_0px_1000px_white]"
+                            placeholder="Enter current password"
+                            required
+                          />
+                          {passwordData.currentPassword &&
+                            passwordData.currentPassword.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  togglePasswordVisibility("current")
+                                }
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                              >
+                                <FontAwesomeIcon
+                                  icon={
+                                    showPasswords.current ? faEyeSlash : faEye
+                                  }
+                                  className="text-sm"
+                                />
+                              </button>
+                            )}
                         </div>
                       </div>
 
-                      {/* Action Buttons for Editing */}
-                      {isEditing && (
-                        <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray/50">
+                      <div>
+                        <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
+                          New Password
+                        </label>
+                        <div className="relative">
+                          <FontAwesomeIcon
+                            icon={faLock}
+                            className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"
+                          />
+                          <input
+                            type={showPasswords.new ? "text" : "password"}
+                            name="newPassword"
+                            value={passwordData.newPassword}
+                            onChange={handlePasswordChange}
+                            className="w-full py-3 pl-12 pr-12 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 focus:border-primary placeholder:font-normal placeholder:text-gray-500 bg-white autofill:bg-white autofill:shadow-[inset_0_0_0px_1000px_white]"
+                            placeholder="Enter new password"
+                            required
+                          />
+                          {passwordData.newPassword &&
+                            passwordData.newPassword.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => togglePasswordVisibility("new")}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                              >
+                                <FontAwesomeIcon
+                                  icon={showPasswords.new ? faEyeSlash : faEye}
+                                  className="text-sm"
+                                />
+                              </button>
+                            )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
+                          Confirm New Password
+                        </label>
+                        <div className="relative">
+                          <FontAwesomeIcon
+                            icon={faLock}
+                            className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"
+                          />
+                          <input
+                            type={showPasswords.confirm ? "text" : "password"}
+                            name="confirmPassword"
+                            value={passwordData.confirmPassword}
+                            onChange={handlePasswordChange}
+                            className="w-full py-3 pl-12 pr-12 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 focus:border-primary placeholder:font-normal placeholder:text-gray-500 bg-white autofill:bg-white autofill:shadow-[inset_0_0_0px_1000px_white]"
+                            placeholder="Confirm new password"
+                            required
+                          />
+                          {passwordData.confirmPassword &&
+                            passwordData.confirmPassword.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  togglePasswordVisibility("confirm")
+                                }
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                              >
+                                <FontAwesomeIcon
+                                  icon={
+                                    showPasswords.confirm ? faEyeSlash : faEye
+                                  }
+                                  className="text-sm"
+                                />
+                              </button>
+                            )}
+                        </div>
+                      </div>
+
+                      {/* Password Requirements - Only show when typing new password */}
+                      {passwordData.newPassword.length > 0 && (
+                        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                          <h4 className="text-sm font-medium text-gray-700 mb-3">
+                            Password Requirements:
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={
+                                  passwordValidation.minLength
+                                    ? "text-green-600 text-sm"
+                                    : "text-red-600 text-sm"
+                                }
+                              >
+                                {passwordValidation.minLength ? "✓" : "✗"}
+                              </span>
+                              <span
+                                className={
+                                  passwordValidation.minLength
+                                    ? "text-green-600 text-sm"
+                                    : "text-gray-600 text-sm"
+                                }
+                              >
+                                At least 8 characters
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={
+                                  passwordValidation.hasUppercase
+                                    ? "text-green-600 text-sm"
+                                    : "text-red-600 text-sm"
+                                }
+                              >
+                                {passwordValidation.hasUppercase ? "✓" : "✗"}
+                              </span>
+                              <span
+                                className={
+                                  passwordValidation.hasUppercase
+                                    ? "text-green-600 text-sm"
+                                    : "text-gray-600 text-sm"
+                                }
+                              >
+                                One uppercase letter
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={
+                                  passwordValidation.hasNumber
+                                    ? "text-green-600 text-sm"
+                                    : "text-red-600 text-sm"
+                                }
+                              >
+                                {passwordValidation.hasNumber ? "✓" : "✗"}
+                              </span>
+                              <span
+                                className={
+                                  passwordValidation.hasNumber
+                                    ? "text-green-600 text-sm"
+                                    : "text-gray-600 text-sm"
+                                }
+                              >
+                                One number
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={
+                                  passwordValidation.hasSpecialChar
+                                    ? "text-green-600 text-sm"
+                                    : "text-red-600 text-sm"
+                                }
+                              >
+                                {passwordValidation.hasSpecialChar ? "✓" : "✗"}
+                              </span>
+                              <span
+                                className={
+                                  passwordValidation.hasSpecialChar
+                                    ? "text-green-600 text-sm"
+                                    : "text-gray-600 text-sm"
+                                }
+                              >
+                                One special character
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {(passwordData.currentPassword.length > 0 ||
+                        passwordData.newPassword.length > 0 ||
+                        passwordData.confirmPassword.length > 0) && (
+                        <div className="flex justify-end space-x-4 pt-6 border-t border-gray/50">
                           <button
                             type="button"
-                            onClick={handleCancelEdit}
-                            disabled={loading}
-                            className="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => {
+                              setPasswordData({
+                                currentPassword: "",
+                                newPassword: "",
+                                confirmPassword: "",
+                              });
+                              setPasswordValidation({
+                                minLength: false,
+                                hasUppercase: false,
+                                hasNumber: false,
+                                hasSpecialChar: false,
+                              });
+                              setError("");
+                            }}
+                            className="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm"
                           >
                             <FaTimes className="inline mr-2" />
-                            Cancel
+                            Clear
                           </button>
                           <button
-                            onClick={handleSaveProfile}
+                            type="submit"
                             disabled={loading}
                             className="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm disabled:opacity-50"
                           >
                             <FaSave className="inline mr-2" />
-                            {loading ? "Saving..." : "Save Changes"}
+                            {loading ? "Changing..." : "Change Password"}
                           </button>
                         </div>
                       )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Change Password Tab */}
-              {activeTab === "password" && (
-                <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      Change Password
-                    </h2>
+                    </form>
                   </div>
+                )}
 
-                  <form onSubmit={handleChangePassword} className="space-y-6">
-                    <div>
-                      <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                        Current Password
-                      </label>
-                      <div className="relative">
-                        <FontAwesomeIcon
-                          icon={faLock}
-                          className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"
-                        />
-                        <input
-                          type={showPasswords.current ? "text" : "password"}
-                          name="currentPassword"
-                          value={passwordData.currentPassword}
-                          onChange={handlePasswordChange}
-                          className="w-full py-3 pl-12 pr-12 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 focus:border-primary placeholder:font-normal placeholder:text-gray-500 bg-white autofill:bg-white autofill:shadow-[inset_0_0_0px_1000px_white]"
-                          placeholder="Enter current password"
-                          required
-                        />
-                        {passwordData.currentPassword && passwordData.currentPassword.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => togglePasswordVisibility("current")}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                          >
-                            <FontAwesomeIcon
-                              icon={showPasswords.current ? faEyeSlash : faEye}
-                              className="text-sm"
-                            />
-                          </button>
-                        )}
-                      </div>
+                {/* Terms & Conditions Tab */}
+                {activeTab === "terms" && (
+                  <div>
+                    <div className="bg-white rounded-lg max-h-[calc(100vh-200px)] overflow-y-auto p-6">
+                      <MarkdownRenderer filePath="/terms-and-conditions.md" />
                     </div>
-
-                    <div>
-                      <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                        New Password
-                      </label>
-                      <div className="relative">
-                        <FontAwesomeIcon
-                          icon={faLock}
-                          className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"
-                        />
-                        <input
-                          type={showPasswords.new ? "text" : "password"}
-                          name="newPassword"
-                          value={passwordData.newPassword}
-                          onChange={handlePasswordChange}
-                          className="w-full py-3 pl-12 pr-12 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 focus:border-primary placeholder:font-normal placeholder:text-gray-500 bg-white autofill:bg-white autofill:shadow-[inset_0_0_0px_1000px_white]"
-                          placeholder="Enter new password"
-                          required
-                        />
-                        {passwordData.newPassword && passwordData.newPassword.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => togglePasswordVisibility("new")}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                          >
-                            <FontAwesomeIcon
-                              icon={showPasswords.new ? faEyeSlash : faEye}
-                              className="text-sm"
-                            />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                        Confirm New Password
-                      </label>
-                      <div className="relative">
-                        <FontAwesomeIcon
-                          icon={faLock}
-                          className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"
-                        />
-                        <input
-                          type={showPasswords.confirm ? "text" : "password"}
-                          name="confirmPassword"
-                          value={passwordData.confirmPassword}
-                          onChange={handlePasswordChange}
-                          className="w-full py-3 pl-12 pr-12 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 focus:border-primary placeholder:font-normal placeholder:text-gray-500 bg-white autofill:bg-white autofill:shadow-[inset_0_0_0px_1000px_white]"
-                          placeholder="Confirm new password"
-                          required
-                        />
-                        {passwordData.confirmPassword && passwordData.confirmPassword.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => togglePasswordVisibility("confirm")}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                          >
-                            <FontAwesomeIcon
-                              icon={showPasswords.confirm ? faEyeSlash : faEye}
-                              className="text-sm"
-                            />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Password Requirements - Only show when typing new password */}
-                    {passwordData.newPassword.length > 0 && (
-                      <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <h4 className="text-sm font-medium text-gray-700 mb-3">Password Requirements:</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className={passwordValidation.minLength ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>
-                              {passwordValidation.minLength ? '✓' : '✗'}
-                            </span>
-                            <span className={passwordValidation.minLength ? 'text-green-600 text-sm' : 'text-gray-600 text-sm'}>
-                              At least 8 characters
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={passwordValidation.hasUppercase ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>
-                              {passwordValidation.hasUppercase ? '✓' : '✗'}
-                            </span>
-                            <span className={passwordValidation.hasUppercase ? 'text-green-600 text-sm' : 'text-gray-600 text-sm'}>
-                              One uppercase letter
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={passwordValidation.hasNumber ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>
-                              {passwordValidation.hasNumber ? '✓' : '✗'}
-                            </span>
-                            <span className={passwordValidation.hasNumber ? 'text-green-600 text-sm' : 'text-gray-600 text-sm'}>
-                              One number
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={passwordValidation.hasSpecialChar ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>
-                              {passwordValidation.hasSpecialChar ? '✓' : '✗'}
-                            </span>
-                            <span className={passwordValidation.hasSpecialChar ? 'text-green-600 text-sm' : 'text-gray-600 text-sm'}>
-                              One special character
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {(passwordData.currentPassword.length > 0 || 
-                      passwordData.newPassword.length > 0 || 
-                      passwordData.confirmPassword.length > 0) && (
-                      <div className="flex justify-end space-x-4 pt-6 border-t border-gray/50">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPasswordData({
-                              currentPassword: "",
-                              newPassword: "",
-                              confirmPassword: "",
-                            });
-                            setPasswordValidation({
-                              minLength: false,
-                              hasUppercase: false,
-                              hasNumber: false,
-                              hasSpecialChar: false,
-                            });
-                            setError("");
-                          }}
-                          className="px-5 py-2.5 rounded-xl border border-slate-200 text-indigo-600 bg-white hover:bg-slate-50 hover:border-primary text-sm"
-                        >
-                          <FaTimes className="inline mr-2" />
-                          Clear
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={loading}
-                          className="px-5 py-2.5 rounded-xl text-white bg-primary hover:bg-secondary text-sm disabled:opacity-50"
-                        >
-                          <FaSave className="inline mr-2" />
-                          {loading ? "Changing..." : "Change Password"}
-                        </button>
-                      </div>
-                    )}
-                  </form>
-                </div>
-              )}
-
-              {/* Terms & Conditions Tab */}
-              {activeTab === "terms" && (
-                <div>
-                  <div className="bg-white rounded-lg max-h-[calc(100vh-200px)] overflow-y-auto p-6">
-                    <MarkdownRenderer filePath="/terms-and-conditions.md" />
                   </div>
-                </div>
-              )}
+                )}
               </div>
             )}
 
             {/* Logout Tab */}
             {activeTab === "logout" && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ marginLeft: '0', marginTop: '0' }}>
+              <div
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                style={{ marginLeft: "0", marginTop: "0" }}
+              >
                 <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4 text-center animate-fadeIn">
                   <div className="mb-6">
                     <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">

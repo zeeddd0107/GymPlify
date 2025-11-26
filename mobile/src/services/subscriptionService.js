@@ -4,8 +4,6 @@ import {
   getRemainingDays,
   isSubscriptionExpired,
 } from "@/src/utils/dateUtils";
-import notificationService from "./notificationService";
-
 const firestore = firebase.firestore();
 
 /**
@@ -368,10 +366,7 @@ export const createPendingSubscription = async (
       " SubscriptionService: Creating pending subscription for user:",
       userId,
     );
-    console.log(
-      " SubscriptionService: User context provided:",
-      !!userContext,
-    );
+    console.log(" SubscriptionService: User context provided:", !!userContext);
 
     // Validate userId
     if (!userId || userId === "undefined") {
@@ -544,7 +539,9 @@ export const createPendingSubscription = async (
     // Note: Admin notifications are sent from the web app (admin side)
     // when admins check the Requests page or via Cloud Functions in production.
     // Client-side cannot query for admin users due to Firestore security rules.
-    console.log("Subscription request created - admins will be notified via web app");
+    console.log(
+      "Subscription request created - admins will be notified via web app",
+    );
 
     return {
       success: true,

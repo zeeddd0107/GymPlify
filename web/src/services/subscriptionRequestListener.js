@@ -1,4 +1,10 @@
-import { collection, query, onSnapshot, orderBy, limit } from "firebase/firestore";
+import {
+  collection,
+  query,
+  onSnapshot,
+  orderBy,
+  limit,
+} from "firebase/firestore";
 import { db } from "@/config/firebase";
 import notificationService from "./notificationService";
 
@@ -9,7 +15,7 @@ let isFirstLoad = true;
  * Start listening for new subscription requests and notify admins
  * This should be called when an admin logs in
  */
-export const startListeningForSubscriptionRequests = (currentUserId) => {
+export const startListeningForSubscriptionRequests = () => {
   // Don't start multiple listeners
   if (unsubscribe) {
     return;
@@ -22,14 +28,16 @@ export const startListeningForSubscriptionRequests = (currentUserId) => {
   const q = query(
     requestsRef,
     orderBy("requestDate", "desc"),
-    limit(50) // Only monitor recent requests
+    limit(50), // Only monitor recent requests
   );
 
   unsubscribe = onSnapshot(q, async (snapshot) => {
     // Skip the first snapshot (existing data on page load)
     if (isFirstLoad) {
       isFirstLoad = false;
-      console.log(" Subscription request listener initialized, monitoring for new requests...");
+      console.log(
+        " Subscription request listener initialized, monitoring for new requests...",
+      );
       return;
     }
 
@@ -53,7 +61,10 @@ export const startListeningForSubscriptionRequests = (currentUserId) => {
               priority: "high",
               actionUrl: "/requests",
             });
-            console.log("Admin notified about new subscription request:", requestId);
+            console.log(
+              "Admin notified about new subscription request:",
+              requestId,
+            );
           } catch (error) {
             console.error("Failed to notify admins:", error);
           }
@@ -77,4 +88,3 @@ export const stopListeningForSubscriptionRequests = () => {
     console.log(" Stopped listening for subscription requests");
   }
 };
-

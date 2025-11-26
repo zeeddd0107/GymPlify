@@ -45,7 +45,6 @@ export default function HomeScreen() {
     attendanceData,
     upcomingSessions,
     workoutTip,
-    notifications,
     // eslint-disable-next-line no-unused-vars
     subscriptions,
     hasActiveSubscription,

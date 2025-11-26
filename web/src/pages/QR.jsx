@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faQrcode,
@@ -32,10 +32,10 @@ const QR = () => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [pendingCheckout, setPendingCheckout] = useState(null);
   const inputRef = useRef(null);
-  
+
   // Mode toggle state (default: 'qr')
   const [mode, setMode] = useState("qr"); // 'qr' or 'manual'
-  
+
   // Manual check-in states
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -64,6 +64,125 @@ const QR = () => {
     setQrValue(e.target.value);
   };
 
+  const processQRCode = useCallback(
+    async (value) => {
+      if (!value || loading) return;
+
+      setLoading(true);
+      setStatus("");
+
+      try {
+        // Extract userId from qrValue (format: userId_timestamp_randomNumber or just userId)
+        const userId = value.split("_")[0];
+        if (!userId) throw new Error("Could not extract userId from QR code.");
+        // Fetch user info
+        const userDoc = await getDoc(doc(db, "users", userId));
+        if (!userDoc.exists())
+          throw new Error(`User with userId ${userId} not found.`);
+        const userInfo = userDoc.data();
+
+        // --- TEMP LOGGING FOR DEBUGGING INDEX ERRORS ---
+        console.log("[DEBUG] Attempting attendance query for userId:", userId);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Start of today
+        console.log("[DEBUG] Query params:", {
+          userId,
+          today,
+        });
+        // --- END TEMP LOGGING ---
+
+        // --- Attendance Logic for Multiple Sessions per Day ---
+        const attendanceQuery = query(
+          collection(db, "attendance"),
+          where("userId", "==", userId),
+          where("checkInTime", ">=", today), // Only today
+          orderBy("checkInTime", "desc"),
+          limit(1),
+        );
+        let attendanceSnap;
+        try {
+          attendanceSnap = await getDocs(attendanceQuery);
+        } catch (firestoreErr) {
+          // --- TEMP LOGGING FOR DEBUGGING INDEX ERRORS ---
+          console.error("[DEBUG] Firestore query error:", firestoreErr);
+          setStatus("Firestore index error: check console for details.");
+          setLoading(false);
+          return;
+          // --- END TEMP LOGGING ---
+        }
+        let openSessionDoc = null;
+        attendanceSnap.forEach((doc) => {
+          const data = doc.data();
+          if (!data.checkOutTime) {
+            openSessionDoc = { id: doc.id, ...data };
+          }
+        });
+
+        if (openSessionDoc) {
+          // --- Check-Out Logic ---
+          // Prevent double check-out: only set checkOutTime if not already set
+          if (openSessionDoc.checkOutTime) {
+            setStatus("You have already checked out for your last session.");
+          } else {
+            const checkOutTime = new Date();
+            // Calculate session duration in minutes (rounded)
+            let duration = null;
+            if (
+              openSessionDoc.checkInTime &&
+              openSessionDoc.checkInTime.toDate
+            ) {
+              duration = Math.round(
+                (checkOutTime - openSessionDoc.checkInTime.toDate()) / 60000,
+              ); // duration in minutes
+            }
+
+            // Check if session is too short (less than 3 minutes)
+            if (duration < 3) {
+              // Show confirmation prompt for short sessions
+              setPendingCheckout({
+                sessionId: openSessionDoc.id,
+                checkOutTime: checkOutTime,
+                duration: duration,
+                checkInTime: openSessionDoc.checkInTime,
+              });
+              setShowConfirmation(true);
+              setStatus(
+                `You've just checked in ${duration === 0 ? "a few seconds" : `${duration} minute${duration !== 1 ? "s" : ""}`} ago. Do you want to check out now?`,
+              );
+            } else {
+              // Process check-out normally for sessions 3+ minutes
+              await updateDoc(doc(db, "attendance", openSessionDoc.id), {
+                checkOutTime: checkOutTime,
+                duration: duration, // Store duration in minutes (integer)
+              });
+              setStatus(
+                `Checked out! Session duration: ${duration ? duration : "-"} min.`,
+              );
+            }
+          }
+        } else {
+          // --- Check-In Logic ---
+          await addDoc(collection(db, "attendance"), {
+            userId,
+            checkInTime: serverTimestamp(),
+            checkOutTime: null, // Not checked out yet
+            duration: null, // Will be set on check-out
+            userInfo,
+            qrValue: value,
+          });
+          // Display user's display name if available, otherwise fallback to userId
+          setStatus(`Checked in for: ${userInfo.displayName || userId}`);
+        }
+        setQrValue("");
+      } catch (err) {
+        setStatus(err.message || "Error processing attendance.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loading],
+  );
+
   // Auto-process QR code when input changes (with debounce)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -73,120 +192,7 @@ const QR = () => {
     }, 500); // 500ms delay to avoid processing while typing
 
     return () => clearTimeout(timer);
-  }, [qrValue, loading]);
-
-  const processQRCode = async (value) => {
-    if (!value || loading) return;
-
-    setLoading(true);
-    setStatus("");
-
-    try {
-      // Extract userId from qrValue (format: userId_timestamp_randomNumber or just userId)
-      const userId = value.split("_")[0];
-      if (!userId) throw new Error("Could not extract userId from QR code.");
-      // Fetch user info
-      const userDoc = await getDoc(doc(db, "users", userId));
-      if (!userDoc.exists())
-        throw new Error(`User with userId ${userId} not found.`);
-      const userInfo = userDoc.data();
-
-      // --- TEMP LOGGING FOR DEBUGGING INDEX ERRORS ---
-      console.log("[DEBUG] Attempting attendance query for userId:", userId);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Start of today
-      console.log("[DEBUG] Query params:", {
-        userId,
-        today,
-      });
-      // --- END TEMP LOGGING ---
-
-      // --- Attendance Logic for Multiple Sessions per Day ---
-      const attendanceQuery = query(
-        collection(db, "attendance"),
-        where("userId", "==", userId),
-        where("checkInTime", ">=", today), // Only today
-        orderBy("checkInTime", "desc"),
-        limit(1),
-      );
-      let attendanceSnap;
-      try {
-        attendanceSnap = await getDocs(attendanceQuery);
-      } catch (firestoreErr) {
-        // --- TEMP LOGGING FOR DEBUGGING INDEX ERRORS ---
-        console.error("[DEBUG] Firestore query error:", firestoreErr);
-        setStatus("Firestore index error: check console for details.");
-        setLoading(false);
-        return;
-        // --- END TEMP LOGGING ---
-      }
-      let openSessionDoc = null;
-      attendanceSnap.forEach((doc) => {
-        const data = doc.data();
-        if (!data.checkOutTime) {
-          openSessionDoc = { id: doc.id, ...data };
-        }
-      });
-
-      if (openSessionDoc) {
-        // --- Check-Out Logic ---
-        // Prevent double check-out: only set checkOutTime if not already set
-        if (openSessionDoc.checkOutTime) {
-          setStatus("You have already checked out for your last session.");
-        } else {
-          const checkOutTime = new Date();
-          // Calculate session duration in minutes (rounded)
-          let duration = null;
-          if (openSessionDoc.checkInTime && openSessionDoc.checkInTime.toDate) {
-            duration = Math.round(
-              (checkOutTime - openSessionDoc.checkInTime.toDate()) / 60000,
-            ); // duration in minutes
-          }
-
-          // Check if session is too short (less than 3 minutes)
-          if (duration < 3) {
-            // Show confirmation prompt for short sessions
-            setPendingCheckout({
-              sessionId: openSessionDoc.id,
-              checkOutTime: checkOutTime,
-              duration: duration,
-              checkInTime: openSessionDoc.checkInTime,
-            });
-            setShowConfirmation(true);
-            setStatus(
-              `You've just checked in ${duration === 0 ? "a few seconds" : `${duration} minute${duration !== 1 ? "s" : ""}`} ago. Do you want to check out now?`,
-            );
-          } else {
-            // Process check-out normally for sessions 3+ minutes
-            await updateDoc(doc(db, "attendance", openSessionDoc.id), {
-              checkOutTime: checkOutTime,
-              duration: duration, // Store duration in minutes (integer)
-            });
-            setStatus(
-              `Checked out! Session duration: ${duration ? duration : "-"} min.`,
-            );
-          }
-        }
-      } else {
-        // --- Check-In Logic ---
-        await addDoc(collection(db, "attendance"), {
-          userId,
-          checkInTime: serverTimestamp(),
-          checkOutTime: null, // Not checked out yet
-          duration: null, // Will be set on check-out
-          userInfo,
-          qrValue: value,
-        });
-        // Display user's display name if available, otherwise fallback to userId
-        setStatus(`Checked in for: ${userInfo.displayName || userId}`);
-      }
-      setQrValue("");
-    } catch (err) {
-      setStatus(err.message || "Error processing attendance.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [qrValue, loading, processQRCode]);
 
   const handleKeyDown = async (e) => {
     // Keep Enter key functionality as backup
@@ -240,13 +246,13 @@ const QR = () => {
       const subscriptionsRef = collection(db, "subscriptions");
       const subscriptionsQuery = query(
         subscriptionsRef,
-        where("status", "==", "active")
+        where("status", "==", "active"),
       );
       const snapshot = await getDocs(subscriptionsQuery);
-      
-      const subscriptionsData = snapshot.docs.map(doc => ({
+
+      const subscriptionsData = snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       }));
 
       console.log("Active subscriptions found:", subscriptionsData.length);
@@ -257,7 +263,7 @@ const QR = () => {
           try {
             // Check if we need to fetch user data
             const hasDisplayName = sub.userDisplayName || sub.displayName;
-            
+
             if (hasDisplayName && !hasDisplayName.includes("@")) {
               // Use existing display name from subscription
               return {
@@ -266,39 +272,45 @@ const QR = () => {
                 customMemberId: sub.customMemberId || "",
                 email: sub.userEmail || sub.email || "",
                 subscriptionId: sub.id,
-                status: sub.status
+                status: sub.status,
               };
             }
-            
+
             // Fetch from users collection if display name not in subscription
             const userDoc = await getDoc(doc(db, "users", sub.userId));
             const userData = userDoc.data();
-            
+
             return {
               userId: sub.userId,
-              displayName: userData?.displayName || userData?.name || sub.displayName || "Unknown User",
-              customMemberId: userData?.customMemberId || sub.customMemberId || "",
+              displayName:
+                userData?.displayName ||
+                userData?.name ||
+                sub.displayName ||
+                "Unknown User",
+              customMemberId:
+                userData?.customMemberId || sub.customMemberId || "",
               email: userData?.email || sub.userEmail || sub.email || "",
               subscriptionId: sub.id,
-              status: sub.status
+              status: sub.status,
             };
           } catch (error) {
             console.error("Error enriching subscription data:", error);
             return {
               userId: sub.userId,
-              displayName: sub.userDisplayName || sub.displayName || "Unknown User",
+              displayName:
+                sub.userDisplayName || sub.displayName || "Unknown User",
               customMemberId: sub.customMemberId || "",
               email: sub.userEmail || sub.email || "",
               subscriptionId: sub.id,
-              status: sub.status
+              status: sub.status,
             };
           }
-        })
+        }),
       );
 
       // Filter by search term
       const searchLower = searchTerm.toLowerCase();
-      const filtered = enrichedResults.filter(user => {
+      const filtered = enrichedResults.filter((user) => {
         return (
           user.displayName.toLowerCase().includes(searchLower) ||
           user.customMemberId.toLowerCase().includes(searchLower) ||
@@ -343,7 +355,7 @@ const QR = () => {
     setSearchQuery("");
     setSearchResults([]);
     setShowSearchResults(false);
-    
+
     // Use the existing processQRCode function with the user's ID
     await processQRCode(user.userId);
   };
@@ -463,52 +475,52 @@ const QR = () => {
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">
                   Scan QR Code
                 </h2>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <FontAwesomeIcon
-                    icon={loading ? faSpinner : faQrcode}
-                    className={`text-gray-400 ${loading ? "animate-spin" : ""}`}
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <FontAwesomeIcon
+                      icon={loading ? faSpinner : faQrcode}
+                      className={`text-gray-400 ${loading ? "animate-spin" : ""}`}
+                    />
+                  </div>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 placeholder-gray-400"
+                    placeholder="Scan QR code or enter code manually..."
+                    value={qrValue}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    disabled={loading}
+                    autoFocus
                   />
                 </div>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 placeholder-gray-400"
-                  placeholder="Scan QR code or enter code manually..."
-                  value={qrValue}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  disabled={loading}
-                  autoFocus
-                />
+                <p className="text-sm text-gray-500 mt-3">
+                  Scan or manually enter a QR code value to record gym
+                  attendance. The system will automatically check members in or
+                  out based on their current status.
+                </p>
               </div>
-              <p className="text-sm text-gray-500 mt-3">
-                Scan or manually enter a QR code value to record gym attendance.
-                The system will automatically check members in or out based on
-                their current status.
-              </p>
-            </div>
 
-            {/* Status Display */}
-            {status && !showConfirmation && (
-              <div
-                className={`p-4 rounded-xl border-2 ${statusInfo.bgColor} ${statusInfo.textColor} transition-all duration-300`}
-              >
-                <div className="flex items-center">
-                  {statusInfo.icon && (
-                    <FontAwesomeIcon
-                      icon={statusInfo.icon}
-                      className="text-xl mr-3 flex-shrink-0"
-                    />
-                  )}
-                  <div className="flex-1">
-                    <p className="font-medium">{status}</p>
+              {/* Status Display */}
+              {status && !showConfirmation && (
+                <div
+                  className={`p-4 rounded-xl border-2 ${statusInfo.bgColor} ${statusInfo.textColor} transition-all duration-300`}
+                >
+                  <div className="flex items-center">
+                    {statusInfo.icon && (
+                      <FontAwesomeIcon
+                        icon={statusInfo.icon}
+                        className="text-xl mr-3 flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <p className="font-medium">{status}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
         )}
 
         {/* Manual Check-In Mode */}
@@ -526,93 +538,100 @@ const QR = () => {
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">
                   Manual Check-In
                 </h2>
-              
-              {/* Search Input */}
-              <div className="relative" ref={searchRef}>
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <FontAwesomeIcon
-                    icon={searchLoading ? faSpinner : faSearch}
-                    className={`text-gray-400 ${searchLoading ? "animate-spin" : ""}`}
-                  />
-                </div>
-                <input
-                  type="text"
-                  className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all duration-200 placeholder-gray-400"
-                  placeholder="Search by name, member ID, or email..."
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  onFocus={() => searchQuery && setShowSearchResults(true)}
-                  disabled={loading}
-                />
-                
-                {/* Search Results Dropdown */}
-                {showSearchResults && searchResults.length > 0 && (
-                  <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-80 overflow-y-auto">
-                    {searchResults.map((user) => (
-                      <button
-                        key={user.userId}
-                        onClick={() => handleUserSelect(user)}
-                        className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3"
-                      >
-                        <div className="flex-shrink-0 w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                          <FontAwesomeIcon icon={faUser} className="text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900 truncate">
-                            {user.displayName}
-                          </p>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            {user.customMemberId && (
-                              <span className="font-medium text-primary">
-                                {user.customMemberId}
-                              </span>
-                            )}
-                            <span className="truncate">{user.email}</span>
-                          </div>
-                        </div>
-                        <div className="flex-shrink-0">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Active
-                          </span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                
-                {/* No Results Message */}
-                {showSearchResults && searchQuery && searchResults.length === 0 && !searchLoading && (
-                  <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg p-4 text-center text-gray-600">
-                    No active members found matching "{searchQuery}"
-                  </div>
-                )}
-              </div>
-              
-              <p className="text-sm text-gray-500 mt-3">
-                Search for a member by name, member ID, or email to manually record their attendance.
-              </p>
-            </div>
 
-            {/* Status Display for Manual Mode */}
-            {status && !showConfirmation && (
-              <div
-                className={`p-4 rounded-xl border-2 ${statusInfo.bgColor} ${statusInfo.textColor} transition-all duration-300 mt-6`}
-              >
-                <div className="flex items-center">
-                  {statusInfo.icon && (
+                {/* Search Input */}
+                <div className="relative" ref={searchRef}>
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <FontAwesomeIcon
-                      icon={statusInfo.icon}
-                      className="text-xl mr-3 flex-shrink-0"
+                      icon={searchLoading ? faSpinner : faSearch}
+                      className={`text-gray-400 ${searchLoading ? "animate-spin" : ""}`}
                     />
+                  </div>
+                  <input
+                    type="text"
+                    className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all duration-200 placeholder-gray-400"
+                    placeholder="Search by name, member ID, or email..."
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    onFocus={() => searchQuery && setShowSearchResults(true)}
+                    disabled={loading}
+                  />
+
+                  {/* Search Results Dropdown */}
+                  {showSearchResults && searchResults.length > 0 && (
+                    <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-80 overflow-y-auto">
+                      {searchResults.map((user) => (
+                        <button
+                          key={user.userId}
+                          onClick={() => handleUserSelect(user)}
+                          className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3"
+                        >
+                          <div className="flex-shrink-0 w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                            <FontAwesomeIcon
+                              icon={faUser}
+                              className="text-white"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-gray-900 truncate">
+                              {user.displayName}
+                            </p>
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              {user.customMemberId && (
+                                <span className="font-medium text-primary">
+                                  {user.customMemberId}
+                                </span>
+                              )}
+                              <span className="truncate">{user.email}</span>
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Active
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   )}
-                  <div className="flex-1">
-                    <p className="font-medium">{status}</p>
+
+                  {/* No Results Message */}
+                  {showSearchResults &&
+                    searchQuery &&
+                    searchResults.length === 0 &&
+                    !searchLoading && (
+                      <div className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg p-4 text-center text-gray-600">
+                        No active members found matching "{searchQuery}"
+                      </div>
+                    )}
+                </div>
+
+                <p className="text-sm text-gray-500 mt-3">
+                  Search for a member by name, member ID, or email to manually
+                  record their attendance.
+                </p>
+              </div>
+
+              {/* Status Display for Manual Mode */}
+              {status && !showConfirmation && (
+                <div
+                  className={`p-4 rounded-xl border-2 ${statusInfo.bgColor} ${statusInfo.textColor} transition-all duration-300 mt-6`}
+                >
+                  <div className="flex items-center">
+                    {statusInfo.icon && (
+                      <FontAwesomeIcon
+                        icon={statusInfo.icon}
+                        className="text-xl mr-3 flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <p className="font-medium">{status}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
         )}
 
         {/* Confirmation Modal */}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,16 +10,14 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme, useAuth } from "@/src/context";
+import { useTheme } from "@/src/context";
 import { Fonts } from "@/src/constants/Fonts";
 import { useNotifications } from "@/src/hooks/notifications/useNotifications";
-import notificationService from "@/src/services/notificationService";
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
   const { notifications, loading, unreadCount, markAsRead, markAllAsRead } =
     useNotifications();
   const [refreshing, setRefreshing] = useState(false);
@@ -104,7 +102,10 @@ export default function NotificationsScreen() {
           Notifications
         </Text>
         {unreadCount > 0 ? (
-          <Pressable style={styles.markAllButtonHeader} onPress={handleMarkAllAsRead}>
+          <Pressable
+            style={styles.markAllButtonHeader}
+            onPress={handleMarkAllAsRead}
+          >
             <Text style={[styles.markAllText, { color: theme.tint }]}>
               Mark All Read
             </Text>
@@ -178,7 +179,8 @@ export default function NotificationsScreen() {
                     style={[
                       styles.notificationIcon,
                       {
-                        backgroundColor: getNotificationColor(notification.type) + "20",
+                        backgroundColor:
+                          getNotificationColor(notification.type) + "20",
                       },
                     ]}
                   >

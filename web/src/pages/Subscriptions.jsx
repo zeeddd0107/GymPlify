@@ -5,7 +5,6 @@ import { SubscriptionsUI } from "@/components/ui";
 const Subscriptions = () => {
   // Use the custom subscriptions hook for all logic
   const {
-    subscriptions,
     loading,
     editModalOpen,
     deleteModalOpen,

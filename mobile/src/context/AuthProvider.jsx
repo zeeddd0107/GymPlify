@@ -25,7 +25,10 @@ export function AuthProvider({ children }) {
         if (userData && isMounted) {
           const parsedUser = JSON.parse(userData);
           if (parsedUser?.id) {
-            Logger.once("auth-restore", "AuthProvider: ✅ Restored user from storage");
+            Logger.once(
+              "auth-restore",
+              "AuthProvider: ✅ Restored user from storage",
+            );
             setUser({
               id: parsedUser.id,
               email: parsedUser.email,
@@ -34,45 +37,58 @@ export function AuthProvider({ children }) {
             });
           }
         }
-      } catch (error) {
-        Logger.once("auth-restore-error", "AuthProvider: ❌ Storage restore failed");
+      } catch {
+        Logger.once(
+          "auth-restore-error",
+          "AuthProvider: ❌ Storage restore failed",
+        );
       }
     };
 
     restoreFromStorage();
 
     // Subscribe to Firebase auth (once, for the lifetime of the app)
-    const unsubscribe = firebase.auth().onAuthStateChanged(async (firebaseUser) => {
-      if (!isMounted) return;
+    const unsubscribe = firebase
+      .auth()
+      .onAuthStateChanged(async (firebaseUser) => {
+        if (!isMounted) return;
 
-      Logger.once("auth-listener", "AuthProvider: 🔥 Auth listener active");
+        Logger.once("auth-listener", "AuthProvider: 🔥 Auth listener active");
 
-      if (firebaseUser) {
-        const userData = {
-          id: firebaseUser.uid,
-          email: firebaseUser.email,
-          name: firebaseUser.displayName,
-          picture: firebaseUser.photoURL,
-        };
-        await AsyncStorage.setItem("@user", JSON.stringify(userData));
-        setUser(userData);
+        if (firebaseUser) {
+          const userData = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email,
+            name: firebaseUser.displayName,
+            picture: firebaseUser.photoURL,
+          };
+          await AsyncStorage.setItem("@user", JSON.stringify(userData));
+          setUser(userData);
 
-        // Register for push notifications
-        pushNotificationService.registerForPushNotifications(firebaseUser.uid).catch((error) => {
-          console.error("Failed to register for push notifications:", error);
-        });
-      } else {
-        await AsyncStorage.removeItem("@user");
-        setUser(null);
-      }
+          // Register for push notifications
+          pushNotificationService
+            .registerForPushNotifications(firebaseUser.uid)
+            .catch((error) => {
+              console.error(
+                "Failed to register for push notifications:",
+                error,
+              );
+            });
+        } else {
+          await AsyncStorage.removeItem("@user");
+          setUser(null);
+        }
 
-      setLoading(false);
-    });
+        setLoading(false);
+      });
 
     // Safety timeout: if auth doesn't resolve in 5s, stop loading
     const timeout = setTimeout(() => {
       if (isMounted) {
-        Logger.once("auth-timeout", "AuthProvider: ⏰ Auth timeout, stopping loader");
+        Logger.once(
+          "auth-timeout",
+          "AuthProvider: ⏰ Auth timeout, stopping loader",
+        );
         setLoading(false);
       }
     }, 5000);
@@ -87,20 +103,27 @@ export function AuthProvider({ children }) {
   const signOut = async () => {
     try {
       Logger.once("auth-signout-start", "AuthProvider: Starting sign out");
-      
+
       // Remove push token before signing out
       if (user?.id) {
-        await pushNotificationService.removePushToken(user.id).catch((error) => {
-          console.error("Failed to remove push token:", error);
-        });
+        await pushNotificationService
+          .removePushToken(user.id)
+          .catch((error) => {
+            console.error("Failed to remove push token:", error);
+          });
       }
-      
-      const { signOut: authSignOut } = await import("@/src/services/authService");
+
+      const { signOut: authSignOut } = await import(
+        "@/src/services/authService"
+      );
       await authSignOut();
       await AsyncStorage.removeItem("@user");
       Logger.once("auth-signout-success", "AuthProvider: Sign out completed");
-    } catch (error) {
-      Logger.once("auth-signout-error", "AuthProvider: Sign out error, trying fallback");
+    } catch {
+      Logger.once(
+        "auth-signout-error",
+        "AuthProvider: Sign out error, trying fallback",
+      );
       try {
         await firebase.auth().signOut();
         await AsyncStorage.removeItem("@user");

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -11,30 +11,34 @@ import {
   Animated,
   Modal,
   Dimensions,
-} from 'react-native';
-import { StatusBar, setStatusBarStyle } from 'expo-status-bar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Feather, Ionicons } from '@expo/vector-icons';
-import { Fonts } from '@/src/constants/Fonts';
-import { firebase } from '@/src/services/firebase';
-import { confirmPasswordReset } from 'firebase/auth';
+} from "react-native";
+import { StatusBar, setStatusBarStyle } from "expo-status-bar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { Feather, Ionicons } from "@expo/vector-icons";
+import { Fonts } from "@/src/constants/Fonts";
+import { firebase } from "@/src/services/firebase";
+import { confirmPasswordReset } from "firebase/auth";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
+
+const SPECIAL_CHAR_REGEX = new RegExp(
+  "[-@#$%^&*()_+=\\[\\]{};':\"\\\\|,.<>/?]",
+);
 
 export default function ResetPasswordScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
-  
-  const { email, resetCode } = params;
 
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const { resetCode } = params;
+
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -53,7 +57,7 @@ export default function ResetPasswordScreen() {
       minLength: password.length >= 8,
       hasUppercase: /[A-Z]/.test(password),
       hasNumber: /[0-9]/.test(password),
-      hasSpecialChar: /[@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+      hasSpecialChar: SPECIAL_CHAR_REGEX.test(password),
     };
 
     setPasswordValidation(validation);
@@ -66,17 +70,17 @@ export default function ResetPasswordScreen() {
   };
 
   const getPasswordStrengthColor = (strength) => {
-    if (strength <= 25) return '#ef4444'; // Red
-    if (strength <= 50) return '#f59e0b'; // Orange
-    if (strength <= 75) return '#eab308'; // Yellow
-    return '#22c55e'; // Green
+    if (strength <= 25) return "#ef4444"; // Red
+    if (strength <= 50) return "#f59e0b"; // Orange
+    if (strength <= 75) return "#eab308"; // Yellow
+    return "#22c55e"; // Green
   };
 
   const getPasswordStrengthText = (strength) => {
-    if (strength <= 25) return 'Weak';
-    if (strength <= 50) return 'Fair';
-    if (strength <= 75) return 'Good';
-    return 'Strong';
+    if (strength <= 25) return "Weak";
+    if (strength <= 50) return "Fair";
+    if (strength <= 75) return "Good";
+    return "Strong";
   };
 
   const handleResetPassword = async () => {
@@ -113,7 +117,7 @@ export default function ResetPasswordScreen() {
     }
 
     setLoading(true);
-    setMessage('');
+    setMessage("");
 
     try {
       // Check if reset code is available
@@ -126,38 +130,33 @@ export default function ResetPasswordScreen() {
       // Confirm password reset with the reset code
       await confirmPasswordReset(firebase.auth(), resetCode, password);
 
-      console.log('Password reset successfully!');
-      
+      console.log("Password reset successfully!");
+
       // Show success modal
       setLoading(false);
       setShowSuccessModal(true);
     } catch (error) {
-      console.log('Error resetting password:', error.message);
-      
-      let errorMessage = 'Failed to reset password. Please try again.';
-      
-      if (error.code === 'auth/expired-action-code') {
-        errorMessage = 'Reset link expired. Please request a new one.';
-      } else if (error.code === 'auth/invalid-action-code') {
-        errorMessage = 'Invalid reset code. Please start over.';
-      } else if (error.code === 'auth/user-disabled') {
-        errorMessage = 'Your account has been disabled.';
-      } else if (error.code === 'auth/user-not-found') {
-        errorMessage = 'Account not found. Please check your email.';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak. Please choose a stronger password.';
+      console.log("Error resetting password:", error.message);
+
+      let errorMessage = "Failed to reset password. Please try again.";
+
+      if (error.code === "auth/expired-action-code") {
+        errorMessage = "Reset link expired. Please request a new one.";
+      } else if (error.code === "auth/invalid-action-code") {
+        errorMessage = "Invalid reset code. Please start over.";
+      } else if (error.code === "auth/user-disabled") {
+        errorMessage = "Your account has been disabled.";
+      } else if (error.code === "auth/user-not-found") {
+        errorMessage = "Account not found. Please check your email.";
+      } else if (error.code === "auth/weak-password") {
+        errorMessage =
+          "Password is too weak. Please choose a stronger password.";
       }
-      
+
       setMessage(errorMessage);
       setLoading(false);
     }
   };
-
-  const isPasswordValid = 
-    passwordValidation.minLength &&
-    passwordValidation.hasUppercase &&
-    passwordValidation.hasNumber &&
-    passwordValidation.hasSpecialChar;
 
   const hasPasswordError = message !== "" && !password.trim();
   const hasConfirmPasswordError = message !== "" && !confirmPassword.trim();
@@ -172,10 +171,7 @@ export default function ResetPasswordScreen() {
         <View style={[styles.content, { paddingTop: insets.top + 20 }]}>
           {/* Header */}
           <View style={styles.header}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
               <Feather name="arrow-left" size={24} color="#1f2937" />
             </Pressable>
           </View>
@@ -183,19 +179,19 @@ export default function ResetPasswordScreen() {
           {/* Title */}
           <View style={styles.titleContainer}>
             <Text style={styles.title}>Reset Password</Text>
-            <Text style={styles.subtitle}>
-              Enter your new password below
-            </Text>
+            <Text style={styles.subtitle}>Enter your new password below</Text>
           </View>
 
           {/* New Password Input */}
           <View style={styles.inputWrapper}>
             <Text style={styles.inputLabel}>New Password</Text>
-            <View style={[
-              styles.passwordInputContainer,
-              passwordFocused && styles.inputFocused,
-              hasPasswordError && styles.inputError,
-            ]}>
+            <View
+              style={[
+                styles.passwordInputContainer,
+                passwordFocused && styles.inputFocused,
+                hasPasswordError && styles.inputError,
+              ]}
+            >
               <TextInput
                 style={styles.passwordInput}
                 placeholder="Enter new password"
@@ -229,11 +225,13 @@ export default function ResetPasswordScreen() {
           {/* Confirm Password Input */}
           <View style={styles.inputWrapper}>
             <Text style={styles.inputLabel}>Confirm Password</Text>
-            <View style={[
-              styles.passwordInputContainer,
-              confirmPasswordFocused && styles.inputFocused,
-              hasConfirmPasswordError && styles.inputError,
-            ]}>
+            <View
+              style={[
+                styles.passwordInputContainer,
+                confirmPasswordFocused && styles.inputFocused,
+                hasConfirmPasswordError && styles.inputError,
+              ]}
+            >
               <TextInput
                 style={styles.passwordInput}
                 placeholder="Confirm new password"
@@ -279,7 +277,8 @@ export default function ResetPasswordScreen() {
                       styles.passwordStrengthFill,
                       {
                         width: `${passwordStrength}%`,
-                        backgroundColor: getPasswordStrengthColor(passwordStrength),
+                        backgroundColor:
+                          getPasswordStrengthColor(passwordStrength),
                       },
                     ]}
                   />
@@ -313,7 +312,8 @@ export default function ResetPasswordScreen() {
                         },
                       ]}
                     >
-                      {passwordValidation.minLength ? "✓" : "✗"} At least 8 characters
+                      {passwordValidation.minLength ? "✓" : "✗"} At least 8
+                      characters
                     </Text>
                   </View>
 
@@ -328,7 +328,8 @@ export default function ResetPasswordScreen() {
                         },
                       ]}
                     >
-                      {passwordValidation.hasUppercase ? "✓" : "✗"} One uppercase letter
+                      {passwordValidation.hasUppercase ? "✓" : "✗"} One
+                      uppercase letter
                     </Text>
                   </View>
                 </View>
@@ -361,7 +362,8 @@ export default function ResetPasswordScreen() {
                         },
                       ]}
                     >
-                      {passwordValidation.hasSpecialChar ? "✓" : "✗"} One special character
+                      {passwordValidation.hasSpecialChar ? "✓" : "✗"} One
+                      special character
                     </Text>
                   </View>
                 </View>
@@ -391,11 +393,11 @@ export default function ResetPasswordScreen() {
         animationType="fade"
         onRequestClose={() => {
           setShowSuccessModal(false);
-          router.replace('/auth');
+          router.replace("/auth");
         }}
         statusBarTranslucent={true}
-        onShow={() => setStatusBarStyle('light', true)}
-        onDismiss={() => setStatusBarStyle('dark', true)}
+        onShow={() => setStatusBarStyle("light", true)}
+        onDismiss={() => setStatusBarStyle("dark", true)}
       >
         <StatusBar style="light" animated />
         <View style={styles.modalOverlay}>
@@ -411,7 +413,8 @@ export default function ResetPasswordScreen() {
 
             {/* Message */}
             <Text style={styles.modalMessage}>
-              Your password has been reset successfully. Please log in with your new password.
+              Your password has been reset successfully. Please log in with your
+              new password.
             </Text>
 
             {/* Continue Button */}
@@ -419,7 +422,7 @@ export default function ResetPasswordScreen() {
               style={styles.continueButton}
               onPress={() => {
                 setShowSuccessModal(false);
-                router.replace('/auth');
+                router.replace("/auth");
               }}
             >
               <Text style={styles.continueButtonText}>Continue to Login</Text>
@@ -434,7 +437,7 @@ export default function ResetPasswordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: "#f3f4f6",
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -450,9 +453,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f3f4f6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#f3f4f6",
+    alignItems: "center",
+    justifyContent: "center",
   },
   titleContainer: {
     marginBottom: 32,
@@ -460,13 +463,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontFamily: Fonts.family.bold,
-    color: '#1f2937',
+    color: "#1f2937",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
     fontFamily: Fonts.family.regular,
-    color: '#6b7280',
+    color: "#6b7280",
     lineHeight: 24,
   },
   inputWrapper: {
@@ -475,20 +478,20 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontFamily: Fonts.family.medium,
-    color: '#374151',
+    color: "#374151",
     marginBottom: 8,
   },
   passwordInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
     paddingLeft: 4,
     paddingRight: 16,
     paddingVertical: 4,
     paddingBottom: 2,
     borderRadius: 15,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: "#e5e7eb",
   },
   passwordInput: {
     flex: 1,
@@ -496,55 +499,55 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontFamily: Fonts.family.regular,
-    color: '#111827',
+    color: "#111827",
   },
   eyeButton: {
     padding: 4,
   },
   inputFocused: {
-    borderColor: '#2a4eff',
+    borderColor: "#2a4eff",
     borderWidth: 2,
   },
   inputError: {
-    borderColor: '#ef4444',
+    borderColor: "#ef4444",
     borderWidth: 2,
-    backgroundColor: '#fef2f2',
+    backgroundColor: "#fef2f2",
   },
   message: {
     fontSize: 13,
     fontFamily: Fonts.family.regular,
     marginBottom: 12,
-    textAlign: 'left',
+    textAlign: "left",
   },
   errorMessage: {
-    color: '#ef4444',
+    color: "#ef4444",
   },
   passwordValidationContainer: {
     marginTop: 16,
     padding: 12,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: "#e5e7eb",
   },
   passwordStrengthContainer: {
     marginBottom: 12,
   },
   passwordStrengthBar: {
     height: 6,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: "#e5e7eb",
     borderRadius: 3,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: 6,
   },
   passwordStrengthFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 3,
   },
   passwordStrengthText: {
     fontSize: 14,
     fontFamily: Fonts.family.medium,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   passwordRequirements: {
     marginTop: 4,
@@ -552,12 +555,12 @@ const styles = StyleSheet.create({
   passwordRequirementsTitle: {
     fontSize: 14,
     fontFamily: Fonts.family.medium,
-    color: '#374151',
+    color: "#374151",
     marginBottom: 6,
   },
   passwordRequirementRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 4,
   },
   passwordRequirementItem: {
@@ -569,13 +572,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   resetButton: {
-    backgroundColor: '#2a4eff',
+    backgroundColor: "#2a4eff",
     paddingVertical: 16,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: 24,
-    shadowColor: '#2a4eff',
+    shadowColor: "#2a4eff",
     shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -587,32 +590,32 @@ const styles = StyleSheet.create({
   resetButtonText: {
     fontSize: 16,
     fontFamily: Fonts.family.semiBold,
-    color: '#ffffff',
+    color: "#ffffff",
   },
   // Success Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 0,
   },
   statusBarBackground: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     height: 50,
-    backgroundColor: '#7A7A7A',
+    backgroundColor: "#7A7A7A",
   },
   modalContainer: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 20,
     padding: 24,
     width: width * 0.85,
     maxWidth: 400,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 10,
@@ -622,36 +625,35 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   iconContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
     marginTop: 10,
   },
   modalTitle: {
     fontFamily: Fonts.family.bold,
     fontSize: 20,
-    color: '#1A1A1A',
-    textAlign: 'center',
+    color: "#1A1A1A",
+    textAlign: "center",
     marginBottom: 12,
   },
   modalMessage: {
     fontFamily: Fonts.family.regular,
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     lineHeight: 22,
     marginBottom: 24,
   },
   continueButton: {
-    backgroundColor: '#4361EE',
+    backgroundColor: "#4361EE",
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   continueButtonText: {
     fontFamily: Fonts.family.semiBold,
     fontSize: 16,
-    color: 'white',
+    color: "white",
   },
 });
-

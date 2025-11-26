@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { FaChevronLeft, FaChevronRight, FaTimes } from "react-icons/fa";
 import {
   AddButton,
@@ -32,6 +32,16 @@ const WORKOUT_SCHEDULE = {
   5: { type: "Shoulder", icon: "fitness", color: "#FFEAA7" }, // Friday
   6: { type: "Lower Body", icon: "body", color: "#4ECDC4" }, // Saturday
 };
+
+const MAX_PER_SLOT = 5;
+const ALL_TIME_SLOTS = [
+  "7:30 AM - 8:30 AM",
+  "9:30 AM - 10:30 AM",
+  "4:00 PM - 5:00 PM",
+  "5:30 PM - 6:30 PM",
+  "6:30 PM - 7:30 PM",
+  "7:30 PM - 8:30 PM",
+];
 
 // Helper function to get workout info for a specific date
 const getWorkoutInfo = (date) => {
@@ -75,15 +85,6 @@ const Sessions = () => {
 
   // UI-only capacity: track counts per time slot for the selected date
   const [slotCapacities, setSlotCapacities] = useState({});
-  const MAX_PER_SLOT = 5;
-  const ALL_TIME_SLOTS = [
-    "7:30 AM - 8:30 AM",
-    "9:30 AM - 10:30 AM",
-    "4:00 PM - 5:00 PM",
-    "5:30 PM - 6:30 PM",
-    "6:30 PM - 7:30 PM",
-    "7:30 PM - 8:30 PM",
-  ];
 
   const getDateKey = (dateObj) => {
     const d = dateObj?.toDate ? dateObj.toDate() : new Date(dateObj);
@@ -99,7 +100,7 @@ const Sessions = () => {
     }).length;
   };
 
-  const fetchSlotCapacitiesForDate = async (isoDateString) => {
+  const fetchSlotCapacitiesForDate = useCallback(async (isoDateString) => {
     try {
       if (!isoDateString) {
         setSlotCapacities({});
@@ -128,67 +129,72 @@ const Sessions = () => {
       console.error("Capacity fetch failed:", e);
       setSlotCapacities({});
     }
-  };
+  }, []);
 
   // Function to add a new toast with smart grouping
   const addToast = (message, type = "success") => {
     const toastId = Date.now() + Math.random();
-    
-    setActiveToasts(prev => {
+
+    setActiveToasts((prev) => {
       // Limit to maximum 3 toasts at once
       if (prev.length >= 3) {
         // Remove oldest toast to make room
-        const sortedToasts = [...prev].sort((a, b) => a.timestamp - b.timestamp);
-        const filteredToasts = prev.filter(toast => toast.id !== sortedToasts[0].id);
-        
-        const newToast = { 
-          id: toastId, 
-          message, 
+        const sortedToasts = [...prev].sort(
+          (a, b) => a.timestamp - b.timestamp,
+        );
+        const filteredToasts = prev.filter(
+          (toast) => toast.id !== sortedToasts[0].id,
+        );
+
+        const newToast = {
+          id: toastId,
+          message,
           type,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
-        
+
         return [...filteredToasts, newToast];
       }
-      
+
       // Check for similar operations and group them
-      const similarToast = prev.find(toast => 
-        toast.message === message && 
-        toast.type === type &&
-        (Date.now() - toast.timestamp) < 1000 // Within 1 second
+      const similarToast = prev.find(
+        (toast) =>
+          toast.message === message &&
+          toast.type === type &&
+          Date.now() - toast.timestamp < 1000, // Within 1 second
       );
-      
+
       if (similarToast) {
         // Update existing toast with count
-        const updatedToasts = prev.map(toast => 
-          toast.id === similarToast.id 
+        const updatedToasts = prev.map((toast) =>
+          toast.id === similarToast.id
             ? { ...toast, count: (toast.count || 1) + 1, timestamp: Date.now() }
-            : toast
+            : toast,
         );
         return updatedToasts;
       }
-      
+
       // Add new toast
-      const newToast = { 
-        id: toastId, 
-        message, 
+      const newToast = {
+        id: toastId,
+        message,
         type,
         timestamp: Date.now(),
-        count: 1
+        count: 1,
       };
-      
+
       return [...prev, newToast];
     });
-    
+
     // Auto-remove toast after 3 seconds
     setTimeout(() => {
-      setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+      setActiveToasts((prev) => prev.filter((toast) => toast.id !== toastId));
     }, 3000);
   };
 
   // Function to remove a specific toast
   const removeToast = (toastId) => {
-    setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+    setActiveToasts((prev) => prev.filter((toast) => toast.id !== toastId));
   };
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [_selectedDate, setSelectedDate] = useState(null);
@@ -377,12 +383,11 @@ const Sessions = () => {
 
     // Parse the selected date
     const [year, month, day] = selectedDate.split("-").map(Number);
-    const selectedDateObj = new Date(year, month - 1, day);
 
     // Parse the time slot to get start time
     let startHour = 0;
     let startMinute = 0;
-    
+
     if (timeSlot.includes("7:30 AM - 8:30 AM")) {
       startHour = 7;
       startMinute = 30;
@@ -404,11 +409,18 @@ const Sessions = () => {
     }
 
     // Create a date object with the selected date and time
-    const sessionDateTime = new Date(year, month - 1, day, startHour, startMinute, 0);
-    
+    const sessionDateTime = new Date(
+      year,
+      month - 1,
+      day,
+      startHour,
+      startMinute,
+      0,
+    );
+
     // Compare with current date and time
     const now = new Date();
-    
+
     return sessionDateTime < now;
   };
 
@@ -444,7 +456,7 @@ const Sessions = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     clickedDate.setHours(0, 0, 0, 0);
-    
+
     if (clickedDate < today) {
       addToast("Cannot select past dates", "error");
       return;
@@ -730,10 +742,16 @@ const Sessions = () => {
           where("scheduledDate", "<=", Timestamp.fromDate(end)),
         );
         const capSnap = await getDocs(qCap);
-        const localExisting = countLocalSessionsFor(createSessionData.date, createSessionData.time);
+        const localExisting = countLocalSessionsFor(
+          createSessionData.date,
+          createSessionData.time,
+        );
         const totalCount = capSnap.size + localExisting;
         if (totalCount >= MAX_PER_SLOT) {
-          addToast(`This time slot is full (${MAX_PER_SLOT}/${MAX_PER_SLOT})`, "error");
+          addToast(
+            `This time slot is full (${MAX_PER_SLOT}/${MAX_PER_SLOT})`,
+            "error",
+          );
           return;
         }
       } catch (e) {
@@ -879,35 +897,41 @@ const Sessions = () => {
         completedAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });
-      
+
       // If user has a coaching-solo subscription, increase usedSessions count (atomic)
       if (selectedSession.subscriptionId) {
-        const subscriptionRef = doc(db, "subscriptions", selectedSession.subscriptionId);
+        const subscriptionRef = doc(
+          db,
+          "subscriptions",
+          selectedSession.subscriptionId,
+        );
         const subscriptionSnap = await getDoc(subscriptionRef);
-        
+
         if (subscriptionSnap.exists()) {
           const subscriptionData = subscriptionSnap.data();
-          
+
           // Some documents use planId rather than plan for identification
           const planId = subscriptionData.planId || subscriptionData.plan;
-          
+
           // Check if it's a coaching-solo plan
           if (planId === "coaching-solo") {
             const maxSessions = subscriptionData.maxSessions ?? 0;
             const usedSessions = subscriptionData.usedSessions ?? 0;
-            
+
             // Only increment if we have not exceeded maxSessions (if defined)
             if (!maxSessions || usedSessions < maxSessions) {
               await updateDoc(subscriptionRef, {
                 usedSessions: increment(1),
                 updatedAt: Timestamp.now(),
               });
-              console.log("Incremented usedSessions for coaching-solo subscription");
+              console.log(
+                "Incremented usedSessions for coaching-solo subscription",
+              );
             }
           }
         }
       }
-      
+
       addToast("Session marked as completed");
       setShowModal(false);
     } catch (error) {
@@ -1028,8 +1052,12 @@ const Sessions = () => {
             return status === "scheduled" || status === "completed";
           })
           .sort((a, b) => {
-            const aDate = a.scheduledDate?.toDate ? a.scheduledDate.toDate() : new Date(a.scheduledDate || 0);
-            const bDate = b.scheduledDate?.toDate ? b.scheduledDate.toDate() : new Date(b.scheduledDate || 0);
+            const aDate = a.scheduledDate?.toDate
+              ? a.scheduledDate.toDate()
+              : new Date(a.scheduledDate || 0);
+            const bDate = b.scheduledDate?.toDate
+              ? b.scheduledDate.toDate()
+              : new Date(b.scheduledDate || 0);
             return aDate - bDate;
           });
         setSessions(limited);
@@ -1051,7 +1079,7 @@ const Sessions = () => {
     } else {
       setSlotCapacities({});
     }
-  }, [createSessionData?.date]);
+  }, [createSessionData?.date, fetchSlotCapacitiesForDate]);
 
   // Fetch subscriptions data for the Name dropdown
   useEffect(() => {
@@ -1138,7 +1166,7 @@ const Sessions = () => {
       (err) => {
         console.error("Error fetching blocked dates:", err);
         setBlockedDates([]);
-      }
+      },
     );
 
     return () => unsub();
@@ -1147,18 +1175,20 @@ const Sessions = () => {
   // Handle blocking/unblocking a date
   const handleBlockDate = async (date, isBlocked) => {
     if (isBlockingDate) return;
-    
+
     setIsBlockingDate(true);
     try {
-      const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD format
-      
+      const dateString = date.toISOString().split("T")[0]; // YYYY-MM-DD format
+
       if (isBlocked) {
         // Unblock the date - delete the document
-        const existingBlock = blockedDates.find(bd => {
-          const blockedDate = bd.date?.toDate ? bd.date.toDate() : new Date(bd.date);
-          return blockedDate.toISOString().split('T')[0] === dateString;
+        const existingBlock = blockedDates.find((bd) => {
+          const blockedDate = bd.date?.toDate
+            ? bd.date.toDate()
+            : new Date(bd.date);
+          return blockedDate.toISOString().split("T")[0] === dateString;
         });
-        
+
         if (existingBlock) {
           await deleteDoc(doc(db, "blockedDates", existingBlock.id));
           addToast("Date unblocked successfully");
@@ -1184,10 +1214,12 @@ const Sessions = () => {
   // Check if a date is blocked
   const isDateBlocked = (date) => {
     if (!date) return false;
-    const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD format
-    return blockedDates.some(bd => {
-      const blockedDate = bd.date?.toDate ? bd.date.toDate() : new Date(bd.date);
-      return blockedDate.toISOString().split('T')[0] === dateString;
+    const dateString = date.toISOString().split("T")[0]; // YYYY-MM-DD format
+    return blockedDates.some((bd) => {
+      const blockedDate = bd.date?.toDate
+        ? bd.date.toDate()
+        : new Date(bd.date);
+      return blockedDate.toISOString().split("T")[0] === dateString;
     });
   };
 
@@ -1243,11 +1275,23 @@ const Sessions = () => {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                <svg
+                  className="w-4 h-4 text-red-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Blocked Dates</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Blocked Dates
+              </h3>
               <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
                 {blockedDates.length}
               </span>
@@ -1256,55 +1300,94 @@ const Sessions = () => {
           <div className="flex flex-wrap gap-2">
             {blockedDates
               .map((blockedDate) => {
-                const date = blockedDate.date?.toDate ? blockedDate.date.toDate() : new Date(blockedDate.date);
+                const date = blockedDate.date?.toDate
+                  ? blockedDate.date.toDate()
+                  : new Date(blockedDate.date);
                 return { ...blockedDate, date };
               })
               .sort((a, b) => a.date - b.date)
               .map((blockedDate) => {
                 const isPast = blockedDate.date < new Date();
-              
-              return (
-                <div
-                  key={blockedDate.id}
-                  className={`px-3 py-2 rounded-lg flex items-center gap-2 ${
-                    isPast ? 'bg-gray-100' : 'bg-red-50 border border-red-200'
-                  }`}
-                >
-                  <svg className={`w-4 h-4 ${isPast ? 'text-gray-500' : 'text-red-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className={`text-sm font-medium ${isPast ? 'text-gray-600' : 'text-red-700'}`}>
-                    {blockedDate.date.toLocaleDateString("en-US", { 
-                      weekday: "short", 
-                      month: "short", 
-                      day: "numeric", 
-                      year: "numeric" 
-                    })}
-                  </span>
-                  <button
-                    onClick={async () => {
-                      await handleBlockDate(blockedDate.date, true);
-                    }}
-                    disabled={isBlockingDate}
-                    className={`ml-1 p-1 rounded hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      isPast ? 'text-gray-400' : 'text-red-600'
+
+                return (
+                  <div
+                    key={blockedDate.id}
+                    className={`px-3 py-2 rounded-lg flex items-center gap-2 ${
+                      isPast ? "bg-gray-100" : "bg-red-50 border border-red-200"
                     }`}
-                    title="Unblock this date"
                   >
-                    {isBlockingDate ? (
-                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              );
-            })}
+                    <svg
+                      className={`w-4 h-4 ${isPast ? "text-gray-500" : "text-red-600"}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <span
+                      className={`text-sm font-medium ${isPast ? "text-gray-600" : "text-red-700"}`}
+                    >
+                      {blockedDate.date.toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                    <button
+                      onClick={async () => {
+                        await handleBlockDate(blockedDate.date, true);
+                      }}
+                      disabled={isBlockingDate}
+                      className={`ml-1 p-1 rounded hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        isPast ? "text-gray-400" : "text-red-600"
+                      }`}
+                      title="Unblock this date"
+                    >
+                      {isBlockingDate ? (
+                        <svg
+                          className="w-3 h-3 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                      ) : (
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
@@ -1394,7 +1477,7 @@ const Sessions = () => {
 
                   const daySessions = sessionsByDay[monthKey];
                   const showMax = 3;
-                  const hasExtra = ((daySessions?.length) || 0) > showMax;
+                  const hasExtra = (daySessions?.length || 0) > showMax;
                   const visibleSessions = (daySessions || []).slice(0, showMax);
 
                   return (
@@ -1402,11 +1485,18 @@ const Sessions = () => {
                       <div className="mt-1 flex flex-col gap-1 max-h-44 overflow-y-auto">
                         {visibleSessions.map((it) => {
                           // Find the original session to get the scheduledDate
-                          const originalSession = sessions.find(s => s.id === it.id);
-                          const sessionDate = originalSession?.scheduledDate?.toDate ? originalSession.scheduledDate.toDate() : new Date();
+                          const originalSession = sessions.find(
+                            (s) => s.id === it.id,
+                          );
+                          const sessionDate = originalSession?.scheduledDate
+                            ?.toDate
+                            ? originalSession.scheduledDate.toDate()
+                            : new Date();
                           const isPastSession = sessionDate < new Date();
-                          const isCompletedSession = (originalSession?.status || "").toLowerCase() === "completed";
-                          
+                          const isCompletedSession =
+                            (originalSession?.status || "").toLowerCase() ===
+                            "completed";
+
                           return (
                             <button
                               key={it.id}
@@ -1439,14 +1529,17 @@ const Sessions = () => {
                                 );
                                 console.log("Session desc field:", s.desc);
                                 console.log("Session notes field:", s.notes);
-                                console.log("Session details field:", s.details);
+                                console.log(
+                                  "Session details field:",
+                                  s.details,
+                                );
                               }}
                               className={`w-11/12 mx-2 flex items-center justify-between text-[11px] px-2 py-1 rounded-md transition-colors ${
                                 isCompletedSession
                                   ? "border border-green-200 bg-green-50/70 text-green-700 hover:bg-green-100 hover:border-green-300"
                                   : isPastSession
-                                  ? "border border-red-200 bg-red-50/70 text-red-700 hover:bg-red-100 hover:border-red-300"
-                                  : "border border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300"
+                                    ? "border border-red-200 bg-red-50/70 text-red-700 hover:bg-red-100 hover:border-red-300"
+                                    : "border border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300"
                               }`}
                             >
                               <span className="truncate mr-2 font-medium">
@@ -1475,12 +1568,12 @@ const Sessions = () => {
                               const computedMonth = dayObj.isCurrentMonth
                                 ? currentMonth.getMonth()
                                 : dayObj.isPrevMonth
-                                  ? (currentMonth.getMonth() === 0
-                                      ? 11
-                                      : currentMonth.getMonth() - 1)
-                                  : (currentMonth.getMonth() === 11
-                                      ? 0
-                                      : currentMonth.getMonth() + 1);
+                                  ? currentMonth.getMonth() === 0
+                                    ? 11
+                                    : currentMonth.getMonth() - 1
+                                  : currentMonth.getMonth() === 11
+                                    ? 0
+                                    : currentMonth.getMonth() + 1;
 
                               setSelectedDayInfo({
                                 day: dayObj.day,
@@ -1491,7 +1584,7 @@ const Sessions = () => {
                             }}
                             className="w-11/12 mx-2 mt-1 px-2 py-1 rounded bg-white border border-blue-200 text-blue-600 text-xs hover:bg-blue-50 hover:text-blue-800 font-semibold transition-colors"
                           >
-                            {`+${((daySessions?.length)||0) - showMax}`}
+                            {`+${(daySessions?.length || 0) - showMax}`}
                           </button>
                         )}
                       </div>
@@ -1927,32 +2020,57 @@ const Sessions = () => {
                             onClick={handleMarkAsCompleted}
                             className="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 ease-in-out font-medium text-sm flex items-center justify-center gap-2"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
                             </svg>
                             Mark as Completed
                           </button>
                         )}
-                        
+
                         {/* Status badge if completed */}
                         {selectedSession.status === "completed" && (
                           <div className="w-full px-4 py-2.5 bg-green-50 border border-green-200 text-green-700 rounded-lg font-medium text-sm flex items-center justify-center gap-2">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
                             </svg>
                             Session Completed
                           </div>
                         )}
-                        
+
                         <EditDeleteButtons
                           onEdit={() => {
                             // Handle reschedule action - open edit modal
                             setEditingSession(selectedSession);
-                            
+
                             // Populate edit form with current session data
-                            const sessionDate = selectedSession.scheduledDate?.toDate ? selectedSession.scheduledDate.toDate() : new Date();
-                            const dateString = sessionDate.toISOString().split('T')[0]; // YYYY-MM-DD format
-                            
+                            const sessionDate = selectedSession.scheduledDate
+                              ?.toDate
+                              ? selectedSession.scheduledDate.toDate()
+                              : new Date();
+                            const dateString = sessionDate
+                              .toISOString()
+                              .split("T")[0]; // YYYY-MM-DD format
+
                             setEditSessionData({
                               name: selectedSession.name || "",
                               date: dateString,
@@ -1961,10 +2079,10 @@ const Sessions = () => {
                               type: selectedSession.type || "solo",
                               descriptions: selectedSession.descriptions || "",
                             });
-                            
+
                             // Set the search field to show the current user
                             setEditNameSearch(selectedSession.name || "");
-                            
+
                             setShowEditModal(true);
                             setShowModal(false); // Close the view modal
                           }}
@@ -2099,16 +2217,20 @@ const Sessions = () => {
         <div
           key={toast.id}
           style={{
-            position: 'fixed',
-            top: `${20 + (index * 80)}px`, // Stack toasts vertically
-            right: '20px',
+            position: "fixed",
+            top: `${20 + index * 80}px`, // Stack toasts vertically
+            right: "20px",
             zIndex: 1000 + index,
           }}
         >
           <ToastNotification
             isVisible={true}
             onClose={() => removeToast(toast.id)}
-            message={toast.count > 1 ? `${toast.message} (${toast.count}x)` : toast.message}
+            message={
+              toast.count > 1
+                ? `${toast.message} (${toast.count}x)`
+                : toast.message
+            }
             type={toast.type}
             duration={3000}
             position="top-right"
@@ -2471,8 +2593,12 @@ const Sessions = () => {
               >
                 <option value="">Select a Time</option>
                 {ALL_TIME_SLOTS.map((slot) => {
-                  const localCount = countLocalSessionsFor(createSessionData?.date, slot);
-                  const isFull = (slotCapacities[slot] || 0) + localCount >= MAX_PER_SLOT;
+                  const localCount = countLocalSessionsFor(
+                    createSessionData?.date,
+                    slot,
+                  );
+                  const isFull =
+                    (slotCapacities[slot] || 0) + localCount >= MAX_PER_SLOT;
                   const disabled = isTimeSlotPast(slot) || isFull;
                   return (
                     <option key={slot} value={slot} disabled={disabled}>
@@ -2706,18 +2832,18 @@ const Sessions = () => {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 selectedDate.setHours(0, 0, 0, 0);
-                
+
                 if (selectedDate < today) {
                   addToast("Cannot select past dates", "error");
                   return;
                 }
-                
+
                 setEditSessionData({
                   ...editSessionData,
                   date: e.target.value,
                 });
               }}
-              min={new Date().toISOString().split('T')[0]}
+              min={new Date().toISOString().split("T")[0]}
               className="w-full py-3 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 pl-4 pr-4"
               required
             />
@@ -2741,12 +2867,60 @@ const Sessions = () => {
                 required
               >
                 <option value="">Select time slot</option>
-                <option value="7:30 AM - 8:30 AM" disabled={isTimeSlotPast("7:30 AM - 8:30 AM", editSessionData.date)}>7:30 AM - 8:30 AM</option>
-                <option value="9:30 AM - 10:30 AM" disabled={isTimeSlotPast("9:30 AM - 10:30 AM", editSessionData.date)}>9:30 AM - 10:30 AM</option>
-                <option value="4:00 PM - 5:00 PM" disabled={isTimeSlotPast("4:00 PM - 5:00 PM", editSessionData.date)}>4:00 PM - 5:00 PM</option>
-                <option value="5:30 PM - 6:30 PM" disabled={isTimeSlotPast("5:30 PM - 6:30 PM", editSessionData.date)}>5:30 PM - 6:30 PM</option>
-                <option value="6:30 PM - 7:30 PM" disabled={isTimeSlotPast("6:30 PM - 7:30 PM", editSessionData.date)}>6:30 PM - 7:30 PM</option>
-                <option value="7:30 PM - 8:30 PM" disabled={isTimeSlotPast("7:30 PM - 8:30 PM", editSessionData.date)}>7:30 PM - 8:30 PM</option>
+                <option
+                  value="7:30 AM - 8:30 AM"
+                  disabled={isTimeSlotPast(
+                    "7:30 AM - 8:30 AM",
+                    editSessionData.date,
+                  )}
+                >
+                  7:30 AM - 8:30 AM
+                </option>
+                <option
+                  value="9:30 AM - 10:30 AM"
+                  disabled={isTimeSlotPast(
+                    "9:30 AM - 10:30 AM",
+                    editSessionData.date,
+                  )}
+                >
+                  9:30 AM - 10:30 AM
+                </option>
+                <option
+                  value="4:00 PM - 5:00 PM"
+                  disabled={isTimeSlotPast(
+                    "4:00 PM - 5:00 PM",
+                    editSessionData.date,
+                  )}
+                >
+                  4:00 PM - 5:00 PM
+                </option>
+                <option
+                  value="5:30 PM - 6:30 PM"
+                  disabled={isTimeSlotPast(
+                    "5:30 PM - 6:30 PM",
+                    editSessionData.date,
+                  )}
+                >
+                  5:30 PM - 6:30 PM
+                </option>
+                <option
+                  value="6:30 PM - 7:30 PM"
+                  disabled={isTimeSlotPast(
+                    "6:30 PM - 7:30 PM",
+                    editSessionData.date,
+                  )}
+                >
+                  6:30 PM - 7:30 PM
+                </option>
+                <option
+                  value="7:30 PM - 8:30 PM"
+                  disabled={isTimeSlotPast(
+                    "7:30 PM - 8:30 PM",
+                    editSessionData.date,
+                  )}
+                >
+                  7:30 PM - 8:30 PM
+                </option>
               </select>
 
               {/* Custom Arrow for Time */}
@@ -2871,7 +3045,8 @@ const Sessions = () => {
             {/* Modal Header */}
             <div className="flex justify-between items-center px-6 py-4 sm:p-6 md:px-7 md:py-4 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-gray/20 flex-shrink-0">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 pr-2">
-                All Sessions - {selectedDayInfo.day}/{selectedDayInfo.month + 1}/{selectedDayInfo.year}
+                All Sessions - {selectedDayInfo.day}/{selectedDayInfo.month + 1}
+                /{selectedDayInfo.year}
               </h2>
               <button
                 onClick={() => setShowMoreSchedulesModal(false)}
@@ -2886,9 +3061,14 @@ const Sessions = () => {
               <div className="py-6">
                 <div className="space-y-3">
                   {selectedDaySessions.map((session) => {
-                    const sessionDate = session.scheduledDate?.toDate ? session.scheduledDate.toDate() : new Date();
-                    const timeLabel = sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    
+                    const sessionDate = session.scheduledDate?.toDate
+                      ? session.scheduledDate.toDate()
+                      : new Date();
+                    const timeLabel = sessionDate.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+
                     return (
                       <button
                         key={session.id}
@@ -2911,7 +3091,10 @@ const Sessions = () => {
                       >
                         <div className="flex-1 text-left">
                           <div className="font-medium truncate">
-                            {session.title || session.name || session.type || "Session"}
+                            {session.title ||
+                              session.name ||
+                              session.type ||
+                              "Session"}
                           </div>
                           {session.description && (
                             <div className="text-xs text-indigo-600 mt-1 truncate">
@@ -2994,26 +3177,30 @@ const Sessions = () => {
                     type="date"
                     value={dateToBlock || ""}
                     onChange={(e) => setDateToBlock(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={new Date().toISOString().split("T")[0]}
                     className="w-full py-3 border border-gray-300 rounded-2xl text-base transition-colors focus:outline-blue-500 pl-4 pr-4"
                   />
                 </div>
-                
+
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                   <p className="text-sm text-yellow-800">
-                    Blocked dates will not be available for booking in the mobile application.
+                    Blocked dates will not be available for booking in the
+                    mobile application.
                   </p>
                 </div>
 
                 {dateToBlock && (
                   <div>
                     <p className="text-sm text-gray-600">
-                      Selected: <span className="font-medium">{new Date(dateToBlock).toLocaleDateString("en-US", { 
-                        weekday: "long", 
-                        year: "numeric", 
-                        month: "long", 
-                        day: "numeric" 
-                      })}</span>
+                      Selected:{" "}
+                      <span className="font-medium">
+                        {new Date(dateToBlock).toLocaleDateString("en-US", {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </span>
                     </p>
                   </div>
                 )}

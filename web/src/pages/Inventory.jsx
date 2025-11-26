@@ -40,6 +40,8 @@ const Inventory = () => {
   // State for inventory data and UI
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Archive tab state
+  const [isArchiveView, setIsArchiveView] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -69,62 +71,67 @@ const Inventory = () => {
   // Function to add a new toast with smart grouping
   const addToast = (message, type = "success") => {
     const toastId = Date.now() + Math.random();
-    
-    setActiveToasts(prev => {
+
+    setActiveToasts((prev) => {
       // Limit to maximum 3 toasts at once
       if (prev.length >= 3) {
         // Remove oldest toast to make room
-        const sortedToasts = [...prev].sort((a, b) => a.timestamp - b.timestamp);
-        const filteredToasts = prev.filter(toast => toast.id !== sortedToasts[0].id);
-        
-        const newToast = { 
-          id: toastId, 
-          message, 
+        const sortedToasts = [...prev].sort(
+          (a, b) => a.timestamp - b.timestamp,
+        );
+        const filteredToasts = prev.filter(
+          (toast) => toast.id !== sortedToasts[0].id,
+        );
+
+        const newToast = {
+          id: toastId,
+          message,
           type,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
-        
+
         return [...filteredToasts, newToast];
       }
-      
+
       // Check for similar operations and group them
-      const similarToast = prev.find(toast => 
-        toast.message === message && 
-        toast.type === type &&
-        (Date.now() - toast.timestamp) < 1000 // Within 1 second
+      const similarToast = prev.find(
+        (toast) =>
+          toast.message === message &&
+          toast.type === type &&
+          Date.now() - toast.timestamp < 1000, // Within 1 second
       );
-      
+
       if (similarToast) {
         // Update existing toast with count
-        const updatedToasts = prev.map(toast => 
-          toast.id === similarToast.id 
+        const updatedToasts = prev.map((toast) =>
+          toast.id === similarToast.id
             ? { ...toast, count: (toast.count || 1) + 1, timestamp: Date.now() }
-            : toast
+            : toast,
         );
         return updatedToasts;
       }
-      
+
       // Add new toast
-      const newToast = { 
-        id: toastId, 
-        message, 
+      const newToast = {
+        id: toastId,
+        message,
         type,
         timestamp: Date.now(),
-        count: 1
+        count: 1,
       };
-      
+
       return [...prev, newToast];
     });
-    
+
     // Auto-remove toast after 3 seconds
     setTimeout(() => {
-      setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+      setActiveToasts((prev) => prev.filter((toast) => toast.id !== toastId));
     }, 3000);
   };
 
   // Function to remove a specific toast
   const removeToast = (toastId) => {
-    setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+    setActiveToasts((prev) => prev.filter((toast) => toast.id !== toastId));
   };
 
   // Validation errors for Add New Item modal
@@ -284,13 +291,19 @@ const Inventory = () => {
   }, [showAddModal, showDetailModal, showEditModal]);
 
   // Filter inventory by category and status
-  const filteredInventory = inventory.filter((item) => {
-    const categoryMatch =
-      selectedCategory === "all" || item.category === selectedCategory;
-    const statusMatch =
-      selectedStatus === "all" || item.status === selectedStatus;
-    return categoryMatch && statusMatch;
-  });
+  const filteredInventory = inventory
+    .filter((item) => {
+      // Archive filter: assume archived items have archivedAt set (UI-only for now)
+      const isArchived = !!item.archivedAt;
+      return isArchiveView ? isArchived : !isArchived;
+    })
+    .filter((item) => {
+      const categoryMatch =
+        selectedCategory === "all" || item.category === selectedCategory;
+      const statusMatch =
+        selectedStatus === "all" || item.status === selectedStatus;
+      return categoryMatch && statusMatch;
+    });
 
   // Get unique categories for filter
   const categories = [
@@ -730,6 +743,24 @@ const Inventory = () => {
 
         {/* Combined Filter and DataTable Card */}
         <div className="bg-white rounded-xl pt-6">
+          {/* Tabs: Active / Archive */}
+          <div className="px-4 sm:px-6">
+            <div className="flex items-center gap-3 border-b border-slate-200">
+              <button
+                className={`px-3 py-2 text-sm font-medium ${!isArchiveView ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-slate-700"}`}
+                onClick={() => setIsArchiveView(false)}
+              >
+                Active
+              </button>
+              <button
+                className={`px-3 py-2 text-sm font-medium ${isArchiveView ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-slate-700"}`}
+                onClick={() => setIsArchiveView(true)}
+              >
+                Archive
+              </button>
+            </div>
+          </div>
+
           {/* Filters and Add Button */}
           <div className="px-4 sm:px-6 mb-6">
             {/* Mobile and sm: Two column layout */}
@@ -824,11 +855,13 @@ const Inventory = () => {
                 </div>
               </div>
               <div className="flex justify-end">
-                <AddButton
-                  onClick={handleAddItem}
-                  text="Add Item"
-                  className=""
-                />
+                {!isArchiveView && (
+                  <AddButton
+                    onClick={handleAddItem}
+                    text="Add Item"
+                    className=""
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -910,7 +943,14 @@ const Inventory = () => {
                 render: (value, row) => {
                   return (
                     <div className="flex justify-start pr-1">
-                      <StatusBadge status={row.status} />
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={row.status} />
+                        {row.archivedAt && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                            Archived
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 },
@@ -936,7 +976,41 @@ const Inventory = () => {
                     );
                   }
 
-                  // Show normal actions for completed items
+                  // Archive view actions (UI only; no backend wired)
+                  if (isArchiveView) {
+                    return (
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="px-2 py-1 text-xs rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                          title="Restore"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToast(
+                              "Restore is not yet available (UI only).",
+                              "info",
+                            );
+                          }}
+                        >
+                          Restore
+                        </button>
+                        <button
+                          className="px-2 py-1 text-xs rounded-md bg-red-50 text-red-700 hover:bg-red-100"
+                          title="Delete permanently"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToast(
+                              "Permanent delete is not yet available (UI only).",
+                              "info",
+                            );
+                          }}
+                        >
+                          Delete permanently
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  // Active view actions (rename Delete -> Archive for UI)
                   return (
                     <Actions
                       item={row}
@@ -945,12 +1019,15 @@ const Inventory = () => {
                       itemNameField="name"
                       itemType="inventory item"
                       editTitle="Edit item"
-                      deleteTitle="Delete item"
+                      deleteTitle="Archive"
                       onDeleteSuccess={() => {
                         // Show success notification
-                        addToast("Item deleted successfully!");
+                        addToast(
+                          "Item archived (UI only). Backend not yet wired.",
+                          "info",
+                        );
 
-                        // Refresh inventory after successful deletion
+                        // Refresh inventory after successful action (no-op for UI-first)
                         const loadInventory = async () => {
                           try {
                             const inventoryData = await getInventoryItems();
@@ -984,7 +1061,11 @@ const Inventory = () => {
             ]}
             data={filteredInventory}
             loading={loading}
-            emptyMessage="No inventory items found."
+            emptyMessage={
+              isArchiveView
+                ? "No archived inventory items."
+                : "No inventory items found."
+            }
             className="h-full"
             onRowClick={handleRowClick}
             pagination={{
@@ -1043,7 +1124,6 @@ const Inventory = () => {
               )}
             </div>
 
-
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">
                 Quantity <span className="text-red-500">*</span>
@@ -1066,10 +1146,17 @@ const Inventory = () => {
                 }}
                 onKeyDown={(e) => {
                   // Block non-numeric keys except backspace, delete, arrow keys, tab, etc.
-                  const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
-                  const isNumber = e.key >= '0' && e.key <= '9';
+                  const allowedKeys = [
+                    "Backspace",
+                    "Delete",
+                    "ArrowLeft",
+                    "ArrowRight",
+                    "Tab",
+                    "Enter",
+                  ];
+                  const isNumber = e.key >= "0" && e.key <= "9";
                   const isAllowedKey = allowedKeys.includes(e.key);
-                  
+
                   if (!isNumber && !isAllowedKey) {
                     e.preventDefault();
                   }
@@ -1200,7 +1287,6 @@ const Inventory = () => {
                 />
               </div>
 
-
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">
                   Quantity
@@ -1219,10 +1305,17 @@ const Inventory = () => {
                   }}
                   onKeyDown={(e) => {
                     // Block non-numeric keys except backspace, delete, arrow keys, tab, etc.
-                    const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
-                    const isNumber = e.key >= '0' && e.key <= '9';
+                    const allowedKeys = [
+                      "Backspace",
+                      "Delete",
+                      "ArrowLeft",
+                      "ArrowRight",
+                      "Tab",
+                      "Enter",
+                    ];
+                    const isNumber = e.key >= "0" && e.key <= "9";
                     const isAllowedKey = allowedKeys.includes(e.key);
-                    
+
                     if (!isNumber && !isAllowedKey) {
                       e.preventDefault();
                     }
@@ -1298,16 +1391,20 @@ const Inventory = () => {
           <div
             key={toast.id}
             style={{
-              position: 'fixed',
-              top: `${20 + (index * 80)}px`, // Stack toasts vertically
-              right: '20px',
+              position: "fixed",
+              top: `${20 + index * 80}px`, // Stack toasts vertically
+              right: "20px",
               zIndex: 1000 + index,
             }}
           >
             <ToastNotification
               isVisible={true}
               onClose={() => removeToast(toast.id)}
-              message={toast.count > 1 ? `${toast.message} (${toast.count}x)` : toast.message}
+              message={
+                toast.count > 1
+                  ? `${toast.message} (${toast.count}x)`
+                  : toast.message
+              }
               type={toast.type}
               position="top-right"
             />
@@ -1347,4 +1444,3 @@ const Inventory = () => {
 };
 
 export default Inventory;
-

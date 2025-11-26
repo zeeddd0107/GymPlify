@@ -98,13 +98,7 @@ class AuthService {
       localStorage.setItem("pendingEmail", email);
 
       // Validate credentials by signing in temporarily
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      const user = userCredential.user;
-
+      await signInWithEmailAndPassword(auth, email, password);
       // Great! Now let me reset their login attempts since they got in
       await loginAttemptService.resetAttempts(email);
 
@@ -122,7 +116,7 @@ class AuthService {
         if (response.data.token) {
           localStorage.setItem("authToken", response.data.token);
         }
-      } catch (backendError) {
+      } catch {
         // Silently continue - backend token is optional for web OTP flow
       }
 
@@ -139,7 +133,7 @@ class AuthService {
       // Clear OTP pending flags on error
       localStorage.removeItem("otpPending");
       localStorage.removeItem("pendingEmail");
-      
+
       // Firebase is giving me some specific error codes to handle
       if (error.code === "auth/invalid-email") {
         throw new Error("Please enter a valid email address.");
@@ -340,11 +334,7 @@ class AuthService {
         firestoreData.photoURL = profileData.photoURL;
       }
 
-      await setDoc(
-        doc(db, "users", user.uid),
-        firestoreData,
-        { merge: true },
-      );
+      await setDoc(doc(db, "users", user.uid), firestoreData, { merge: true });
 
       // Force a refresh of the user's token to trigger auth state change
       await user.reload();

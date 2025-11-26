@@ -19,8 +19,8 @@ import {
   dateStringToTimestamp,
   isSubscriptionExpired,
   getSubscriptionStatus,
+  generateQRCodeImage,
 } from "@/components/utils";
-import api from "@/services/api";
 
 /**
  * Custom hook for Subscriptions page logic
@@ -67,7 +67,8 @@ export const useSubscriptions = () => {
   const [regeneratingQr, setRegeneratingQr] = useState(false);
 
   // Subscription details modal state
-  const [subscriptionDetailsModalOpen, setSubscriptionDetailsModalOpen] = useState(false);
+  const [subscriptionDetailsModalOpen, setSubscriptionDetailsModalOpen] =
+    useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
 
   // Prevent background scrolling when modals are open
@@ -380,18 +381,19 @@ export const useSubscriptions = () => {
   const handleQrCodeClick = async (subscription) => {
     setSelectedUser(subscription);
     setQrModalOpen(true);
-    
+
     try {
       // Fetch current QR code value from user document
       const userDoc = await getDoc(doc(db, "users", subscription.userId));
       const userData = userDoc.data();
-      const currentQrValue = userData?.qrCodeValue || generateNewQrValue(subscription.userId);
-      
+      const currentQrValue =
+        userData?.qrCodeValue || generateNewQrValue(subscription.userId);
+
       setQrCodeValue(currentQrValue);
-      
-      // Generate QR code image
-      const response = await api.post("/qr/generate", { uid: subscription.userId });
-      setQrCodeImage(response.data.qrCode);
+
+      // Generate QR code image client-side
+      const qrImage = await generateQRCodeImage(currentQrValue);
+      setQrCodeImage(qrImage);
     } catch (error) {
       console.error("Error fetching QR code:", error);
       setToast({
@@ -404,23 +406,23 @@ export const useSubscriptions = () => {
 
   const handleRegenerateQrCode = async () => {
     if (!selectedUser) return;
-    
+
     setRegeneratingQr(true);
     try {
       const newQrValue = generateNewQrValue(selectedUser.userId);
-      
+
       // Update user document with new QR code value
       await updateDoc(doc(db, "users", selectedUser.userId), {
         qrCodeValue: newQrValue,
         updatedAt: new Date(),
       });
-      
+
       setQrCodeValue(newQrValue);
-      
-      // Generate new QR code image
-      const response = await api.post("/qr/generate", { uid: selectedUser.userId });
-      setQrCodeImage(response.data.qrCode);
-      
+
+      // Generate new QR code image client-side
+      const qrImage = await generateQRCodeImage(newQrValue);
+      setQrCodeImage(qrImage);
+
       setToast({
         isVisible: true,
         message: `QR code for ${selectedUser.displayName} has been regenerated successfully!`,
@@ -502,15 +504,19 @@ export const useSubscriptions = () => {
         subscription: row,
       }),
     },
-    ...(isAdmin ? [{
-      key: "qrCode",
-      label: "QR Code",
-      render: (value, row) => ({
-        type: "qrCode",
-        subscription: row,
-        onQrClick: handleQrCodeClick,
-      }),
-    }] : []),
+    ...(isAdmin
+      ? [
+          {
+            key: "qrCode",
+            label: "QR Code",
+            render: (value, row) => ({
+              type: "qrCode",
+              subscription: row,
+              onQrClick: handleQrCodeClick,
+            }),
+          },
+        ]
+      : []),
     {
       key: "actions",
       label: "Actions",
@@ -626,19 +632,19 @@ export const useSubscriptions = () => {
     return subscriptions.filter((subscription) => {
       // Search by display name
       const displayName = (subscription.displayName || "").toLowerCase();
-      
+
       // Search by custom member ID
       const customMemberId = (subscription.customMemberId || "").toLowerCase();
-      
+
       // Search by member ID (formatted)
       const memberId = (getDisplayMemberId(subscription) || "").toLowerCase();
-      
+
       // Search by email
       const userEmail = (subscription.userEmail || "").toLowerCase();
-      
+
       // Search by plan
       const plan = (subscription.plan || "").toLowerCase();
-      
+
       // Search by status
       const status = (getSubscriptionStatus(subscription) || "").toLowerCase();
 

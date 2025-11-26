@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   FaPlay,
   FaUpload,
@@ -92,82 +92,86 @@ const Guide = () => {
   const [activeToasts, setActiveToasts] = useState([]);
 
   // Function to add a new toast with smart grouping
-  const addToast = (message, type = "success") => {
+  const addToast = useCallback((message, type = "success") => {
     const toastId = Date.now() + Math.random();
-    
-    setActiveToasts(prev => {
+
+    setActiveToasts((prev) => {
       // Limit to maximum 3 toasts at once
       if (prev.length >= 3) {
         // Remove oldest toast to make room
-        const sortedToasts = [...prev].sort((a, b) => a.timestamp - b.timestamp);
-        const filteredToasts = prev.filter(toast => toast.id !== sortedToasts[0].id);
-        
-        const newToast = { 
-          id: toastId, 
-          message, 
+        const sortedToasts = [...prev].sort(
+          (a, b) => a.timestamp - b.timestamp,
+        );
+        const filteredToasts = prev.filter(
+          (toast) => toast.id !== sortedToasts[0].id,
+        );
+
+        const newToast = {
+          id: toastId,
+          message,
           type,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
-        
+
         return [...filteredToasts, newToast];
       }
-      
+
       // Check for similar operations and group them
-      const similarToast = prev.find(toast => 
-        toast.message === message && 
-        toast.type === type &&
-        (Date.now() - toast.timestamp) < 1000 // Within 1 second
+      const similarToast = prev.find(
+        (toast) =>
+          toast.message === message &&
+          toast.type === type &&
+          Date.now() - toast.timestamp < 1000, // Within 1 second
       );
-      
+
       if (similarToast) {
         // Update existing toast with count
-        const updatedToasts = prev.map(toast => 
-          toast.id === similarToast.id 
+        const updatedToasts = prev.map((toast) =>
+          toast.id === similarToast.id
             ? { ...toast, count: (toast.count || 1) + 1, timestamp: Date.now() }
-            : toast
+            : toast,
         );
         return updatedToasts;
       }
-      
+
       // Add new toast
-      const newToast = { 
-        id: toastId, 
-        message, 
+      const newToast = {
+        id: toastId,
+        message,
         type,
         timestamp: Date.now(),
-        count: 1
+        count: 1,
       };
-      
+
       return [...prev, newToast];
     });
-    
+
     // Auto-remove toast after 3 seconds
     setTimeout(() => {
-      setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+      setActiveToasts((prev) => prev.filter((toast) => toast.id !== toastId));
     }, 3000);
-  };
+  }, []);
 
   // Function to remove a specific toast
   const removeToast = (toastId) => {
-    setActiveToasts(prev => prev.filter(toast => toast.id !== toastId));
+    setActiveToasts((prev) => prev.filter((toast) => toast.id !== toastId));
   };
   const [validationErrors, setValidationErrors] = useState({});
 
   // Filter state
   const [selectedTargets, setSelectedTargets] = useState([]);
   const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'folder'
-  const [customTarget, setCustomTarget] = useState("");
   const [customTargets, setCustomTargets] = useState([]);
-  const [showCustomTargets, setShowCustomTargets] = useState(false);
   const [selectedMainCategory, setSelectedMainCategory] = useState("");
   const [subcategoryInput, setSubcategoryInput] = useState("");
-  const [showSubcategorySuggestions, setShowSubcategorySuggestions] = useState(false);
+  const [showSubcategorySuggestions, setShowSubcategorySuggestions] =
+    useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Main target workout categories (required)
   const MAIN_TARGET_CATEGORIES = [
     "Shoulders",
-    "Back", 
+    "Back",
     "Chest",
     "Arms",
     "Legs",
@@ -177,9 +181,12 @@ const Guide = () => {
   ];
 
   // Helper function to show error notifications
-  const showErrorNotification = (message) => {
-    addToast(message, "error");
-  };
+  const showErrorNotification = useCallback(
+    (message) => {
+      addToast(message, "error");
+    },
+    [addToast],
+  );
 
   // Helper function to add target with optional subcategory
   const addTargetWithSubcategory = () => {
@@ -190,7 +197,7 @@ const Guide = () => {
 
     const currentTargets = editing.target || [];
     let targetName = selectedMainCategory;
-    
+
     // Add subcategory if provided
     if (subcategoryInput.trim()) {
       targetName = `${selectedMainCategory} - ${subcategoryInput.trim()}`;
@@ -222,42 +229,49 @@ const Guide = () => {
   };
 
   // Extract existing subcategories for a given main category
-  const getExistingSubcategories = (mainCategory) => {
-    const subcategories = new Set();
-    
-    // Get subcategories from all guides
-    guides.forEach((guide) => {
-      const guideTargets = Array.isArray(guide.target) ? guide.target : guide.target ? [guide.target] : [];
-      guideTargets.forEach((target) => {
-        if (target.includes(' - ')) {
-          const [category, subcategory] = target.split(' - ');
-          if (category === mainCategory && subcategory) {
-            subcategories.add(subcategory.trim());
-          }
-        }
-      });
-    });
+  const getExistingSubcategories = useCallback(
+    (mainCategory) => {
+      const subcategories = new Set();
 
-    // Get subcategories from custom targets
-    if (Array.isArray(customTargets)) {
-      customTargets.forEach((target) => {
-        if (target.includes(' - ')) {
-          const [category, subcategory] = target.split(' - ');
-          if (category === mainCategory && subcategory) {
-            subcategories.add(subcategory.trim());
+      // Get subcategories from all guides
+      guides.forEach((guide) => {
+        const guideTargets = Array.isArray(guide.target)
+          ? guide.target
+          : guide.target
+            ? [guide.target]
+            : [];
+        guideTargets.forEach((target) => {
+          if (target.includes(" - ")) {
+            const [category, subcategory] = target.split(" - ");
+            if (category === mainCategory && subcategory) {
+              subcategories.add(subcategory.trim());
+            }
           }
-        }
+        });
       });
-    }
 
-    return Array.from(subcategories).sort();
-  };
+      // Get subcategories from custom targets
+      if (Array.isArray(customTargets)) {
+        customTargets.forEach((target) => {
+          if (target.includes(" - ")) {
+            const [category, subcategory] = target.split(" - ");
+            if (category === mainCategory && subcategory) {
+              subcategories.add(subcategory.trim());
+            }
+          }
+        });
+      }
+
+      return Array.from(subcategories).sort();
+    },
+    [guides, customTargets],
+  );
 
   // Get existing subcategories for the selected main category
   const existingSubcategories = useMemo(() => {
     if (!selectedMainCategory) return [];
     return getExistingSubcategories(selectedMainCategory);
-  }, [selectedMainCategory, guides, customTargets]);
+  }, [selectedMainCategory, getExistingSubcategories]);
 
   // Handle subcategory selection from suggestions
   const selectSubcategory = (subcategory) => {
@@ -275,14 +289,17 @@ const Guide = () => {
   // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showSubcategorySuggestions && !event.target.closest('.subcategory-suggestions')) {
+      if (
+        showSubcategorySuggestions &&
+        !event.target.closest(".subcategory-suggestions")
+      ) {
         setShowSubcategorySuggestions(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showSubcategorySuggestions]);
 
@@ -352,7 +369,7 @@ const Guide = () => {
     };
 
     loadGuides();
-  }, []);
+  }, [showErrorNotification]);
 
   const openEdit = (guide) => {
     setEditing({
@@ -459,7 +476,9 @@ const Guide = () => {
         // Create unique path using timestamp + random string for each video upload
         // This ensures unlimited video uploads without overwriting previous ones
         const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2)}`;
-        const safeFileName = file.name.replace(/[^a-zA-Z0-9\s.-]/g, "").replace(/\s+/g, "_");
+        const safeFileName = file.name
+          .replace(/[^a-zA-Z0-9\s.-]/g, "")
+          .replace(/\s+/g, "_");
         const path = `guides/${uniqueId}_${safeFileName}`;
         const task = uploadBytesResumable(ref(storage, path), file, {
           contentType: file.type || "video/mp4",
@@ -597,16 +616,22 @@ const Guide = () => {
       setDeleting(true);
       await guideService.deleteGuide(guide.id);
       setGuides((prev) => prev.filter((g) => g.id !== guide.id));
-      
+
       // Refresh custom targets after deletion (cleanup may have removed unused ones)
       try {
         const updatedCustomTargets = await guideService.getCustomTargets();
         setCustomTargets(updatedCustomTargets);
-        console.log("Refreshed custom targets after guide deletion:", updatedCustomTargets);
+        console.log(
+          "Refreshed custom targets after guide deletion:",
+          updatedCustomTargets,
+        );
       } catch (customTargetsError) {
-        console.warn("Failed to refresh custom targets after guide deletion:", customTargetsError);
+        console.warn(
+          "Failed to refresh custom targets after guide deletion:",
+          customTargetsError,
+        );
       }
-      
+
       addToast("Guide deleted successfully!");
     } catch (error) {
       console.error("Error deleting guide:", error);
@@ -638,7 +663,10 @@ const Guide = () => {
   // Filter guides based on selected targets and search term
   const filteredGuides = guides.filter((guide) => {
     // Filter by search term (guide title)
-    if (searchTerm && !guide.title?.toLowerCase().includes(searchTerm.toLowerCase())) {
+    if (
+      searchTerm &&
+      !guide.title?.toLowerCase().includes(searchTerm.toLowerCase())
+    ) {
       return false;
     }
 
@@ -665,19 +693,6 @@ const Guide = () => {
   const handleSearchChange = (term) => {
     setSearchTerm(term);
   };
-
-
-  const handleAddCustomTarget = () => {
-    if (customTarget.trim() && !editing.target?.includes(customTarget.trim())) {
-      const currentTargets = editing.target || [];
-      setEditing((s) => ({
-        ...s,
-        target: [...currentTargets, customTarget.trim()],
-      }));
-      setCustomTarget("");
-    }
-  };
-
   return (
     <div className="pl-1 pt-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -1129,8 +1144,10 @@ const Guide = () => {
                 >
                   {/* Add New Target Section */}
                   <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Add Target Workout</h4>
-                    
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">
+                      Add Target Workout
+                    </h4>
+
                     {/* Main Category Selection */}
                     <div className="mb-3">
                       <label className="text-xs font-medium text-gray-600 mb-1 block">
@@ -1138,7 +1155,9 @@ const Guide = () => {
                       </label>
                       <select
                         value={selectedMainCategory}
-                        onChange={(e) => handleMainCategoryChange(e.target.value)}
+                        onChange={(e) =>
+                          handleMainCategoryChange(e.target.value)
+                        }
                         disabled={uploadProgress > 0 && uploadProgress < 100}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -1154,7 +1173,8 @@ const Guide = () => {
                     {/* Optional Subcategory */}
                     <div className="mb-3">
                       <label className="text-xs font-medium text-gray-600 mb-1 block">
-                        Subcategory <span className="text-gray-400">(Optional)</span>
+                        Subcategory{" "}
+                        <span className="text-gray-400">(Optional)</span>
                       </label>
                       <div className="relative">
                         <input
@@ -1162,9 +1182,16 @@ const Guide = () => {
                           value={subcategoryInput}
                           onChange={(e) => {
                             setSubcategoryInput(e.target.value);
-                            setShowSubcategorySuggestions(e.target.value.length > 0);
+                            setShowSubcategorySuggestions(
+                              e.target.value.length > 0,
+                            );
                           }}
-                          onFocus={() => setShowSubcategorySuggestions(subcategoryInput.length > 0 && existingSubcategories.length > 0)}
+                          onFocus={() =>
+                            setShowSubcategorySuggestions(
+                              subcategoryInput.length > 0 &&
+                                existingSubcategories.length > 0,
+                            )
+                          }
                           placeholder="e.g., Lateral Deltoids, Upper Back, etc."
                           disabled={uploadProgress > 0 && uploadProgress < 100}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1175,50 +1202,63 @@ const Guide = () => {
                             }
                           }}
                         />
-                        
+
                         {/* Subcategory Suggestions */}
-                        {showSubcategorySuggestions && existingSubcategories.length > 0 && (
-                          <div className="subcategory-suggestions absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                            <div className="p-2">
-                              <div className="text-xs text-gray-500 mb-2 font-medium">Existing subcategories:</div>
-                              {existingSubcategories
-                                .filter(sub => sub.toLowerCase().includes(subcategoryInput.toLowerCase()))
-                                .map((subcategory) => (
-                                  <button
-                                    key={subcategory}
-                                    type="button"
-                                    onClick={() => selectSubcategory(subcategory)}
-                                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                                  >
-                                    {subcategory}
-                                  </button>
-                                ))}
+                        {showSubcategorySuggestions &&
+                          existingSubcategories.length > 0 && (
+                            <div className="subcategory-suggestions absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                              <div className="p-2">
+                                <div className="text-xs text-gray-500 mb-2 font-medium">
+                                  Existing subcategories:
+                                </div>
+                                {existingSubcategories
+                                  .filter((sub) =>
+                                    sub
+                                      .toLowerCase()
+                                      .includes(subcategoryInput.toLowerCase()),
+                                  )
+                                  .map((subcategory) => (
+                                    <button
+                                      key={subcategory}
+                                      type="button"
+                                      onClick={() =>
+                                        selectSubcategory(subcategory)
+                                      }
+                                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                                    >
+                                      {subcategory}
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                      </div>
+
+                      {/* Show existing subcategories when main category is selected */}
+                      {selectedMainCategory &&
+                        existingSubcategories.length > 0 && (
+                          <div className="mt-2">
+                            <div className="text-xs text-gray-500 mb-1">
+                              Existing subcategories for {selectedMainCategory}:
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {existingSubcategories.map((subcategory) => (
+                                <button
+                                  key={subcategory}
+                                  type="button"
+                                  onClick={() => selectSubcategory(subcategory)}
+                                  className="px-2 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors"
+                                >
+                                  {subcategory}
+                                </button>
+                              ))}
                             </div>
                           </div>
                         )}
-                      </div>
-                      
-                      {/* Show existing subcategories when main category is selected */}
-                      {selectedMainCategory && existingSubcategories.length > 0 && (
-                        <div className="mt-2">
-                          <div className="text-xs text-gray-500 mb-1">Existing subcategories for {selectedMainCategory}:</div>
-                          <div className="flex flex-wrap gap-1">
-                            {existingSubcategories.map((subcategory) => (
-                              <button
-                                key={subcategory}
-                                type="button"
-                                onClick={() => selectSubcategory(subcategory)}
-                                className="px-2 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors"
-                              >
-                                {subcategory}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
+
                       <p className="text-xs text-gray-500 mt-1">
-                        Add a specific area within the main category (e.g., "Lateral Deltoids" for Shoulders)
+                        Add a specific area within the main category (e.g.,
+                        "Lateral Deltoids" for Shoulders)
                       </p>
                     </div>
 
@@ -1226,7 +1266,10 @@ const Guide = () => {
                     <button
                       type="button"
                       onClick={addTargetWithSubcategory}
-                      disabled={!selectedMainCategory || (uploadProgress > 0 && uploadProgress < 100)}
+                      disabled={
+                        !selectedMainCategory ||
+                        (uploadProgress > 0 && uploadProgress < 100)
+                      }
                       className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <FaPlus className="w-3 h-3" />
@@ -1452,7 +1495,7 @@ const Guide = () => {
                     disabled={uploadProgress > 0 && uploadProgress < 100}
                     options={[
                       { value: "Published", label: "Published" },
-                      { value: "Draft", label: "Draft" }
+                      { value: "Draft", label: "Draft" },
                     ]}
                     placeholder="Select Status"
                     required={true}
@@ -1571,16 +1614,20 @@ const Guide = () => {
         <div
           key={toast.id}
           style={{
-            position: 'fixed',
-            top: `${20 + (index * 80)}px`, // Stack toasts vertically
-            right: '20px',
+            position: "fixed",
+            top: `${20 + index * 80}px`, // Stack toasts vertically
+            right: "20px",
             zIndex: 1000 + index,
           }}
         >
           <ToastNotification
             isVisible={true}
             onClose={() => removeToast(toast.id)}
-            message={toast.count > 1 ? `${toast.message} (${toast.count}x)` : toast.message}
+            message={
+              toast.count > 1
+                ? `${toast.message} (${toast.count}x)`
+                : toast.message
+            }
             type={toast.type}
             position="top-right"
           />

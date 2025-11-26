@@ -11,7 +11,6 @@ import {
   doc,
   serverTimestamp,
   getDocs,
-  getDoc,
   writeBatch,
 } from "firebase/firestore";
 
@@ -194,7 +193,7 @@ class NotificationService {
       subscriptionName,
       subscriptionId,
     });
-    
+
     return this.createNotification({
       userId,
       type: "subscription_approved",
@@ -245,7 +244,7 @@ class NotificationService {
   ) {
     let title = "";
     let message = "";
-    
+
     if (daysRemaining === 1) {
       title = "Subscription Expiring Tomorrow ⏰";
       message = `Your ${subscriptionName} subscription expires in 1 day. Renew now to avoid interruption.`;
@@ -259,7 +258,7 @@ class NotificationService {
       title = "Subscription Expiring Soon ⏰";
       message = `Your ${subscriptionName} subscription expires in ${daysRemaining} days. Renew now to continue enjoying gym services.`;
     }
-    
+
     return this.createNotification({
       userId,
       type: "subscription_expiring_soon",

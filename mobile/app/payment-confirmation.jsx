@@ -320,9 +320,13 @@ export default function PaymentConfirmationScreen() {
               Logger.payment("Not paid yet - going back");
               try {
                 router.back();
-              } catch (e) {
+              } catch {
                 // Fallback: navigate to subscriptions if no history
-                try { router.push("/subscriptions"); } catch {}
+                try {
+                  router.push("/subscriptions");
+                } catch {
+                  console.warn("Navigation fallback failed");
+                }
               }
             }}
           >

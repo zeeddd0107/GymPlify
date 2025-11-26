@@ -18,7 +18,6 @@ import { StatusBar, setStatusBarStyle } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   loginUser,
-  registerUser,
   upsertUserInFirestore,
   generateCustomMemberId,
 } from "@/src/services/authService";
@@ -33,9 +32,16 @@ import { updateProfile } from "firebase/auth";
 import { Fonts } from "@/src/constants/Fonts";
 import Logger from "@/src/utils/logger";
 import { sendOTP } from "@/src/services/otpService";
-import { checkLoginAttempts, recordLoginAttempt } from "@/src/services/loginAttemptsService";
+import {
+  checkLoginAttempts,
+  recordLoginAttempt,
+} from "@/src/services/loginAttemptsService";
 
 WebBrowser.maybeCompleteAuthSession();
+
+const SPECIAL_CHAR_REGEX = new RegExp(
+  "[-@#$%^&*()_+=\\[\\]{};':\"\\\\|,.<>/?]",
+);
 
 export default function AuthScreen() {
   Logger.render("AuthScreen", "Component rendered");
@@ -52,19 +58,18 @@ export default function AuthScreen() {
   useEffect(() => {
     setStatusBarStyle("dark", true);
   }, []);
-  
+
   // Blinking red border animation for password validation error
   useEffect(() => {
     if (showPasswordError) {
-      
       // Stop any existing animation
       if (animationRef.current) {
         animationRef.current.stop();
       }
-      
+
       // Reset to initial state
       borderColorAnim.setValue(0);
-      
+
       // Start blinking animation
       animationRef.current = Animated.loop(
         Animated.sequence([
@@ -79,23 +84,23 @@ export default function AuthScreen() {
             useNativeDriver: false,
           }),
         ]),
-        { iterations: 3 } // Blink 3 times
+        { iterations: 3 }, // Blink 3 times
       );
-      
+
       animationRef.current.start(() => {
         setShowPasswordError(false);
         borderColorAnim.setValue(0);
         animationRef.current = null;
       });
     }
-    
+
     return () => {
       // Cleanup: stop animation if component unmounts
       if (animationRef.current) {
         animationRef.current.stop();
       }
     };
-  }, [showPasswordError]);
+  }, [showPasswordError, borderColorAnim]);
 
   // --- STATE MANAGEMENT ---
   const insets = useSafeAreaInsets();
@@ -108,28 +113,28 @@ export default function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false); // Toggles password visibility
   const router = useRouter(); // For navigation
   const [name, setName] = useState(""); // Add name state
-  
+
   // Focus states for input highlighting
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [nameFocused, setNameFocused] = useState(false);
-  
+
   // State for password validation error animation
   const [showPasswordError, setShowPasswordError] = useState(false);
   const borderColorAnim = useRef(new Animated.Value(0)).current;
   const animationRef = useRef(null);
-  
+
   // Function to trigger the blinking animation directly
   const triggerPasswordErrorAnimation = () => {
     // Stop any existing animation
     if (animationRef.current) {
       animationRef.current.stop();
     }
-    
+
     // Reset to initial state
     borderColorAnim.setValue(0);
     setShowPasswordError(true);
-    
+
     // Start blinking animation
     animationRef.current = Animated.loop(
       Animated.sequence([
@@ -144,9 +149,9 @@ export default function AuthScreen() {
           useNativeDriver: false,
         }),
       ]),
-      { iterations: 3 } // Blink 3 times
+      { iterations: 3 }, // Blink 3 times
     );
-    
+
     animationRef.current.start(() => {
       setShowPasswordError(false);
       borderColorAnim.setValue(0);
@@ -170,180 +175,329 @@ export default function AuthScreen() {
   const validateEmail = (email) => {
     // Trim the email first
     const trimmedEmail = email.trim();
-    
+
     // Check if email is empty
     if (!trimmedEmail) {
       return { isValid: false, message: "Email address is required" };
     }
-    
+
     // Check for spaces anywhere in the email
     if (/\s/.test(trimmedEmail)) {
       return { isValid: false, message: "Email address cannot contain spaces" };
     }
-    
+
     // Check for exactly one @ symbol
     const atCount = (trimmedEmail.match(/@/g) || []).length;
     if (atCount === 0) {
       return { isValid: false, message: "Please enter a valid email address" };
     }
     if (atCount > 1) {
-      return { isValid: false, message: "Email address cannot contain multiple @ symbols" };
+      return {
+        isValid: false,
+        message: "Email address cannot contain multiple @ symbols",
+      };
     }
-    
+
     // Split into local and domain parts
-    const parts = trimmedEmail.split('@');
+    const parts = trimmedEmail.split("@");
     const localPart = parts[0];
     const domain = parts[1];
-    
+
     // Validate local part (before @)
     if (!localPart || localPart.length === 0) {
       return { isValid: false, message: "Please enter a valid email address" };
     }
-    
+
     // Local part cannot start or end with a dot
-    if (localPart.startsWith('.') || localPart.endsWith('.')) {
+    if (localPart.startsWith(".") || localPart.endsWith(".")) {
       return { isValid: false, message: "Invalid email format" };
     }
-    
+
     // Local part cannot have consecutive dots
     if (/\.\./.test(localPart)) {
       return { isValid: false, message: "Invalid email format" };
     }
-    
+
     // Local part should contain valid characters (letters, numbers, and some special chars)
-    if (!/^[a-zA-Z0-9._+\-]+$/.test(localPart)) {
-      return { isValid: false, message: "Email address contains invalid characters" };
+    if (!/^[a-zA-Z0-9._+-]+$/.test(localPart)) {
+      return {
+        isValid: false,
+        message: "Email address contains invalid characters",
+      };
     }
-    
+
     // Validate domain part (after @)
     if (!domain || domain.length === 0) {
       return { isValid: false, message: "Please enter a valid email address" };
     }
-    
+
     // Domain must contain at least one dot
-    if (!domain.includes('.')) {
+    if (!domain.includes(".")) {
       return { isValid: false, message: "Please enter a valid email address" };
     }
-    
+
     // Domain cannot start or end with a dot
-    if (domain.startsWith('.') || domain.endsWith('.')) {
+    if (domain.startsWith(".") || domain.endsWith(".")) {
       return { isValid: false, message: "Invalid email format" };
     }
-    
+
     // Domain cannot have consecutive dots
     if (/\.\./.test(domain)) {
       return { isValid: false, message: "Invalid email format" };
     }
-    
+
     // Domain cannot start or end with a hyphen
-    if (domain.startsWith('-') || domain.endsWith('-')) {
+    if (domain.startsWith("-") || domain.endsWith("-")) {
       return { isValid: false, message: "Invalid email format" };
     }
-    
+
     // Split domain into parts (subdomain.domain.tld)
-    const domainParts = domain.split('.');
-    
+    const domainParts = domain.split(".");
+
     // Each domain part must be valid
     for (const part of domainParts) {
       // Domain part cannot be empty
       if (!part || part.length === 0) {
-        return { isValid: false, message: "Please enter a valid email address" };
+        return {
+          isValid: false,
+          message: "Please enter a valid email address",
+        };
       }
-      
+
       // Domain part should only contain letters, numbers, and hyphens
-      if (!/^[a-zA-Z0-9\-]+$/.test(part)) {
+      if (!/^[a-zA-Z0-9-]+$/.test(part)) {
         return { isValid: false, message: "Invalid email format" };
       }
-      
+
       // Domain part cannot start or end with hyphen
-      if (part.startsWith('-') || part.endsWith('-')) {
+      if (part.startsWith("-") || part.endsWith("-")) {
         return { isValid: false, message: "Invalid email format" };
       }
     }
-    
+
     // Top-level domain (last part) must be at least 2 characters and only letters
     const tld = domainParts[domainParts.length - 1].toLowerCase();
     if (tld.length < 2 || !/^[a-zA-Z]+$/.test(tld)) {
       return { isValid: false, message: "Please enter a valid email address" };
     }
-    
+
     // Validate TLD against common valid TLDs
     const validTLDs = [
-      'com', 'org', 'net', 'edu', 'gov', 'mil', 'int',
-      'co', 'uk', 'us', 'ca', 'au', 'de', 'fr', 'it', 'es', 'nl', 'be', 'ch', 'at',
-      'se', 'no', 'dk', 'fi', 'jp', 'cn', 'in', 'br', 'mx', 'ru', 'kr', 'tw', 'sg',
-      'hk', 'nz', 'za', 'ae', 'sa', 'eg', 'il', 'tr', 'pl', 'cz', 'ie', 'pt', 'gr',
-      'io', 'ai', 'app', 'dev', 'tech', 'online', 'site', 'website', 'store', 'shop',
-      'info', 'biz', 'me', 'tv', 'cc', 'ws', 'mobi', 'name', 'pro', 'tel', 'travel',
-      'jobs', 'cat', 'asia', 'eu', 'ph', 'my', 'id', 'vn', 'th', 'pk', 'bd', 'lk'
+      "com",
+      "org",
+      "net",
+      "edu",
+      "gov",
+      "mil",
+      "int",
+      "co",
+      "uk",
+      "us",
+      "ca",
+      "au",
+      "de",
+      "fr",
+      "it",
+      "es",
+      "nl",
+      "be",
+      "ch",
+      "at",
+      "se",
+      "no",
+      "dk",
+      "fi",
+      "jp",
+      "cn",
+      "in",
+      "br",
+      "mx",
+      "ru",
+      "kr",
+      "tw",
+      "sg",
+      "hk",
+      "nz",
+      "za",
+      "ae",
+      "sa",
+      "eg",
+      "il",
+      "tr",
+      "pl",
+      "cz",
+      "ie",
+      "pt",
+      "gr",
+      "io",
+      "ai",
+      "app",
+      "dev",
+      "tech",
+      "online",
+      "site",
+      "website",
+      "store",
+      "shop",
+      "info",
+      "biz",
+      "me",
+      "tv",
+      "cc",
+      "ws",
+      "mobi",
+      "name",
+      "pro",
+      "tel",
+      "travel",
+      "jobs",
+      "cat",
+      "asia",
+      "eu",
+      "ph",
+      "my",
+      "id",
+      "vn",
+      "th",
+      "pk",
+      "bd",
+      "lk",
     ];
-    
+
     if (!validTLDs.includes(tld)) {
-      return { isValid: false, message: "Please enter a valid email address with a recognized domain" };
+      return {
+        isValid: false,
+        message: "Please enter a valid email address with a recognized domain",
+      };
     }
-    
+
     // Get the main domain name (second to last part)
-    const domainName = domainParts.length >= 2 ? domainParts[domainParts.length - 2].toLowerCase() : '';
-    
+    const domainName =
+      domainParts.length >= 2
+        ? domainParts[domainParts.length - 2].toLowerCase()
+        : "";
+
     // Domain name must be at least 2 characters
     if (domainName.length < 2) {
       return { isValid: false, message: "Please enter a valid email address" };
     }
-    
+
     // Check for common email provider typos
     const commonProviders = {
-      'gmail': ['gmai', 'gmial', 'gmaill', 'gmails', 'gma1l', 'gma2l', 'gma3l', 'gma4l', 'gma5l', 
-                'gma6l', 'gma7l', 'gma8l', 'gma9l', 'gmali', 'gmsil', 'gnail', 'gail', 'gmai1', 
-                'gmial', 'gmal', 'gmaol', 'gmaul'],
-      'yahoo': ['yaho', 'yahooo', 'yahoos', 'yshoo', 'yhoo', 'yaoo', 'yahho', 'yahu'],
-      'hotmail': ['hotmai', 'hotmal', 'hotmial', 'hotmails', 'hotmil', 'hotnail', 'hotmaol', 'hotmali'],
-      'outlook': ['outlok', 'outloo', 'outlooks', 'putlook', 'outluk', 'outlok'],
-      'icloud': ['iclod', 'iclouds', 'iclould', 'iclowd', 'iclud', 'icload'],
-      'protonmail': ['protonmai', 'protonmial', 'protonmails', 'protonmal'],
-      'aol': ['ao1', 'aoll', 'alo', 'aol1'],
+      gmail: [
+        "gmai",
+        "gmial",
+        "gmaill",
+        "gmails",
+        "gma1l",
+        "gma2l",
+        "gma3l",
+        "gma4l",
+        "gma5l",
+        "gma6l",
+        "gma7l",
+        "gma8l",
+        "gma9l",
+        "gmali",
+        "gmsil",
+        "gnail",
+        "gail",
+        "gmai1",
+        "gmial",
+        "gmal",
+        "gmaol",
+        "gmaul",
+      ],
+      yahoo: [
+        "yaho",
+        "yahooo",
+        "yahoos",
+        "yshoo",
+        "yhoo",
+        "yaoo",
+        "yahho",
+        "yahu",
+      ],
+      hotmail: [
+        "hotmai",
+        "hotmal",
+        "hotmial",
+        "hotmails",
+        "hotmil",
+        "hotnail",
+        "hotmaol",
+        "hotmali",
+      ],
+      outlook: ["outlok", "outloo", "outlooks", "putlook", "outluk", "outlok"],
+      icloud: ["iclod", "iclouds", "iclould", "iclowd", "iclud", "icload"],
+      protonmail: ["protonmai", "protonmial", "protonmails", "protonmal"],
+      aol: ["ao1", "aoll", "alo", "aol1"],
     };
-    
+
     // Check if the domain name is a typo of a common provider
     for (const [correct, typos] of Object.entries(commonProviders)) {
       if (typos.includes(domainName)) {
-        return { isValid: false, message: `Did you mean ${correct}.${tld}? Please check your email address` };
+        return {
+          isValid: false,
+          message: `Did you mean ${correct}.${tld}? Please check your email address`,
+        };
       }
-      
+
       // Check for domains with numbers in common providers (e.g., gma2il)
-      if (correct === 'gmail' && /gma[0-9]/.test(domainName)) {
-        return { isValid: false, message: "Did you mean gmail.com? Please check your email address" };
+      if (correct === "gmail" && /gma[0-9]/.test(domainName)) {
+        return {
+          isValid: false,
+          message: "Did you mean gmail.com? Please check your email address",
+        };
       }
-      
+
       // Check for common providers with extra characters appended or inserted
       // This catches: gmails, gmailsjds, gmailxyz, etc.
-      if (domainName.startsWith(correct) && domainName !== correct && domainName.length > correct.length) {
-        return { isValid: false, message: `Did you mean ${correct}.${tld}? Please check your email address` };
+      if (
+        domainName.startsWith(correct) &&
+        domainName !== correct &&
+        domainName.length > correct.length
+      ) {
+        return {
+          isValid: false,
+          message: `Did you mean ${correct}.${tld}? Please check your email address`,
+        };
       }
-      
+
       // Check if domain ends with the provider name (extra chars before)
       // This catches: ggmail, xgmail, 123gmail, etc.
-      if (domainName.endsWith(correct) && domainName !== correct && domainName.length > correct.length) {
-        return { isValid: false, message: `Did you mean ${correct}.${tld}? Please check your email address` };
+      if (
+        domainName.endsWith(correct) &&
+        domainName !== correct &&
+        domainName.length > correct.length
+      ) {
+        return {
+          isValid: false,
+          message: `Did you mean ${correct}.${tld}? Please check your email address`,
+        };
       }
-      
+
       // Check if domain contains the provider name but with extra characters
       // This catches: gmials, hotmails, yahoos, etc.
       if (domainName.includes(correct) && domainName !== correct) {
-        return { isValid: false, message: `Did you mean ${correct}.${tld}? Please check your email address` };
+        return {
+          isValid: false,
+          message: `Did you mean ${correct}.${tld}? Please check your email address`,
+        };
       }
     }
-    
+
     // Check for domains that are too long (likely spam or typo)
     if (domainName.length > 30) {
       return { isValid: false, message: "Please enter a valid email address" };
     }
-    
+
     // Final comprehensive regex check
-    const emailRegex = /^[a-zA-Z0-9._+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+    const emailRegex = /^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(trimmedEmail)) {
       return { isValid: false, message: "Please enter a valid email address" };
     }
-    
+
     return { isValid: true, message: "" };
   };
 
@@ -354,7 +508,7 @@ export default function AuthScreen() {
       hasUppercase: /[A-Z]/.test(password),
       hasLowercase: /[a-z]/.test(password),
       hasNumber: /[0-9]/.test(password),
-      hasSpecialChar: /[@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+      hasSpecialChar: SPECIAL_CHAR_REGEX.test(password),
       noPersonalData:
         !password
           .toLowerCase()
@@ -458,48 +612,91 @@ export default function AuthScreen() {
 
   // --- ERROR HANDLING ---
   // Maps Firebase error codes to user-friendly messages
-  const getFriendlyErrorMessage = (error, lockoutInfo = null, remainingAttempts = null) => {
+  const getFriendlyErrorMessage = (
+    error,
+    lockoutInfo = null,
+    remainingAttempts = null,
+  ) => {
     const errorCode = error.code || "";
     const errorMessage = error.message || "";
 
     // Account Lockout Errors
-    if (errorMessage.includes("account is locked") || (lockoutInfo && lockoutInfo.isLockedOut)) {
+    if (
+      errorMessage.includes("account is locked") ||
+      (lockoutInfo && lockoutInfo.isLockedOut)
+    ) {
       const minutes = lockoutInfo?.lockedUntilMinutes || 15;
-      return `Too many failed login attempts. Your account is locked for ${minutes} minute${minutes > 1 ? 's' : ''}. Please try again later.`;
+      return `Too many failed login attempts. Your account is locked for ${minutes} minute${minutes > 1 ? "s" : ""}. Please try again later.`;
     }
 
     // Login/Sign In Errors (with remaining attempts)
-    if (errorCode === "auth/invalid-credential" || errorCode === "auth/invalid-login-credentials") {
-      console.log(" [getFriendlyErrorMessage] invalid-credential, remainingAttempts:", remainingAttempts);
+    if (
+      errorCode === "auth/invalid-credential" ||
+      errorCode === "auth/invalid-login-credentials"
+    ) {
+      console.log(
+        " [getFriendlyErrorMessage] invalid-credential, remainingAttempts:",
+        remainingAttempts,
+      );
       // Show remaining attempts from 2nd failed attempt onwards (add 1 to show attempts including current)
-      if (remainingAttempts !== null && remainingAttempts !== undefined && remainingAttempts >= 0 && remainingAttempts <= 2) {
+      if (
+        remainingAttempts !== null &&
+        remainingAttempts !== undefined &&
+        remainingAttempts >= 0 &&
+        remainingAttempts <= 2
+      ) {
         const displayAttempts = remainingAttempts + 1; // Show including current attempt
-        console.log(" [getFriendlyErrorMessage] displayAttempts:", displayAttempts);
+        console.log(
+          " [getFriendlyErrorMessage] displayAttempts:",
+          displayAttempts,
+        );
         const attemptText = displayAttempts === 1 ? "attempt" : "attempts";
-        const attemptWord = displayAttempts === 3 ? "Three" : 
-                           displayAttempts === 2 ? "Two" : 
-                           displayAttempts === 1 ? "One" : displayAttempts;
-        
+        const attemptWord =
+          displayAttempts === 3
+            ? "Three"
+            : displayAttempts === 2
+              ? "Two"
+              : displayAttempts === 1
+                ? "One"
+                : displayAttempts;
+
         // If only one attempt left, show with warning context
         if (displayAttempts === 1) {
-          console.log(" [getFriendlyErrorMessage] Returning: Last attempt warning");
+          console.log(
+            " [getFriendlyErrorMessage] Returning: Last attempt warning",
+          );
           return `Incorrect credentials. ${attemptWord} ${attemptText} left before your account is locked.`;
         }
-        console.log(" [getFriendlyErrorMessage] Returning with count:", `${attemptWord} ${attemptText} left`);
+        console.log(
+          " [getFriendlyErrorMessage] Returning with count:",
+          `${attemptWord} ${attemptText} left`,
+        );
         return `Incorrect email or password. ${attemptWord} ${attemptText} left.`;
       }
-      console.log(" [getFriendlyErrorMessage] No remainingAttempts, returning default");
+      console.log(
+        " [getFriendlyErrorMessage] No remainingAttempts, returning default",
+      );
       return "Incorrect email or password. Please try again.";
     }
     if (errorCode === "auth/user-not-found") {
       // Show remaining attempts from 2nd failed attempt onwards (add 1 to show attempts including current)
-      if (remainingAttempts !== null && remainingAttempts !== undefined && remainingAttempts >= 0 && remainingAttempts <= 2) {
+      if (
+        remainingAttempts !== null &&
+        remainingAttempts !== undefined &&
+        remainingAttempts >= 0 &&
+        remainingAttempts <= 2
+      ) {
         const displayAttempts = remainingAttempts + 1;
         const attemptText = displayAttempts === 1 ? "attempt" : "attempts";
-        const attemptWord = displayAttempts === 3 ? "Three" : 
-                           displayAttempts === 2 ? "Two" : 
-                           displayAttempts === 1 ? "One" : displayAttempts;
-        
+        const attemptWord =
+          displayAttempts === 3
+            ? "Three"
+            : displayAttempts === 2
+              ? "Two"
+              : displayAttempts === 1
+                ? "One"
+                : displayAttempts;
+
         // If only one attempt left, show with warning context
         if (displayAttempts === 1) {
           return `Incorrect email or password. ${attemptWord} ${attemptText} left before your account is locked.`;
@@ -510,13 +707,23 @@ export default function AuthScreen() {
     }
     if (errorCode === "auth/wrong-password") {
       // Show remaining attempts from 2nd failed attempt onwards (add 1 to show attempts including current)
-      if (remainingAttempts !== null && remainingAttempts !== undefined && remainingAttempts >= 0 && remainingAttempts <= 2) {
+      if (
+        remainingAttempts !== null &&
+        remainingAttempts !== undefined &&
+        remainingAttempts >= 0 &&
+        remainingAttempts <= 2
+      ) {
         const displayAttempts = remainingAttempts + 1;
         const attemptText = displayAttempts === 1 ? "attempt" : "attempts";
-        const attemptWord = displayAttempts === 3 ? "Three" : 
-                           displayAttempts === 2 ? "Two" : 
-                           displayAttempts === 1 ? "One" : displayAttempts;
-        
+        const attemptWord =
+          displayAttempts === 3
+            ? "Three"
+            : displayAttempts === 2
+              ? "Two"
+              : displayAttempts === 1
+                ? "One"
+                : displayAttempts;
+
         // If only one attempt left, show with warning context
         if (displayAttempts === 1) {
           return `Incorrect email or password. ${attemptWord} ${attemptText} left before your account is locked.`;
@@ -580,9 +787,9 @@ export default function AuthScreen() {
         const fbUser = firebase.auth().currentUser;
         if (fbUser) {
           // Create comprehensive user document with all fields like email/password users
-          const userRef = firestore.collection('users').doc(fbUser.uid);
+          const userRef = firestore.collection("users").doc(fbUser.uid);
           const userSnap = await userRef.get();
-          
+
           if (!userSnap.exists) {
             // New Google user - create complete document
             const customMemberId = await generateCustomMemberId();
@@ -593,15 +800,17 @@ export default function AuthScreen() {
               name: fbUser.displayName,
               role: "client",
               provider: "google",
-              photoURL: fbUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(fbUser.displayName || fbUser.email)}&background=0D8ABC&color=fff&bold=true`,
+              photoURL:
+                fbUser.photoURL ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(fbUser.displayName || fbUser.email)}&background=0D8ABC&color=fff&bold=true`,
               qrCodeValue: fbUser.uid,
               customMemberId: customMemberId,
               createdAt: firebase.firestore.FieldValue.serverTimestamp(),
               lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
               lastLogout: null,
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             });
-            console.log('New Google user document created with all fields');
+            console.log("New Google user document created with all fields");
           } else {
             // Existing Google user - update with missing fields
             const existingData = userSnap.data();
@@ -612,24 +821,32 @@ export default function AuthScreen() {
               name: fbUser.displayName,
               role: "client",
               provider: "google",
-              photoURL: fbUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(fbUser.displayName || fbUser.email)}&background=0D8ABC&color=fff&bold=true`,
+              photoURL:
+                fbUser.photoURL ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(fbUser.displayName || fbUser.email)}&background=0D8ABC&color=fff&bold=true`,
               qrCodeValue: existingData.qrCodeValue || fbUser.uid,
-              customMemberId: existingData.customMemberId || await generateCustomMemberId(),
+              customMemberId:
+                existingData.customMemberId || (await generateCustomMemberId()),
               lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
               lastLogout: existingData.lastLogout || null,
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             };
-            
+
             // Only add createdAt if it doesn't exist
             if (!existingData.createdAt) {
-              updateData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-              console.log('Adding missing createdAt field for existing Google user');
+              updateData.createdAt =
+                firebase.firestore.FieldValue.serverTimestamp();
+              console.log(
+                "Adding missing createdAt field for existing Google user",
+              );
             }
-            
+
             await userRef.set(updateData, { merge: true });
-            console.log('Existing Google user document updated with missing fields');
+            console.log(
+              "Existing Google user document updated with missing fields",
+            );
           }
-          
+
           // Store user data on the device for local access
           const userData = {
             id: fbUser.uid,
@@ -651,7 +868,10 @@ export default function AuthScreen() {
         }
       } catch (error) {
         // Log to console for developers (string only, not error object)
-        console.log("Error in Google authentication:", error.code || error.message || "Unknown error");
+        console.log(
+          "Error in Google authentication:",
+          error.code || error.message || "Unknown error",
+        );
         const friendlyMessage = getFriendlyErrorMessage(error);
         setMessage(friendlyMessage);
       }
@@ -685,10 +905,10 @@ export default function AuthScreen() {
         // Validate password requirements (only the 4 displayed ones)
         const validation = validatePassword(password, email, name);
         const requiredChecks = [
-          validation.minLength,        // At least 8 characters
-          validation.hasUppercase,     // One uppercase letter (A-Z)
-          validation.hasNumber,        // One number (0-9)
-          validation.hasSpecialChar,   // One special character (@#$%)
+          validation.minLength, // At least 8 characters
+          validation.hasUppercase, // One uppercase letter (A-Z)
+          validation.hasNumber, // One number (0-9)
+          validation.hasSpecialChar, // One special character (@#$%)
         ];
         const allRequirementsMet = requiredChecks.every(Boolean);
 
@@ -703,7 +923,7 @@ export default function AuthScreen() {
         console.log("Sending OTP to:", email);
         const otpResponse = await sendOTP(email);
         console.log("OTP sent successfully:", otpResponse);
-        
+
         // Navigate to OTP verification screen with registration data
         Logger.auth("Navigating to OTP verification");
         setLoading(false);
@@ -725,21 +945,21 @@ export default function AuthScreen() {
         // DIRECT REGISTRATION - Create account immediately
         // Logger.auth("Creating Firebase account directly (OTP disabled)");
         // user = await registerUser(email, password);
-        // 
+        //
         // if (user) {
         //   // Set up user profile
         //   const defaultPhotoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=0D8ABC&color=fff&bold=true`;
-        //   
+        //
         //   const profileUpdate = { displayName: name };
         //   if (!user.photoURL) {
         //     profileUpdate.photoURL = defaultPhotoURL;
         //   }
         //   await updateProfile(user, profileUpdate);
-        //   
+        //
         //   // Reload user
         //   await user.reload();
         //   const refreshedUser = firebase.auth().currentUser;
-        //   
+        //
         //   // Create Firestore user document with ALL fields including role
         //   await firestore
         //     .collection('users')
@@ -761,9 +981,9 @@ export default function AuthScreen() {
         //       },
         //       { merge: true }
         //     );
-        //   
+        //
         //   // No need for separate upsertUserInFirestore call - everything is set above
-        //   
+        //
         //   // Store in AsyncStorage
         //   const userData = {
         //     id: refreshedUser.uid,
@@ -772,10 +992,10 @@ export default function AuthScreen() {
         //     picture: refreshedUser.photoURL,
         //   };
         //   await AsyncStorage.setItem('@user', JSON.stringify(userData));
-        //   
+        //
         //   console.log('✅ Firebase account created successfully!');
         // }
-        // 
+        //
         // // Navigate directly to dashboard
         // Logger.auth("Navigating to dashboard (OTP bypassed)");
         // setLoading(false);
@@ -783,7 +1003,7 @@ export default function AuthScreen() {
         // return;
       } else {
         Logger.auth("Starting login process");
-        
+
         // Validate email format
         const emailValidation = validateEmail(email);
         if (!emailValidation.isValid) {
@@ -791,46 +1011,51 @@ export default function AuthScreen() {
           setLoading(false);
           return;
         }
-        
+
         // Check if account is locked due to failed login attempts
         console.log(" Checking login attempts for:", email);
         const lockoutStatus = await checkLoginAttempts(email);
         console.log(" Lockout status:", lockoutStatus);
-        
+
         if (lockoutStatus.isLockedOut) {
           console.log("Account is locked");
-          setMessage(getFriendlyErrorMessage({ message: "account is locked" }, lockoutStatus));
-        setLoading(false);
-        return;
+          setMessage(
+            getFriendlyErrorMessage(
+              { message: "account is locked" },
+              lockoutStatus,
+            ),
+          );
+          setLoading(false);
+          return;
         }
-        
+
         // Attempt login
         try {
-        user = await loginUser(email, password);
-          
+          user = await loginUser(email, password);
+
           // Login successful - record success and clear attempts
           console.log("Login successful, recording success");
           await recordLoginAttempt(email, true);
-          
-        if (user && !user.photoURL) {
-          const defaultPhotoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=0D8ABC&color=fff&bold=true`;
-          await updateProfile(user, { photoURL: defaultPhotoURL });
-          await user.reload();
-          const refreshed = firebase.auth().currentUser;
-          await firestore
-            .collection("users")
-            .doc(refreshed.uid)
-            .set(
-              { photoURL: refreshed.photoURL || defaultPhotoURL },
-              { merge: true },
-            );
-          await upsertUserInFirestore(refreshed, "password");
-        }
-          
+
+          if (user && !user.photoURL) {
+            const defaultPhotoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=0D8ABC&color=fff&bold=true`;
+            await updateProfile(user, { photoURL: defaultPhotoURL });
+            await user.reload();
+            const refreshed = firebase.auth().currentUser;
+            await firestore
+              .collection("users")
+              .doc(refreshed.uid)
+              .set(
+                { photoURL: refreshed.photoURL || defaultPhotoURL },
+                { merge: true },
+              );
+            await upsertUserInFirestore(refreshed, "password");
+          }
+
           // Send OTP for login verification
           Logger.auth("Sending OTP for login");
           const otpResponse = await sendOTP(email);
-          
+
           // Navigate to OTP verification screen
           Logger.auth("Navigating to OTP verification");
           setLoading(false);
@@ -856,23 +1081,39 @@ export default function AuthScreen() {
           console.log("Login failed, recording failed attempt");
           const attemptResult = await recordLoginAttempt(email, false);
           console.log(" Attempt result:", attemptResult);
-          console.log(" Remaining attempts from result:", attemptResult?.remainingAttempts);
-          
+          console.log(
+            " Remaining attempts from result:",
+            attemptResult?.remainingAttempts,
+          );
+
           // Store remaining attempts for error message
           loginError.remainingAttempts = attemptResult?.remainingAttempts;
-          console.log(" Stored in loginError.remainingAttempts:", loginError.remainingAttempts);
-          
+          console.log(
+            " Stored in loginError.remainingAttempts:",
+            loginError.remainingAttempts,
+          );
+
           // Re-throw the error to be handled by the outer catch block
           throw loginError;
         }
       }
     } catch (err) {
       // Log to console for developers only (string only, not error object)
-      console.log("Authentication error:", err.code || err.message || "Unknown error");
-      console.log(" err.remainingAttempts before getFriendlyErrorMessage:", err.remainingAttempts);
-      
+      console.log(
+        "Authentication error:",
+        err.code || err.message || "Unknown error",
+      );
+      console.log(
+        " err.remainingAttempts before getFriendlyErrorMessage:",
+        err.remainingAttempts,
+      );
+
       // Show user-friendly error message to user (with remaining attempts if available)
-      const friendlyMessage = getFriendlyErrorMessage(err, null, err.remainingAttempts);
+      const friendlyMessage = getFriendlyErrorMessage(
+        err,
+        null,
+        err.remainingAttempts,
+      );
       console.log(" Friendly message generated:", friendlyMessage);
       setMessage(friendlyMessage);
     } finally {
@@ -884,49 +1125,49 @@ export default function AuthScreen() {
   // Renders the email input field to avoid duplicationimage.png
   const renderEmailInput = () => {
     // Red border if: field is empty OR email format is invalid
-    const hasError = message !== "" && (
-      !email.trim() || 
-      message.toLowerCase().includes("email") || 
-      message.includes("@") ||
-      message.toLowerCase().includes("invalid")
-    );
+    const hasError =
+      message !== "" &&
+      (!email.trim() ||
+        message.toLowerCase().includes("email") ||
+        message.includes("@") ||
+        message.toLowerCase().includes("invalid"));
     return (
       <View style={styles.inputWrapper}>
         <Text style={styles.inputLabel}>Email address</Text>
-    <TextInput
+        <TextInput
           style={[
             styles.input,
             emailFocused && styles.inputFocused,
             hasError && styles.inputError,
           ]}
           placeholder="name@example.com"
-      value={email}
+          value={email}
           onChangeText={(text) => {
             setEmail(text);
             setMessage(""); // Clear error when user starts typing
           }}
           onFocus={() => setEmailFocused(true)}
           onBlur={() => setEmailFocused(false)}
-      autoCapitalize="none"
-      keyboardType="email-address"
+          autoCapitalize="none"
+          keyboardType="email-address"
           placeholderTextColor="#9ca3af"
-    />
+        />
       </View>
-  );
+    );
   };
 
   // Renders the main action button (Login/Create account) to avoid duplication
   const renderAuthButton = () => {
     // Check if all 4 password requirements are met (for registration only)
-    const isPasswordValid = mode === "login" || (
-      passwordValidation.minLength &&
-      passwordValidation.hasUppercase &&
-      passwordValidation.hasNumber &&
-      passwordValidation.hasSpecialChar
-    );
-    
+    const isPasswordValid =
+      mode === "login" ||
+      (passwordValidation.minLength &&
+        passwordValidation.hasUppercase &&
+        passwordValidation.hasNumber &&
+        passwordValidation.hasSpecialChar);
+
     return (
-        <Pressable
+      <Pressable
         style={styles.loginButton}
         onPress={() => {
           // Check for empty fields in register mode
@@ -936,13 +1177,13 @@ export default function AuthScreen() {
             if (!name.trim()) emptyFields.push("name");
             if (!email.trim()) emptyFields.push("email");
             if (!password.trim()) emptyFields.push("password");
-            
+
             // If 2 or more fields are empty
             if (emptyFields.length >= 2) {
               setMessage("All fields are required");
               return;
             }
-            
+
             // If only 1 field is empty, mention that specific field
             if (!name.trim()) {
               setMessage("Full Name is required");
@@ -956,7 +1197,7 @@ export default function AuthScreen() {
               setMessage("Password is required");
               return;
             }
-            
+
             // Validate email format (only if not empty)
             const emailValidation = validateEmail(email);
             if (!emailValidation.isValid) {
@@ -964,20 +1205,20 @@ export default function AuthScreen() {
               return;
             }
           }
-          
+
           // Check for empty email and password in login mode
           if (mode === "login") {
             // Count empty fields
             const emptyFields = [];
             if (!email.trim()) emptyFields.push("email");
             if (!password.trim()) emptyFields.push("password");
-            
+
             // If both fields are empty
             if (emptyFields.length >= 2) {
               setMessage("All fields are required");
               return;
             }
-            
+
             // If only 1 field is empty, mention that specific field
             if (!email.trim()) {
               setMessage("Email address is required");
@@ -987,7 +1228,7 @@ export default function AuthScreen() {
               setMessage("Password is required");
               return;
             }
-            
+
             // Validate email format (only if not empty)
             const emailValidation = validateEmail(email);
             if (!emailValidation.isValid) {
@@ -995,7 +1236,7 @@ export default function AuthScreen() {
               return;
             }
           }
-          
+
           // Block registration if password requirements aren't met
           if (mode === "register" && !isPasswordValid) {
             triggerPasswordErrorAnimation(); // Trigger red blinking border directly
@@ -1005,11 +1246,11 @@ export default function AuthScreen() {
             handleAuth();
           }
         }}
-        >
-          <Text style={styles.loginButtonText}>
+      >
+        <Text style={styles.loginButtonText}>
           {mode === "login" ? "Login" : "Create account"}
-          </Text>
-        </Pressable>
+        </Text>
+      </Pressable>
     );
   };
 
@@ -1021,276 +1262,288 @@ export default function AuthScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={[styles.keyboardView, { paddingTop: insets.top + 40 }]}
       >
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#22c55e" />
-        </View>
-      ) : (
-        <>
-          {/* Page Title and Subtitle */}
-          <Text style={[styles.loginTitle, mode === "register" && { marginTop: -10 }]}>
-            {mode === "login" ? "Hi, Welcome Back!" : "Create Account"}
-          </Text>
-          <Text style={styles.loginSubtitle}>
-            {mode === "login"
-              ? "Please login to your account."
-              : "Sign up to get started with GymPlify"}
-          </Text>
-
-          {/* Name Input (Registration only) */}
-          {mode === "register" && (
-            <View style={styles.inputWrapper}>
-              <Text style={styles.inputLabel}>Full Name</Text>
-            <TextInput
-                style={[
-                  styles.input,
-                  nameFocused && styles.inputFocused,
-                  message !== "" && !name.trim() && styles.inputError, // Only red if this field is empty
-                ]}
-                placeholder="John Doe"
-              value={name}
-                onChangeText={(text) => {
-                  setName(text);
-                  setMessage("");
-                }}
-                onFocus={() => setNameFocused(true)}
-                onBlur={() => setNameFocused(false)}
-              autoCapitalize="words"
-                placeholderTextColor="#9ca3af"
-            />
-            </View>
-          )}
-
-          {/* Email Input */}
-          {renderEmailInput()}
-
-          {/* Password Input with Eye Icon (for both modes) */}
-          <View style={styles.inputWrapper}>
-            <Text style={styles.inputLabel}>Password</Text>
-          <View style={styles.passwordInputContainer}>
-            <TextInput
-                style={[
-                  styles.input,
-                  styles.passwordInput,
-                  passwordFocused && styles.inputFocused,
-                  message !== "" && !password.trim() && styles.inputError, // Only red if this field is empty
-                ]}
-                placeholder="Enter your password"
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                  setMessage("");
-                  // Clear error animation when user types
-                  if (showPasswordError || animationRef.current) {
-                    if (animationRef.current) {
-                      animationRef.current.stop();
-                      animationRef.current = null;
-                    }
-                    borderColorAnim.setValue(0);
-                    setShowPasswordError(false);
-                  }
-                if (mode === "register") {
-                  validatePassword(text, email, name);
-                }
-              }}
-                onFocus={() => setPasswordFocused(true)}
-                onBlur={() => setPasswordFocused(false)}
-              secureTextEntry={!showPassword}
-                placeholderTextColor="#9ca3af"
-            />
-              {password.length > 0 && (
-            <Pressable
-              style={styles.eyeButton}
-              onPress={() => setShowPassword((prev) => !prev)}
-            >
-              {showPassword ? (
-                    <Feather name="eye-off" size={20} color="#6b7280" />
-              ) : (
-                    <Feather name="eye" size={20} color="#6b7280" />
-              )}
-            </Pressable>
-              )}
-            </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#22c55e" />
           </View>
-
-          {/* Error Message - Shows between password and validation container */}
-          {message && (
-            <Text style={[styles.message, styles.errorMessage]}>{message}</Text>
-          )}
-
-          {/* Password Validation (Registration only) */}
-          {mode === "register" && password.length > 0 && (
-            <Animated.View 
+        ) : (
+          <>
+            {/* Page Title and Subtitle */}
+            <Text
               style={[
-                {
-                  marginTop: 0,
-                  padding: 12,
-                  backgroundColor: showPasswordError ? "#fff5f5" : "#f8f9fa", // Light red when error
-                  borderRadius: 8,
-                  borderWidth: 2, // Keep border width constant
-                },
-                {
-                  borderColor: borderColorAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['#e5e7eb', '#ef4444'] // Gray to Red - only animate color
-                  }),
-                }
+                styles.loginTitle,
+                mode === "register" && { marginTop: -10 },
               ]}
             >
-              {/* Password Strength Meter */}
-              <View style={styles.passwordStrengthContainer}>
-                <View style={styles.passwordStrengthBar}>
-                  <View
-                    style={[
-                      styles.passwordStrengthFill,
-                      {
-                        width: `${passwordStrength}%`,
-                        backgroundColor:
-                          getPasswordStrengthColor(passwordStrength),
-                      },
-                    ]}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.passwordStrengthText,
-                    { color: getPasswordStrengthColor(passwordStrength) },
-                  ]}
-                >
-                  {getPasswordStrengthText(passwordStrength)}
-                </Text>
-              </View>
-
-              {/* Password Requirements */}
-              <View style={styles.passwordRequirements}>
-                <Text style={styles.passwordRequirementsTitle}>
-                  Password Requirements:
-                </Text>
-
-                {/* Row 1: 2 items side by side */}
-                <View style={styles.passwordRequirementRow}>
-                <View style={styles.passwordRequirementItem}>
-                  <Text
-                    style={[
-                      styles.passwordRequirementText,
-                      {
-                        color: passwordValidation.minLength
-                          ? "#16a34a"
-                          : "#dc2626",
-                      },
-                    ]}
-                  >
-                      {passwordValidation.minLength ? "✓" : "✗"} At least 8 characters
-                  </Text>
-                </View>
-
-                <View style={styles.passwordRequirementItem}>
-                  <Text
-                    style={[
-                      styles.passwordRequirementText,
-                      {
-                        color: passwordValidation.hasUppercase
-                          ? "#16a34a"
-                          : "#dc2626",
-                      },
-                    ]}
-                  >
-                      {passwordValidation.hasUppercase ? "✓" : "✗"} One uppercase letter
-                  </Text>
-                </View>
-                </View>
-
-                {/* Row 2: 2 items side by side */}
-                <View style={styles.passwordRequirementRow}>
-                <View style={styles.passwordRequirementItem}>
-                  <Text
-                    style={[
-                      styles.passwordRequirementText,
-                      {
-                        color: passwordValidation.hasNumber
-                          ? "#16a34a"
-                          : "#dc2626",
-                      },
-                    ]}
-                  >
-                      {passwordValidation.hasNumber ? "✓" : "✗"} One number
-                  </Text>
-                </View>
-
-                <View style={styles.passwordRequirementItem}>
-                  <Text
-                    style={[
-                      styles.passwordRequirementText,
-                      {
-                        color: passwordValidation.hasSpecialChar
-                          ? "#16a34a"
-                          : "#dc2626",
-                      },
-                    ]}
-                  >
-                      {passwordValidation.hasSpecialChar ? "✓" : "✗"} One special character
-                  </Text>
-                </View>
-                </View>
-
-                </View>
-            </Animated.View>
-          )}
-
-          {mode === "register" && <View style={{ marginTop: 18 }} />}
-
-          {/* Forgot Password (Login only) */}
-          {mode === "login" && (
-            <Pressable style={styles.forgotPassword} onPress={() => router.push('/forgot-password')}>
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </Pressable>
-          )}
-
-          {/* Main Action Button */}
-          {renderAuthButton()}
-
-          {/* Social Login Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.divider} />
-          </View>
-
-          {/* Social Login Buttons */}
-          <View style={styles.socialButtonsContainer}>
-            <Pressable
-              style={styles.googleButton}
-              onPress={() => promptAsync()}
-            >
-              <Image
-                source={require("../../assets/images/google-icon.png")}
-                style={styles.googlePngIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.googleButtonText}>Google</Text>
-            </Pressable>
-          </View>
-
-          {/* Switch Mode Link */}
-          <View style={styles.signupContainer}>
-            <Text style={styles.signupText}>
-              {mode === "login"
-                ? "Don't have an account? "
-                : "Already have an account? "}
+              {mode === "login" ? "Hi, Welcome Back!" : "Create Account"}
             </Text>
-            <Pressable
-              onPress={() => {
-                setMode(mode === "login" ? "register" : "login");
-                setMessage("");
-              }}
-            >
-              <Text style={styles.signupLink}>
-                {mode === "login" ? "Sign up" : "Sign in"}
+            <Text style={styles.loginSubtitle}>
+              {mode === "login"
+                ? "Please login to your account."
+                : "Sign up to get started with GymPlify"}
+            </Text>
+
+            {/* Name Input (Registration only) */}
+            {mode === "register" && (
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Full Name</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    nameFocused && styles.inputFocused,
+                    message !== "" && !name.trim() && styles.inputError, // Only red if this field is empty
+                  ]}
+                  placeholder="John Doe"
+                  value={name}
+                  onChangeText={(text) => {
+                    setName(text);
+                    setMessage("");
+                  }}
+                  onFocus={() => setNameFocused(true)}
+                  onBlur={() => setNameFocused(false)}
+                  autoCapitalize="words"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+            )}
+
+            {/* Email Input */}
+            {renderEmailInput()}
+
+            {/* Password Input with Eye Icon (for both modes) */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.passwordInput,
+                    passwordFocused && styles.inputFocused,
+                    message !== "" && !password.trim() && styles.inputError, // Only red if this field is empty
+                  ]}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    setMessage("");
+                    // Clear error animation when user types
+                    if (showPasswordError || animationRef.current) {
+                      if (animationRef.current) {
+                        animationRef.current.stop();
+                        animationRef.current = null;
+                      }
+                      borderColorAnim.setValue(0);
+                      setShowPasswordError(false);
+                    }
+                    if (mode === "register") {
+                      validatePassword(text, email, name);
+                    }
+                  }}
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
+                  secureTextEntry={!showPassword}
+                  placeholderTextColor="#9ca3af"
+                />
+                {password.length > 0 && (
+                  <Pressable
+                    style={styles.eyeButton}
+                    onPress={() => setShowPassword((prev) => !prev)}
+                  >
+                    {showPassword ? (
+                      <Feather name="eye-off" size={20} color="#6b7280" />
+                    ) : (
+                      <Feather name="eye" size={20} color="#6b7280" />
+                    )}
+                  </Pressable>
+                )}
+              </View>
+            </View>
+
+            {/* Error Message - Shows between password and validation container */}
+            {message && (
+              <Text style={[styles.message, styles.errorMessage]}>
+                {message}
               </Text>
-            </Pressable>
-          </View>
-        </>
-      )}
+            )}
+
+            {/* Password Validation (Registration only) */}
+            {mode === "register" && password.length > 0 && (
+              <Animated.View
+                style={[
+                  {
+                    marginTop: 0,
+                    padding: 12,
+                    backgroundColor: showPasswordError ? "#fff5f5" : "#f8f9fa", // Light red when error
+                    borderRadius: 8,
+                    borderWidth: 2, // Keep border width constant
+                  },
+                  {
+                    borderColor: borderColorAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ["#e5e7eb", "#ef4444"], // Gray to Red - only animate color
+                    }),
+                  },
+                ]}
+              >
+                {/* Password Strength Meter */}
+                <View style={styles.passwordStrengthContainer}>
+                  <View style={styles.passwordStrengthBar}>
+                    <View
+                      style={[
+                        styles.passwordStrengthFill,
+                        {
+                          width: `${passwordStrength}%`,
+                          backgroundColor:
+                            getPasswordStrengthColor(passwordStrength),
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.passwordStrengthText,
+                      { color: getPasswordStrengthColor(passwordStrength) },
+                    ]}
+                  >
+                    {getPasswordStrengthText(passwordStrength)}
+                  </Text>
+                </View>
+
+                {/* Password Requirements */}
+                <View style={styles.passwordRequirements}>
+                  <Text style={styles.passwordRequirementsTitle}>
+                    Password Requirements:
+                  </Text>
+
+                  {/* Row 1: 2 items side by side */}
+                  <View style={styles.passwordRequirementRow}>
+                    <View style={styles.passwordRequirementItem}>
+                      <Text
+                        style={[
+                          styles.passwordRequirementText,
+                          {
+                            color: passwordValidation.minLength
+                              ? "#16a34a"
+                              : "#dc2626",
+                          },
+                        ]}
+                      >
+                        {passwordValidation.minLength ? "✓" : "✗"} At least 8
+                        characters
+                      </Text>
+                    </View>
+
+                    <View style={styles.passwordRequirementItem}>
+                      <Text
+                        style={[
+                          styles.passwordRequirementText,
+                          {
+                            color: passwordValidation.hasUppercase
+                              ? "#16a34a"
+                              : "#dc2626",
+                          },
+                        ]}
+                      >
+                        {passwordValidation.hasUppercase ? "✓" : "✗"} One
+                        uppercase letter
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Row 2: 2 items side by side */}
+                  <View style={styles.passwordRequirementRow}>
+                    <View style={styles.passwordRequirementItem}>
+                      <Text
+                        style={[
+                          styles.passwordRequirementText,
+                          {
+                            color: passwordValidation.hasNumber
+                              ? "#16a34a"
+                              : "#dc2626",
+                          },
+                        ]}
+                      >
+                        {passwordValidation.hasNumber ? "✓" : "✗"} One number
+                      </Text>
+                    </View>
+
+                    <View style={styles.passwordRequirementItem}>
+                      <Text
+                        style={[
+                          styles.passwordRequirementText,
+                          {
+                            color: passwordValidation.hasSpecialChar
+                              ? "#16a34a"
+                              : "#dc2626",
+                          },
+                        ]}
+                      >
+                        {passwordValidation.hasSpecialChar ? "✓" : "✗"} One
+                        special character
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </Animated.View>
+            )}
+
+            {mode === "register" && <View style={{ marginTop: 18 }} />}
+
+            {/* Forgot Password (Login only) */}
+            {mode === "login" && (
+              <Pressable
+                style={styles.forgotPassword}
+                onPress={() => router.push("/forgot-password")}
+              >
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              </Pressable>
+            )}
+
+            {/* Main Action Button */}
+            {renderAuthButton()}
+
+            {/* Social Login Divider */}
+            <View style={styles.dividerContainer}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>or continue with</Text>
+              <View style={styles.divider} />
+            </View>
+
+            {/* Social Login Buttons */}
+            <View style={styles.socialButtonsContainer}>
+              <Pressable
+                style={styles.googleButton}
+                onPress={() => promptAsync()}
+              >
+                <Image
+                  source={require("../../assets/images/google-icon.png")}
+                  style={styles.googlePngIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.googleButtonText}>Google</Text>
+              </Pressable>
+            </View>
+
+            {/* Switch Mode Link */}
+            <View style={styles.signupContainer}>
+              <Text style={styles.signupText}>
+                {mode === "login"
+                  ? "Don't have an account? "
+                  : "Already have an account? "}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setMode(mode === "login" ? "register" : "login");
+                  setMessage("");
+                }}
+              >
+                <Text style={styles.signupLink}>
+                  {mode === "login" ? "Sign up" : "Sign in"}
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </KeyboardAvoidingView>
     </View>
   );

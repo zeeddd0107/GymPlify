@@ -25,6 +25,7 @@ import {
   CustomCalendarModal,
   CustomTimePickerModal,
 } from "@/src/components/schedule";
+import { firebase, firestore } from "@/src/services/firebase";
 
 export default function CreateSessionScreen() {
   const router = useRouter();
@@ -71,7 +72,7 @@ export default function CreateSessionScreen() {
         }),
       );
       setSlotCapacities(capacities);
-    } catch (e) {
+    } catch {
       setSlotCapacities({});
     }
   };

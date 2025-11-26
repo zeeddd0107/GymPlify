@@ -1,6 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const {Resend} = require("resend");
+const { Resend } = require("resend");
 const crypto = require("crypto");
 
 // Initialize Firebase Admin
@@ -19,7 +19,7 @@ exports.sendPushNotification = functions.firestore
   .onCreate(async (snap, context) => {
     try {
       const notification = snap.data();
-      const {userId, title, message, type, priority} = notification;
+      const { userId, title, message, type, priority } = notification;
 
       console.log(" New notification created:", {
         notificationId: context.params.notificationId,
@@ -105,13 +105,17 @@ exports.sendPushNotification = functions.firestore
       console.error("   Error name:", error.name);
       console.error("   Error message:", error.message);
       console.error("   Error code:", error.code);
-      
+
       // FCM-specific error handling
-      if (error.code === "messaging/invalid-registration-token" ||
-          error.code === "messaging/registration-token-not-registered") {
-        console.error("    Invalid or expired FCM token - token may need to be refreshed");
+      if (
+        error.code === "messaging/invalid-registration-token" ||
+        error.code === "messaging/registration-token-not-registered"
+      ) {
+        console.error(
+          "    Invalid or expired FCM token - token may need to be refreshed",
+        );
       }
-      
+
       console.error("   Error stack:", error.stack);
       return null;
     }
@@ -174,20 +178,20 @@ exports.sendOTP = functions.https.onRequest(async (req, res) => {
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({error: "Method not allowed"});
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const {email, mode} = req.body;
+    const { email, mode } = req.body;
 
     // Validate email
     if (!email) {
-      return res.status(400).json({error: "Email is required"});
+      return res.status(400).json({ error: "Email is required" });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return res.status(400).json({error: "Invalid email format"});
+      return res.status(400).json({ error: "Invalid email format" });
     }
 
     console.log(" Sending OTP to:", email);
@@ -199,11 +203,14 @@ exports.sendOTP = functions.https.onRequest(async (req, res) => {
         console.log(" User exists in Firebase Auth");
       } catch (error) {
         if (error.code === "auth/user-not-found") {
-          console.log(" User not found - returning generic success message for security");
+          console.log(
+            " User not found - returning generic success message for security",
+          );
           // Return success with a fake otpId to prevent email enumeration
           // Don't send OTP, just return a generic success response
           return res.status(200).json({
-            message: "If this email is registered, you will receive a verification code",
+            message:
+              "If this email is registered, you will receive a verification code",
             otpId: "security-placeholder",
             expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
             userNotFound: true, // Internal flag (not shown to user)
@@ -220,41 +227,51 @@ exports.sendOTP = functions.https.onRequest(async (req, res) => {
     const expiresAt = getOTPExpiration();
 
     // Store OTP in Firestore
-    const otpDoc = await admin.firestore().collection("otpCodes").add({
-      email: email.toLowerCase(),
-      code: hashedOTP,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
-      attempts: 0,
-      verified: false,
-      maxAttempts: 2, // Allow only 3 total attempts (attempts 0, 1, 2 before blocking at 3)
-    });
+    const otpDoc = await admin
+      .firestore()
+      .collection("otpCodes")
+      .add({
+        email: email.toLowerCase(),
+        code: hashedOTP,
+        mode: mode || "login",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+        attempts: 0,
+        verified: false,
+        maxAttempts: 2, // Allow only 3 total attempts (attempts 0, 1, 2 before blocking at 3)
+      });
 
     console.log("💾 OTP stored in Firestore:", otpDoc.id);
 
     // Send email using Resend
-    const {data, error} = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: `GymPlify Security <${functions.config().resend.from_email}>`,
       to: [email],
       reply_to: "support@gymplify.io",
-      subject: "Your GymPlify Login Code",
+      subject:
+        mode === "forgot-password"
+          ? "GymPlify Password Reset Verification Code"
+          : "GymPlify Account Verification Code",
       headers: {
         "X-Priority": "1",
         "X-Entity-Ref-ID": otpDoc.id,
       },
       // Plain text version (improves deliverability)
       text: `
-Hello,
+Dear GymPlify Member,
 
-We received a request to verify your GymPlify account.
+We received a ${mode === "forgot-password" ? "password reset" : "login"} request for your GymPlify account associated with this email address.
 
 Your verification code is: ${otp}
 
-This code will expire in 5 minutes.
+This code will expire in 5 minutes and can only be used once.
 
-For your security, never share this code with anyone. If you didn't request this, you can safely ignore this message.
+IMPORTANT SECURITY INFORMATION:
+- GymPlify staff will never ask for this code
+- Never share this code with anyone
+- If you did not request this code, please ignore this email or contact our support team
 
-Need help? Reply to this email or visit support@gymplify.io
+For assistance, please contact us at support@gymplify.io
 
 Best regards,
 GymPlify Security Team
@@ -296,10 +313,8 @@ GymPlify Security Team
               margin-bottom: 20px;
             }
             .otp-container {
-              background-color: #f3f4f6;
-              border-radius: 8px;
-              padding: 30px;
-              text-align: center;
+              padding: 0;
+              text-align: left;
               margin: 30px 0;
             }
             .otp-label {
@@ -328,17 +343,30 @@ GymPlify Security Team
               color: #6b7280;
               margin-top: 20px;
             }
-            .warning {
-              background-color: #fef3c7;
-              border-left: 4px solid #f59e0b;
-              padding: 15px;
+            .security-info {
+              background-color: #f0f9ff;
+              border: 1px solid #bae6fd;
+              padding: 20px;
               margin-top: 30px;
-              border-radius: 4px;
+              border-radius: 6px;
             }
-            .warning-text {
+            .security-title {
               font-size: 14px;
-              color: #92400e;
-              margin: 0;
+              font-weight: 600;
+              color: #0369a1;
+              margin-bottom: 10px;
+            }
+            .security-text {
+              font-size: 13px;
+              color: #0c4a6e;
+              margin: 5px 0;
+              line-height: 1.5;
+            }
+            .context-message {
+              font-size: 15px;
+              color: #4b5563;
+              margin-bottom: 25px;
+              line-height: 1.6;
             }
             .footer {
               text-align: center;
@@ -347,12 +375,22 @@ GymPlify Security Team
               border-top: 1px solid #e5e7eb;
             }
             .footer-text {
-              font-size: 14px;
+              font-size: 13px;
               color: #6b7280;
+              line-height: 1.8;
+            }
+            .footer-link {
+              color: #2a4eff;
+              text-decoration: none;
             }
             .brand {
               font-weight: bold;
               color: #2a4eff;
+            }
+            .company-info {
+              font-size: 12px;
+              color: #9ca3af;
+              margin-top: 15px;
             }
           </style>
         </head>
@@ -362,27 +400,38 @@ GymPlify Security Team
               <div class="logo">GymPlify</div>
             </div>
             
-            <p class="greeting">Hi there,</p>
+            <p class="greeting">Dear GymPlify Member,</p>
             
-            <p class="message">Your one-time verification code is:</p>
+            <p class="context-message">
+              We received a ${mode === "forgot-password" ? "password reset" : "login"} request for your GymPlify account associated with this email address. 
+              To complete this action, please use the verification code below.
+            </p>
             
             <div class="otp-container">
-              <div class="lock-icon">🔐</div>
               <div class="otp-label">VERIFICATION CODE</div>
               <div class="otp-code">${otp}</div>
-              <p class="validity">This code is valid for the next <strong>5 minutes</strong>.</p>
+              <p class="validity">This code is valid for the next <strong>5 minutes</strong> and can only be used once.</p>
             </div>
             
-            <div class="warning">
-              <p class="warning-text">
-                <strong> Security Notice:</strong> If you did not request this verification code, 
-                please ignore this message or contact our support team immediately.
+            <div class="security-info">
+              <div class="security-title">Security Information</div>
+              <p class="security-text">
+                • GymPlify staff will never ask for this verification code<br>
+                • Never share this code with anyone, including people claiming to be from GymPlify<br>
+                • If you did not request this code, you can safely ignore this email
               </p>
             </div>
             
             <div class="footer">
               <p class="footer-text">
-                — The <span class="brand">GymPlify</span> Team
+                Need assistance? Contact us at <a href="mailto:support@gymplify.io" class="footer-link">support@gymplify.io</a>
+              </p>
+              <p class="footer-text">
+                Best regards,<br>
+                The <span class="brand">GymPlify</span> Security Team
+              </p>
+              <p class="company-info">
+                This is an automated security email from GymPlify. Please do not reply to this message.
               </p>
             </div>
           </div>
@@ -393,7 +442,7 @@ GymPlify Security Team
 
     if (error) {
       console.error(" Resend error:", error);
-      return res.status(500).json({error: "Failed to send email"});
+      return res.status(500).json({ error: "Failed to send email" });
     }
 
     console.log(" OTP email sent successfully:", data);
@@ -427,11 +476,11 @@ exports.verifyOTP = functions.https.onRequest(async (req, res) => {
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({error: "Method not allowed"});
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const {email, otp, otpId, mode} = req.body;
+    const { email, otp, otpId, mode } = req.body;
 
     // Validate inputs
     if (!email || !otp || !otpId) {
@@ -450,7 +499,11 @@ exports.verifyOTP = functions.https.onRequest(async (req, res) => {
     console.log(" Verifying OTP for:", email);
 
     // Get OTP document
-    const otpDoc = await admin.firestore().collection("otpCodes").doc(otpId).get();
+    const otpDoc = await admin
+      .firestore()
+      .collection("otpCodes")
+      .doc(otpId)
+      .get();
 
     if (!otpDoc.exists) {
       return res.status(404).json({
@@ -486,7 +539,8 @@ exports.verifyOTP = functions.https.onRequest(async (req, res) => {
     if (otpData.attempts >= otpData.maxAttempts) {
       await admin.firestore().collection("otpCodes").doc(otpId).delete();
       return res.status(400).json({
-        error: "Maximum verification attempts exceeded. Please request a new OTP.",
+        error:
+          "Maximum verification attempts exceeded. Please request a new OTP.",
       });
     }
 
@@ -495,12 +549,13 @@ exports.verifyOTP = functions.https.onRequest(async (req, res) => {
 
     if (!isValid) {
       // Increment attempts
-      await admin.firestore()
-          .collection("otpCodes")
-          .doc(otpId)
-          .update({
-            attempts: admin.firestore.FieldValue.increment(1),
-          });
+      await admin
+        .firestore()
+        .collection("otpCodes")
+        .doc(otpId)
+        .update({
+          attempts: admin.firestore.FieldValue.increment(1),
+        });
 
       const remainingAttempts = otpData.maxAttempts - (otpData.attempts + 1);
 
@@ -527,15 +582,17 @@ exports.verifyOTP = functions.https.onRequest(async (req, res) => {
     if (mode === "forgot-password") {
       try {
         console.log(" Generating password reset link for:", email);
-        
+
         // Generate password reset link
-        const resetLink = await admin.auth().generatePasswordResetLink(email.toLowerCase());
+        const resetLink = await admin
+          .auth()
+          .generatePasswordResetLink(email.toLowerCase());
         console.log(" Password reset link generated successfully");
-        
+
         // Extract the reset code from the link
         const url = new URL(resetLink);
-        const resetCode = url.searchParams.get('oobCode');
-        
+        const resetCode = url.searchParams.get("oobCode");
+
         return res.status(200).json({
           message: "OTP verified successfully",
           verified: true,
@@ -583,20 +640,29 @@ exports.resendOTP = functions.https.onRequest(async (req, res) => {
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({error: "Method not allowed"});
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const {email, otpId} = req.body;
+    const { email, otpId, mode } = req.body;
 
     // Validate inputs
     if (!email) {
-      return res.status(400).json({error: "Email is required"});
+      return res.status(400).json({ error: "Email is required" });
     }
 
-    // Delete old OTP if provided
+    // Get mode from old OTP document before deleting it
+    let otpMode = mode || "login";
     if (otpId) {
       try {
+        const oldOtpDoc = await admin
+          .firestore()
+          .collection("otpCodes")
+          .doc(otpId)
+          .get();
+        if (oldOtpDoc.exists) {
+          otpMode = oldOtpDoc.data().mode || otpMode;
+        }
         await admin.firestore().collection("otpCodes").doc(otpId).delete();
         console.log(" Old OTP deleted:", otpId);
       } catch (error) {
@@ -612,41 +678,50 @@ exports.resendOTP = functions.https.onRequest(async (req, res) => {
     const expiresAt = getOTPExpiration();
 
     // Store new OTP
-    const otpDoc = await admin.firestore().collection("otpCodes").add({
-      email: email.toLowerCase(),
-      code: hashedOTP,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
-      attempts: 0,
-      verified: false,
-      maxAttempts: 2, // Allow only 3 total attempts (attempts 0, 1, 2 before blocking at 3)
-    });
+    const otpDoc = await admin
+      .firestore()
+      .collection("otpCodes")
+      .add({
+        email: email.toLowerCase(),
+        code: hashedOTP,
+        mode: otpMode,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+        attempts: 0,
+        verified: false,
+        maxAttempts: 2, // Allow only 3 total attempts (attempts 0, 1, 2 before blocking at 3)
+      });
 
     console.log("💾 New OTP stored:", otpDoc.id);
 
     // Send email
-    const {data, error} = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: `GymPlify Security <${functions.config().resend.from_email}>`,
       to: [email],
       reply_to: "support@gymplify.io",
-      subject: "Your GymPlify Login Code",
+      subject:
+        otpMode === "forgot-password"
+          ? "GymPlify Password Reset Verification Code"
+          : "GymPlify Account Verification Code",
       headers: {
         "X-Priority": "1",
         "X-Entity-Ref-ID": otpDoc.id,
       },
       // Plain text version (improves deliverability)
       text: `
-Hello,
+Dear GymPlify Member,
 
-We received a request to verify your GymPlify account.
+We received a ${otpMode === "forgot-password" ? "password reset" : "login"} request for your GymPlify account associated with this email address.
 
 Your verification code is: ${otp}
 
-This code will expire in 5 minutes.
+This code will expire in 5 minutes and can only be used once.
 
-For your security, never share this code with anyone. If you didn't request this, you can safely ignore this message.
+IMPORTANT SECURITY INFORMATION:
+- Never share this code with anyone
+- If you did not request this code, please ignore this email or contact our support team
 
-Need help? Reply to this email or visit support@gymplify.io
+For assistance, please contact us at support@gymplify.io
 
 Best regards,
 GymPlify Security Team
@@ -688,10 +763,8 @@ GymPlify Security Team
               margin-bottom: 20px;
             }
             .otp-container {
-              background-color: #f3f4f6;
-              border-radius: 8px;
-              padding: 30px;
-              text-align: center;
+              padding: 0;
+              text-align: left;
               margin: 30px 0;
             }
             .otp-label {
@@ -720,17 +793,30 @@ GymPlify Security Team
               color: #6b7280;
               margin-top: 20px;
             }
-            .warning {
-              background-color: #fef3c7;
-              border-left: 4px solid #f59e0b;
-              padding: 15px;
+            .security-info {
+              background-color: #f0f9ff;
+              border: 1px solid #bae6fd;
+              padding: 20px;
               margin-top: 30px;
-              border-radius: 4px;
+              border-radius: 6px;
             }
-            .warning-text {
+            .security-title {
               font-size: 14px;
-              color: #92400e;
-              margin: 0;
+              font-weight: 600;
+              color: #0369a1;
+              margin-bottom: 10px;
+            }
+            .security-text {
+              font-size: 13px;
+              color: #0c4a6e;
+              margin: 5px 0;
+              line-height: 1.5;
+            }
+            .context-message {
+              font-size: 15px;
+              color: #4b5563;
+              margin-bottom: 25px;
+              line-height: 1.6;
             }
             .footer {
               text-align: center;
@@ -739,12 +825,22 @@ GymPlify Security Team
               border-top: 1px solid #e5e7eb;
             }
             .footer-text {
-              font-size: 14px;
+              font-size: 13px;
               color: #6b7280;
+              line-height: 1.8;
+            }
+            .footer-link {
+              color: #2a4eff;
+              text-decoration: none;
             }
             .brand {
               font-weight: bold;
               color: #2a4eff;
+            }
+            .company-info {
+              font-size: 12px;
+              color: #9ca3af;
+              margin-top: 15px;
             }
           </style>
         </head>
@@ -754,29 +850,28 @@ GymPlify Security Team
               <div class="logo">GymPlify</div>
             </div>
             
-            <p class="greeting">Hi there,</p>
+            <p class="greeting">Dear GymPlify Member,</p>
             
-            <p class="message">Your one-time verification code is:</p>
+            <p class="context-message">
+              We received a ${otpMode === "forgot-password" ? "password reset" : "login"} request for your GymPlify account associated with this email address. 
+              To complete this action, please use the verification code below.
+            </p>
             
             <div class="otp-container">
-              <div class="lock-icon">🔐</div>
               <div class="otp-label">VERIFICATION CODE</div>
               <div class="otp-code">${otp}</div>
-              <p class="validity">This code is valid for the next <strong>5 minutes</strong>.</p>
+              <p class="validity">This code is valid for the next <strong>5 minutes</strong> and can only be used once.</p>
             </div>
             
-            <div class="warning">
-              <p class="warning-text">
-                <strong> Security Notice:</strong> If you did not request this verification code, 
-                please ignore this message or contact our support team immediately.
+            <div class="security-info">
+              <div class="security-title">Security Information</div>
+              <p class="security-text">
+                • GymPlify staff will never ask for this verification code<br>
+                • Never share this code with anyone, including people claiming to be from GymPlify<br>
+                • If you did not request this code, you can safely ignore this email
               </p>
             </div>
             
-            <div class="footer">
-              <p class="footer-text">
-                — The <span class="brand">GymPlify</span> Team
-              </p>
-            </div>
           </div>
         </body>
         </html>
@@ -785,7 +880,7 @@ GymPlify Security Team
 
     if (error) {
       console.error(" Resend error:", error);
-      return res.status(500).json({error: "Failed to send email"});
+      return res.status(500).json({ error: "Failed to send email" });
     }
 
     console.log(" OTP resent successfully:", data);
@@ -824,18 +919,21 @@ exports.checkLoginAttempts = functions.https.onRequest(async (req, res) => {
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({error: "Method not allowed"});
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const {email} = req.body;
+    const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({error: "Email is required"});
+      return res.status(400).json({ error: "Email is required" });
     }
 
     const normalizedEmail = email.toLowerCase();
-    const attemptsRef = admin.firestore().collection("loginAttempts").doc(normalizedEmail);
+    const attemptsRef = admin
+      .firestore()
+      .collection("loginAttempts")
+      .doc(normalizedEmail);
     const attemptDoc = await attemptsRef.get();
 
     // If no attempts recorded, user is not locked out
@@ -847,11 +945,13 @@ exports.checkLoginAttempts = functions.https.onRequest(async (req, res) => {
     }
 
     const data = attemptDoc.data();
-    const {failedAttempts, lockedUntil} = data;
+    const { failedAttempts, lockedUntil } = data;
 
     // Check if lockout period is still active
     if (lockedUntil && lockedUntil.toDate() > new Date()) {
-      const remainingMinutes = Math.ceil((lockedUntil.toDate() - new Date()) / 60000);
+      const remainingMinutes = Math.ceil(
+        (lockedUntil.toDate() - new Date()) / 60000,
+      );
       return res.status(200).json({
         isLockedOut: true,
         attempts: failedAttempts || 0,
@@ -890,18 +990,23 @@ exports.recordLoginAttempt = functions.https.onRequest(async (req, res) => {
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({error: "Method not allowed"});
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const {email, success} = req.body;
+    const { email, success } = req.body;
 
     if (!email || success === undefined) {
-      return res.status(400).json({error: "Email and success status are required"});
+      return res
+        .status(400)
+        .json({ error: "Email and success status are required" });
     }
 
     const normalizedEmail = email.toLowerCase();
-    const attemptsRef = admin.firestore().collection("loginAttempts").doc(normalizedEmail);
+    const attemptsRef = admin
+      .firestore()
+      .collection("loginAttempts")
+      .doc(normalizedEmail);
 
     // If login was successful, clear all attempts
     if (success) {
@@ -990,22 +1095,18 @@ function calculateRemainingDays(endDate) {
   if (!endDate) return 0;
   const end = endDate.toDate ? endDate.toDate() : new Date(endDate);
   const now = new Date();
-  
+
   // Set both dates to start of day for accurate comparison
   const endDateOnly = new Date(
     end.getFullYear(),
     end.getMonth(),
     end.getDate(),
   );
-  const nowOnly = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-  
+  const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
   const diffTime = endDateOnly.getTime() - nowOnly.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   return Math.max(0, diffDays);
 }
 
@@ -1016,19 +1117,15 @@ function isSubscriptionExpired(endDate) {
   if (!endDate) return false;
   const end = endDate.toDate ? endDate.toDate() : new Date(endDate);
   const now = new Date();
-  
+
   // Set both dates to start of day for accurate comparison
   const endDateOnly = new Date(
     end.getFullYear(),
     end.getMonth(),
     end.getDate(),
   );
-  const nowOnly = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-  
+  const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
   return endDateOnly < nowOnly;
 }
 
@@ -1043,65 +1140,80 @@ exports.checkSubscriptionExpiry = functions.pubsub
   .onRun(async (context) => {
     try {
       console.log(" Starting daily subscription expiry check...");
-      
+
       const db = admin.firestore();
       const now = admin.firestore.Timestamp.now();
-      
+
       // Get all active subscriptions
       const subscriptionsSnapshot = await db
         .collection("subscriptions")
         .where("status", "==", "active")
         .get();
-      
-      console.log(` Found ${subscriptionsSnapshot.size} active subscriptions to check`);
-      
+
+      console.log(
+        ` Found ${subscriptionsSnapshot.size} active subscriptions to check`,
+      );
+
       let notificationsSent = 0;
       let notificationsSkipped = 0;
-      
+
       for (const subscriptionDoc of subscriptionsSnapshot.docs) {
         try {
           const subscription = subscriptionDoc.data();
           const subscriptionId = subscriptionDoc.id;
           const userId = subscription.userId;
           const endDate = subscription.endDate;
-          
+
           if (!endDate || !userId) {
-            console.log(` Skipping subscription ${subscriptionId}: missing endDate or userId`);
+            console.log(
+              ` Skipping subscription ${subscriptionId}: missing endDate or userId`,
+            );
             continue;
           }
-          
+
           // Calculate remaining days
           const remainingDays = calculateRemainingDays(endDate);
           const isExpired = isSubscriptionExpired(endDate);
-          
+
           // Get user data
           const userDoc = await db.collection("users").doc(userId).get();
           if (!userDoc.exists) {
-            console.log(` User ${userId} not found, skipping subscription ${subscriptionId}`);
+            console.log(
+              ` User ${userId} not found, skipping subscription ${subscriptionId}`,
+            );
             continue;
           }
-          
+
           const userData = userDoc.data();
           const userName = userData.displayName || userData.name || "User";
           const planName = subscription.planName || "subscription";
-          
+
           // Check if we've already sent a notification for this threshold
-          const lastExpiryNotification = subscription.lastExpiryNotification || {};
+          const lastExpiryNotification =
+            subscription.lastExpiryNotification || {};
           const lastNotifiedDays = lastExpiryNotification.daysRemaining;
-          
+
           // Only send notification if:
           // 1. We haven't sent one for this threshold yet (lastNotifiedDays is undefined or different)
           // 2. OR if it's expired and we haven't sent expired notification yet
-          const shouldSendForExpired = isExpired && (lastNotifiedDays === undefined || lastNotifiedDays !== 0);
-          const shouldSendFor1Day = remainingDays === 1 && (lastNotifiedDays === undefined || lastNotifiedDays !== 1);
-          const shouldSendFor2Days = remainingDays === 2 && (lastNotifiedDays === undefined || lastNotifiedDays !== 2);
-          const shouldSendFor3Days = remainingDays === 3 && (lastNotifiedDays === undefined || lastNotifiedDays !== 3);
-          
+          const shouldSendForExpired =
+            isExpired &&
+            (lastNotifiedDays === undefined || lastNotifiedDays !== 0);
+          const shouldSendFor1Day =
+            remainingDays === 1 &&
+            (lastNotifiedDays === undefined || lastNotifiedDays !== 1);
+          const shouldSendFor2Days =
+            remainingDays === 2 &&
+            (lastNotifiedDays === undefined || lastNotifiedDays !== 2);
+          const shouldSendFor3Days =
+            remainingDays === 3 &&
+            (lastNotifiedDays === undefined || lastNotifiedDays !== 3);
+
           let shouldSendNotification = false;
           let notificationType = "";
           let notificationTitle = "";
           let notificationMessage = "";
-          
+
           if (shouldSendForExpired) {
             shouldSendNotification = true;
             notificationType = "subscription_expired";
@@ -1123,7 +1235,7 @@ exports.checkSubscriptionExpiry = functions.pubsub
             notificationTitle = "Subscription Expiring Soon ⏰";
             notificationMessage = `Your ${planName} subscription expires in 3 days. Renew now to continue enjoying gym services.`;
           }
-          
+
           console.log(` Checking subscription ${subscriptionId}:`, {
             userId,
             planName: subscription.planName,
@@ -1134,7 +1246,7 @@ exports.checkSubscriptionExpiry = functions.pubsub
             shouldSendNotification,
             notificationType,
           });
-          
+
           if (shouldSendNotification) {
             // Create notification document (this will trigger FCM push via sendPushNotification)
             await db.collection("notifications").add({
@@ -1148,7 +1260,7 @@ exports.checkSubscriptionExpiry = functions.pubsub
               read: false,
               timestamp: now,
             });
-            
+
             // Update subscription to track that we've sent this notification
             await subscriptionDoc.ref.update({
               lastExpiryNotification: {
@@ -1157,30 +1269,37 @@ exports.checkSubscriptionExpiry = functions.pubsub
               },
               updatedAt: now,
             });
-            
+
             // If expired, also update subscription status
             if (isExpired) {
               await subscriptionDoc.ref.update({
                 status: "expired",
               });
             }
-            
+
             notificationsSent++;
-            console.log(` Sent ${notificationType} notification to user ${userId} (${remainingDays} days remaining)`);
+            console.log(
+              ` Sent ${notificationType} notification to user ${userId} (${remainingDays} days remaining)`,
+            );
           } else {
             notificationsSkipped++;
-            console.log(` Skipped notification for subscription ${subscriptionId} (already notified for ${remainingDays} days)`);
+            console.log(
+              ` Skipped notification for subscription ${subscriptionId} (already notified for ${remainingDays} days)`,
+            );
           }
         } catch (error) {
-          console.error(` Error processing subscription ${subscriptionDoc.id}:`, error);
+          console.error(
+            ` Error processing subscription ${subscriptionDoc.id}:`,
+            error,
+          );
           // Continue with next subscription
         }
       }
-      
+
       console.log(` Subscription expiry check completed:`);
       console.log(`   - Notifications sent: ${notificationsSent}`);
       console.log(`   - Notifications skipped: ${notificationsSkipped}`);
-      
+
       return null;
     } catch (error) {
       console.error(" Error in subscription expiry check:", error);
@@ -1203,13 +1322,13 @@ exports.createStaff = functions.https.onRequest(async (req, res) => {
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({error: "Method not allowed"});
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
     console.log("=== CREATE STAFF REQUEST ===");
     console.log("Request body:", req.body);
-    const {name, email, role, password} = req.body;
+    const { name, email, role, password } = req.body;
 
     if (!name || !email || !role || !password) {
       console.log("Validation failed - missing fields");
@@ -1247,7 +1366,7 @@ exports.createStaff = functions.https.onRequest(async (req, res) => {
     // Set custom claims for admin role
     if (role.toLowerCase() === "admin") {
       console.log("Setting admin custom claims for:", email);
-      await admin.auth().setCustomUserClaims(userRecord.uid, {admin: true});
+      await admin.auth().setCustomUserClaims(userRecord.uid, { admin: true });
     }
 
     // Write Firestore user document
@@ -1265,7 +1384,7 @@ exports.createStaff = functions.https.onRequest(async (req, res) => {
         lastLogout: null,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       },
-      {merge: true},
+      { merge: true },
     );
     console.log("Firestore document created successfully");
 
@@ -1308,42 +1427,52 @@ exports.resetStaffPassword = functions.https.onRequest(async (req, res) => {
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({error: "Method not allowed"});
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const {uid, email, newPassword} = req.body || {};
+    const { uid, email, newPassword } = req.body || {};
 
-    if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
-      return res.status(400).json({error: "newPassword must be at least 6 characters"});
+    if (
+      !newPassword ||
+      typeof newPassword !== "string" ||
+      newPassword.length < 6
+    ) {
+      return res
+        .status(400)
+        .json({ error: "newPassword must be at least 6 characters" });
     }
 
     let targetUid = uid;
     if (!targetUid) {
       if (!email) {
-        return res.status(400).json({error: "Provide uid or email"});
+        return res.status(400).json({ error: "Provide uid or email" });
       }
-      const userRecord = await admin.auth().getUserByEmail(String(email).toLowerCase());
+      const userRecord = await admin
+        .auth()
+        .getUserByEmail(String(email).toLowerCase());
       targetUid = userRecord.uid;
     }
 
-    await admin.auth().updateUser(targetUid, {password: newPassword});
+    await admin.auth().updateUser(targetUid, { password: newPassword });
 
     // Optional: mark password change in Firestore
     try {
       await admin.firestore().collection("users").doc(targetUid).set(
-        { lastPasswordChangeAt: admin.firestore.FieldValue.serverTimestamp() },
+        {
+          lastPasswordChangeAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
         { merge: true },
       );
     } catch (_) {}
 
-    return res.status(200).json({message: "Password updated"});
+    return res.status(200).json({ message: "Password updated" });
   } catch (error) {
     console.error(" Error in resetStaffPassword:", error);
     if (error.code === "auth/user-not-found") {
-      return res.status(404).json({error: "User not found"});
+      return res.status(404).json({ error: "User not found" });
     }
-    return res.status(500).json({error: "Failed to update password"});
+    return res.status(500).json({ error: "Failed to update password" });
   }
 });
 
@@ -1352,191 +1481,214 @@ exports.resetStaffPassword = functions.https.onRequest(async (req, res) => {
  * Can be called manually to test subscription expiry notifications
  * Usage: POST https://[region]-[project].cloudfunctions.net/checkSubscriptionExpiryManual
  */
-exports.checkSubscriptionExpiryManual = functions.https.onRequest(async (req, res) => {
-  // Enable CORS
-  res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Methods", "GET, POST");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+exports.checkSubscriptionExpiryManual = functions.https.onRequest(
+  async (req, res) => {
+    // Enable CORS
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, POST");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    return res.status(204).send("");
-  }
-
-  try {
-    console.log(" Manual subscription expiry check triggered...");
-    
-    const db = admin.firestore();
-    const now = admin.firestore.Timestamp.now();
-    
-    // Get all active subscriptions
-    const subscriptionsSnapshot = await db
-      .collection("subscriptions")
-      .where("status", "==", "active")
-      .get();
-    
-    console.log(` Found ${subscriptionsSnapshot.size} active subscriptions to check`);
-    
-    let notificationsSent = 0;
-    let notificationsSkipped = 0;
-    const results = [];
-    
-    for (const subscriptionDoc of subscriptionsSnapshot.docs) {
-      try {
-        const subscription = subscriptionDoc.data();
-        const subscriptionId = subscriptionDoc.id;
-        const userId = subscription.userId;
-        const endDate = subscription.endDate;
-        
-        if (!endDate || !userId) {
-          console.log(` Skipping subscription ${subscriptionId}: missing endDate or userId`);
-          continue;
-        }
-        
-        // Calculate remaining days
-        const remainingDays = calculateRemainingDays(endDate);
-        const isExpired = isSubscriptionExpired(endDate);
-        
-        // Get user data
-        const userDoc = await db.collection("users").doc(userId).get();
-        if (!userDoc.exists) {
-          console.log(` User ${userId} not found, skipping subscription ${subscriptionId}`);
-          continue;
-        }
-        
-        const userData = userDoc.data();
-        const userName = userData.displayName || userData.name || "User";
-        const planName = subscription.planName || "subscription";
-        
-        // Check if we've already sent a notification for this threshold
-        const lastExpiryNotification = subscription.lastExpiryNotification || {};
-        const lastNotifiedDays = lastExpiryNotification.daysRemaining;
-        
-        // Only send notification if:
-        // 1. We haven't sent one for this threshold yet (lastNotifiedDays is undefined or different)
-        // 2. OR if it's expired and we haven't sent expired notification yet
-        const shouldSendForExpired = isExpired && (lastNotifiedDays === undefined || lastNotifiedDays !== 0);
-        const shouldSendFor1Day = remainingDays === 1 && (lastNotifiedDays === undefined || lastNotifiedDays !== 1);
-        const shouldSendFor2Days = remainingDays === 2 && (lastNotifiedDays === undefined || lastNotifiedDays !== 2);
-        const shouldSendFor3Days = remainingDays === 3 && (lastNotifiedDays === undefined || lastNotifiedDays !== 3);
-        
-        let shouldSendNotification = false;
-        let notificationType = "";
-        let notificationTitle = "";
-        let notificationMessage = "";
-        
-        if (shouldSendForExpired) {
-          shouldSendNotification = true;
-          notificationType = "subscription_expired";
-          notificationTitle = "Subscription Expired ";
-          notificationMessage = `Your ${planName} subscription has expired. Please renew to continue using gym services.`;
-        } else if (shouldSendFor1Day) {
-          shouldSendNotification = true;
-          notificationType = "subscription_expiring_soon";
-          notificationTitle = "Subscription Expiring Tomorrow ⏰";
-          notificationMessage = `Your ${planName} subscription expires in 1 day. Renew now to avoid interruption.`;
-        } else if (shouldSendFor2Days) {
-          shouldSendNotification = true;
-          notificationType = "subscription_expiring_soon";
-          notificationTitle = "Subscription Expiring Soon ⏰";
-          notificationMessage = `Your ${planName} subscription expires in 2 days. Renew now to continue enjoying gym services.`;
-        } else if (shouldSendFor3Days) {
-          shouldSendNotification = true;
-          notificationType = "subscription_expiring_soon";
-          notificationTitle = "Subscription Expiring Soon ⏰";
-          notificationMessage = `Your ${planName} subscription expires in 3 days. Renew now to continue enjoying gym services.`;
-        }
-        
-        console.log(` Checking subscription ${subscriptionId}:`, {
-          userId,
-          planName: subscription.planName,
-          endDate: endDate.toDate ? endDate.toDate().toISOString() : endDate,
-          remainingDays,
-          isExpired,
-          lastNotifiedDays,
-          shouldSendNotification,
-          notificationType,
-        });
-        
-        if (shouldSendNotification) {
-          // Create notification document (this will trigger FCM push via sendPushNotification)
-          await db.collection("notifications").add({
-            userId: userId,
-            type: notificationType,
-            title: notificationTitle,
-            message: notificationMessage,
-            subscriptionId: subscriptionId,
-            priority: "high",
-            actionUrl: "/subscriptions",
-            read: false,
-            timestamp: now,
-          });
-          
-          // Update subscription to track that we've sent this notification
-          await subscriptionDoc.ref.update({
-            lastExpiryNotification: {
-              daysRemaining: remainingDays,
-              notifiedAt: now,
-            },
-            updatedAt: now,
-          });
-          
-          // If expired, also update subscription status
-          if (isExpired) {
-            await subscriptionDoc.ref.update({
-              status: "expired",
-            });
-          }
-          
-          notificationsSent++;
-          results.push({
-            userId,
-            userName,
-            subscriptionId,
-            remainingDays,
-            notificationType,
-            status: "sent",
-          });
-          console.log(` Sent ${notificationType} notification to user ${userId} (${remainingDays} days remaining)`);
-        } else {
-          notificationsSkipped++;
-          results.push({
-            userId,
-            userName,
-            subscriptionId,
-            remainingDays,
-            lastNotifiedDays,
-            status: "skipped",
-          });
-          console.log(` Skipped notification for subscription ${subscriptionId} (already notified for ${remainingDays} days)`);
-        }
-      } catch (error) {
-        console.error(` Error processing subscription ${subscriptionDoc.id}:`, error);
-        results.push({
-          subscriptionId: subscriptionDoc.id,
-          status: "error",
-          error: error.message,
-        });
-      }
+    if (req.method === "OPTIONS") {
+      return res.status(204).send("");
     }
-    
-    console.log(` Subscription expiry check completed:`);
-    console.log(`   - Notifications sent: ${notificationsSent}`);
-    console.log(`   - Notifications skipped: ${notificationsSkipped}`);
-    
-    return res.status(200).json({
-      success: true,
-      message: "Subscription expiry check completed",
-      notificationsSent,
-      notificationsSkipped,
-      results,
-    });
-  } catch (error) {
-    console.error(" Error in subscription expiry check:", error);
-    return res.status(500).json({
-      success: false,
-      error: "Failed to check subscription expiry",
-      details: error.message,
-    });
-  }
-});
 
+    try {
+      console.log(" Manual subscription expiry check triggered...");
+
+      const db = admin.firestore();
+      const now = admin.firestore.Timestamp.now();
+
+      // Get all active subscriptions
+      const subscriptionsSnapshot = await db
+        .collection("subscriptions")
+        .where("status", "==", "active")
+        .get();
+
+      console.log(
+        ` Found ${subscriptionsSnapshot.size} active subscriptions to check`,
+      );
+
+      let notificationsSent = 0;
+      let notificationsSkipped = 0;
+      const results = [];
+
+      for (const subscriptionDoc of subscriptionsSnapshot.docs) {
+        try {
+          const subscription = subscriptionDoc.data();
+          const subscriptionId = subscriptionDoc.id;
+          const userId = subscription.userId;
+          const endDate = subscription.endDate;
+
+          if (!endDate || !userId) {
+            console.log(
+              ` Skipping subscription ${subscriptionId}: missing endDate or userId`,
+            );
+            continue;
+          }
+
+          // Calculate remaining days
+          const remainingDays = calculateRemainingDays(endDate);
+          const isExpired = isSubscriptionExpired(endDate);
+
+          // Get user data
+          const userDoc = await db.collection("users").doc(userId).get();
+          if (!userDoc.exists) {
+            console.log(
+              ` User ${userId} not found, skipping subscription ${subscriptionId}`,
+            );
+            continue;
+          }
+
+          const userData = userDoc.data();
+          const userName = userData.displayName || userData.name || "User";
+          const planName = subscription.planName || "subscription";
+
+          // Check if we've already sent a notification for this threshold
+          const lastExpiryNotification =
+            subscription.lastExpiryNotification || {};
+          const lastNotifiedDays = lastExpiryNotification.daysRemaining;
+
+          // Only send notification if:
+          // 1. We haven't sent one for this threshold yet (lastNotifiedDays is undefined or different)
+          // 2. OR if it's expired and we haven't sent expired notification yet
+          const shouldSendForExpired =
+            isExpired &&
+            (lastNotifiedDays === undefined || lastNotifiedDays !== 0);
+          const shouldSendFor1Day =
+            remainingDays === 1 &&
+            (lastNotifiedDays === undefined || lastNotifiedDays !== 1);
+          const shouldSendFor2Days =
+            remainingDays === 2 &&
+            (lastNotifiedDays === undefined || lastNotifiedDays !== 2);
+          const shouldSendFor3Days =
+            remainingDays === 3 &&
+            (lastNotifiedDays === undefined || lastNotifiedDays !== 3);
+
+          let shouldSendNotification = false;
+          let notificationType = "";
+          let notificationTitle = "";
+          let notificationMessage = "";
+
+          if (shouldSendForExpired) {
+            shouldSendNotification = true;
+            notificationType = "subscription_expired";
+            notificationTitle = "Subscription Expired ";
+            notificationMessage = `Your ${planName} subscription has expired. Please renew to continue using gym services.`;
+          } else if (shouldSendFor1Day) {
+            shouldSendNotification = true;
+            notificationType = "subscription_expiring_soon";
+            notificationTitle = "Subscription Expiring Tomorrow ⏰";
+            notificationMessage = `Your ${planName} subscription expires in 1 day. Renew now to avoid interruption.`;
+          } else if (shouldSendFor2Days) {
+            shouldSendNotification = true;
+            notificationType = "subscription_expiring_soon";
+            notificationTitle = "Subscription Expiring Soon ⏰";
+            notificationMessage = `Your ${planName} subscription expires in 2 days. Renew now to continue enjoying gym services.`;
+          } else if (shouldSendFor3Days) {
+            shouldSendNotification = true;
+            notificationType = "subscription_expiring_soon";
+            notificationTitle = "Subscription Expiring Soon ⏰";
+            notificationMessage = `Your ${planName} subscription expires in 3 days. Renew now to continue enjoying gym services.`;
+          }
+
+          console.log(` Checking subscription ${subscriptionId}:`, {
+            userId,
+            planName: subscription.planName,
+            endDate: endDate.toDate ? endDate.toDate().toISOString() : endDate,
+            remainingDays,
+            isExpired,
+            lastNotifiedDays,
+            shouldSendNotification,
+            notificationType,
+          });
+
+          if (shouldSendNotification) {
+            // Create notification document (this will trigger FCM push via sendPushNotification)
+            await db.collection("notifications").add({
+              userId: userId,
+              type: notificationType,
+              title: notificationTitle,
+              message: notificationMessage,
+              subscriptionId: subscriptionId,
+              priority: "high",
+              actionUrl: "/subscriptions",
+              read: false,
+              timestamp: now,
+            });
+
+            // Update subscription to track that we've sent this notification
+            await subscriptionDoc.ref.update({
+              lastExpiryNotification: {
+                daysRemaining: remainingDays,
+                notifiedAt: now,
+              },
+              updatedAt: now,
+            });
+
+            // If expired, also update subscription status
+            if (isExpired) {
+              await subscriptionDoc.ref.update({
+                status: "expired",
+              });
+            }
+
+            notificationsSent++;
+            results.push({
+              userId,
+              userName,
+              subscriptionId,
+              remainingDays,
+              notificationType,
+              status: "sent",
+            });
+            console.log(
+              ` Sent ${notificationType} notification to user ${userId} (${remainingDays} days remaining)`,
+            );
+          } else {
+            notificationsSkipped++;
+            results.push({
+              userId,
+              userName,
+              subscriptionId,
+              remainingDays,
+              lastNotifiedDays,
+              status: "skipped",
+            });
+            console.log(
+              ` Skipped notification for subscription ${subscriptionId} (already notified for ${remainingDays} days)`,
+            );
+          }
+        } catch (error) {
+          console.error(
+            ` Error processing subscription ${subscriptionDoc.id}:`,
+            error,
+          );
+          results.push({
+            subscriptionId: subscriptionDoc.id,
+            status: "error",
+            error: error.message,
+          });
+        }
+      }
+
+      console.log(` Subscription expiry check completed:`);
+      console.log(`   - Notifications sent: ${notificationsSent}`);
+      console.log(`   - Notifications skipped: ${notificationsSkipped}`);
+
+      return res.status(200).json({
+        success: true,
+        message: "Subscription expiry check completed",
+        notificationsSent,
+        notificationsSkipped,
+        results,
+      });
+    } catch (error) {
+      console.error(" Error in subscription expiry check:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to check subscription expiry",
+        details: error.message,
+      });
+    }
+  },
+);

@@ -5,7 +5,7 @@ import NotificationDropdown from "./NotificationDropdown";
 import { useNotifications } from "../hooks";
 
 const Navbar = ({ title = "" }) => {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const [profileSrc, setProfileSrc] = useState(null);
   const [imageError, setImageError] = useState(false);
   const { notifications, markAsRead, markAllAsRead, deleteNotification } =
@@ -20,7 +20,10 @@ const Navbar = ({ title = "" }) => {
       user.photoURL || user.photoUrl || user.picture || user.avatar;
 
     // Validate that we have a proper URL (http/https or Firebase Storage URL)
-    if (photoURL && (photoURL.startsWith("http") || photoURL.startsWith("gs://"))) {
+    if (
+      photoURL &&
+      (photoURL.startsWith("http") || photoURL.startsWith("gs://"))
+    ) {
       console.log("Profile picture detected:", photoURL);
       return photoURL;
     }
@@ -33,15 +36,15 @@ const Navbar = ({ title = "" }) => {
   useEffect(() => {
     console.log("User object updated in Navbar:", user);
     const photoURL = getProfilePicture(user);
-    
+
     // Add cache-busting parameter to force browser to reload the image
     if (photoURL) {
-      const cacheBustedURL = `${photoURL}${photoURL.includes('?') ? '&' : '?'}t=${Date.now()}`;
+      const cacheBustedURL = `${photoURL}${photoURL.includes("?") ? "&" : "?"}t=${Date.now()}`;
       setProfileSrc(cacheBustedURL);
     } else {
       setProfileSrc(null);
     }
-    
+
     setImageError(false);
   }, [user]);
 

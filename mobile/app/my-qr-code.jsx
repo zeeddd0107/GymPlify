@@ -151,8 +151,8 @@ export default function MyQRCodeScreen() {
           const asset = await MediaLibrary.createAssetAsync(fileUri);
           // Save to library; createAlbumAsync may fail on iOS if album doesn't exist
           try {
-          await MediaLibrary.createAlbumAsync("Download", asset, false);
-          } catch (_) {
+            await MediaLibrary.createAlbumAsync("Download", asset, false);
+          } catch {
             await MediaLibrary.saveToLibraryAsync(fileUri);
           }
 

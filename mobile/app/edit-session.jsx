@@ -121,7 +121,7 @@ export default function EditSessionScreen() {
         }),
       );
       setSlotCapacities(capacities);
-    } catch (e) {
+    } catch {
       setSlotCapacities({});
     }
   };
