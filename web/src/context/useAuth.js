@@ -1,3 +1,4 @@
+// This file is used to access the data in the box
 import { useContext } from 'react';
 import { AuthContext } from './AuthContext';
 
