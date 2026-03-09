@@ -1,3 +1,4 @@
+// This file is the one who fills the empty box
 import { useEffect, useState } from "react";
 import { AuthContext } from "./AuthContext";
 import authService from "@/services/authService";
