@@ -6,7 +6,7 @@ import {
   CancelDeleteButtons,
   ToastNotification,
 } from "@/components";
-import { usePendingSubscriptions } from "@/components/hooks/usePendingSubscriptions";
+import { usePendingSubscriptions } from "@/hooks";
 import { FaCheck, FaTimes, FaTrash } from "react-icons/fa";
 
 const Requests = () => {

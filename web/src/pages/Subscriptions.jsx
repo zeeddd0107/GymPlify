@@ -1,5 +1,5 @@
 import React from "react";
-import { useSubscriptions } from "@/components/hooks";
+import { useSubscriptions } from "@/hooks";
 import { SubscriptionsUI } from "@/components/ui";
 
 const Subscriptions = () => {

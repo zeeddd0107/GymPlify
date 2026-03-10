@@ -2,7 +2,7 @@ import { useAuth } from "@/context";
 import { useState, useEffect } from "react";
 import ProfileDropdown from "./ProfileDropdown";
 import NotificationDropdown from "./NotificationDropdown";
-import { useNotifications } from "../hooks";
+import { useNotifications } from "@/hooks";
 
 const Navbar = ({ title = "" }) => {
   const { user } = useAuth();

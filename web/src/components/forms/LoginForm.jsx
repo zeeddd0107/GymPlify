@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faDumbbell, faUser, faLock } from "@fortawesome/free-solid-svg-icons";
-import { useAuthForm } from "../hooks";
+import { useAuthForm } from "@/hooks";
 import FormInput from "../ui/FormInput";
 import ForgotPassword from "./ForgotPassword";
 import OTPVerification from "./OTPVerification";

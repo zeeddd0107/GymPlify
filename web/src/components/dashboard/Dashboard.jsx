@@ -8,7 +8,7 @@ import {
   MdOutlinePlayCircle,
 } from "react-icons/md";
 import { GiWeightLiftingUp } from "react-icons/gi";
-import { useDashboard } from "../hooks";
+import { useDashboard } from "@/hooks";
 import Sidebar from "../ui/Sidebar";
 import BottomNavigation from "../ui/BottomNavigation";
 import Navbar from "../ui/Navbar";
