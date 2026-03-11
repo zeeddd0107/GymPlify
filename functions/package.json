@@ -1,5 +1,6 @@
 {
   "name": "functions",
+  "version": "1.0.0",
   "description": "Cloud Functions for GymPlify",
   "scripts": {
     "serve": "firebase emulators:start --only functions",
@@ -9,7 +10,7 @@
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "20"
+    "node": ">=20"
   },
   "main": "index.js",
   "dependencies": {

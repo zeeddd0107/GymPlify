@@ -1,12 +1,14 @@
 {
   "name": "backend",
   "version": "1.0.0",
+  "private": true,
   "description": "",
   "main": "index.js",
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "jest"
+    "test": "jest",
+    "lint": "eslint . --ext .js,.jsx"
   },
   "keywords": [],
   "author": "",

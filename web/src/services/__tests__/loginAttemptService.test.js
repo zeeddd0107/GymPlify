@@ -1,7 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import loginAttemptService from "../loginAttemptService";
 
-// Mock localStorage
+const { mockFirestore } = vi.hoisted(() => ({
+  mockFirestore: {
+    doc: vi.fn(),
+    getDoc: vi.fn(),
+    setDoc: vi.fn(),
+    serverTimestamp: vi.fn(() => new Date()),
+  }
+}));
+
+vi.mock("@/config/firebase", () => ({
+  db: mockFirestore,
+}));
+
 const localStorageMock = {
   getItem: vi.fn(),
   setItem: vi.fn(),
@@ -12,17 +24,7 @@ Object.defineProperty(window, "localStorage", {
   value: localStorageMock,
 });
 
-// Mock Firestore
-const mockFirestore = {
-  doc: vi.fn(),
-  getDoc: vi.fn(),
-  setDoc: vi.fn(),
-  serverTimestamp: vi.fn(() => new Date()),
-};
 
-vi.mock("@/config/firebase", () => ({
-  db: mockFirestore,
-}));
 
 describe("LoginAttemptService", () => {
   beforeEach(() => {
