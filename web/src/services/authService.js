@@ -4,17 +4,22 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
-  updateProfile,
-  updatePassword,
+  updateProfile as firebaseUpdateProfile,
+  updatePassword as firebaseUpdatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
 } from "firebase/auth";
-import { auth, googleProvider, db } from "@/config/firebase";
-import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { auth, googleProvider } from "@/config/firebase";
 import api from "./api";
 import loginAttemptService from "./loginAttemptService";
+import userService from "./userService";
 
 class AuthService {
+  handleError(error) {
+    console.error(error);
+    throw error;
+  }
+
   // Let me register a new user in both Firebase and our backend
   async register(email, password) {
     try {
@@ -27,36 +32,7 @@ class AuthService {
       const user = userCredential.user;
 
       // Now I need to add them to our Firestore users collection
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) {
-        await setDoc(
-          userRef,
-          {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName || null,
-            photoURL: user.photoURL || null,
-            createdAt: serverTimestamp(),
-            provider: "password",
-            lastLogin: serverTimestamp(),
-          },
-          { merge: true },
-        );
-      } else {
-        await setDoc(
-          userRef,
-          {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName || null,
-            photoURL: user.photoURL || null,
-            provider: "password",
-            lastLogin: serverTimestamp(),
-          },
-          { merge: true },
-        );
-      }
+      await userService.saveUserToFirestore(user, "password");
 
       // Time to register them in our backend too
       const response = await api.post("/auth/register", {
@@ -74,7 +50,7 @@ class AuthService {
         backendData: response.data,
       };
     } catch (error) {
-      throw new Error(error.message);
+      this.handleError(error);
     }
   }
 
@@ -180,36 +156,7 @@ class AuthService {
       const user = result.user;
 
       // Now let me add or update this user in our Firestore users collection
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-      if (!userSnap.exists()) {
-        await setDoc(
-          userRef,
-          {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName || null,
-            photoURL: user.photoURL || null,
-            createdAt: serverTimestamp(),
-            provider: "google",
-            lastLogin: serverTimestamp(),
-          },
-          { merge: true },
-        );
-      } else {
-        await setDoc(
-          userRef,
-          {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName || null,
-            photoURL: user.photoURL || null,
-            provider: "google",
-            lastLogin: serverTimestamp(),
-          },
-          { merge: true },
-        );
-      }
+      await userService.saveUserToFirestore(user, "google");
 
       // Time to register/login them in our backend with their Google data
       const response = await api.post("/auth/google", {
@@ -230,7 +177,7 @@ class AuthService {
 
       return user;
     } catch (error) {
-      throw new Error(error.message);
+      this.handleError(error);
     }
   }
 
@@ -240,13 +187,7 @@ class AuthService {
       const user = auth.currentUser;
       if (user) {
         // Let me update their last logout time in Firestore
-        await setDoc(
-          doc(db, "users", user.uid),
-          {
-            lastLogout: serverTimestamp(),
-          },
-          { merge: true },
-        );
+        await userService.updateUserLastLogout(user.uid);
 
         // Let me clear any login attempts for this user's email
         if (user.email) {
@@ -260,7 +201,7 @@ class AuthService {
       await signOut(auth);
       localStorage.removeItem("authToken");
     } catch (error) {
-      throw new Error(error.message);
+      this.handleError(error);
     }
   }
 
@@ -285,7 +226,7 @@ class AuthService {
       const response = await api.get("/auth/users");
       return response.data;
     } catch (error) {
-      throw new Error(error.message);
+      this.handleError(error);
     }
   }
 
@@ -297,7 +238,7 @@ class AuthService {
       });
       return response.data;
     } catch (error) {
-      throw new Error(error.message);
+      this.handleError(error);
     }
   }
 
@@ -320,45 +261,23 @@ class AuthService {
         updateData.photoURL = profileData.photoURL;
       }
 
-      await updateProfile(user, updateData);
+      await firebaseUpdateProfile(user, updateData);
 
       // And update their Firestore user document
-      const firestoreData = {
-        displayName: profileData.displayName,
-        phoneNumber: profileData.phoneNumber,
-        updatedAt: serverTimestamp(),
-      };
-
-      // Include photoURL in Firestore if provided
-      if (profileData.photoURL) {
-        firestoreData.photoURL = profileData.photoURL;
-      }
-
-      await setDoc(doc(db, "users", user.uid), firestoreData, { merge: true });
+      await userService.updateUserProfile(user.uid, profileData);
 
       // Force a refresh of the user's token to trigger auth state change
       await user.reload();
 
       return auth.currentUser;
     } catch (error) {
-      throw new Error(error.message);
+      this.handleError(error);
     }
   }
 
-  // Let me get user data from Firestore
+  // Let me get user data from Firestore (delegating to userService so we don't break existing components)
   async getUserData(uid) {
-    try {
-      const userRef = doc(db, "users", uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        return userSnap.data();
-      } else {
-        throw new Error("User document not found");
-      }
-    } catch (error) {
-      throw new Error(error.message);
-    }
+    return await userService.getUserData(uid);
   }
 
   // Let me update the user's password
@@ -377,11 +296,11 @@ class AuthService {
       await reauthenticateWithCredential(user, credential);
 
       // Now let me update their password
-      await updatePassword(user, newPassword);
+      await firebaseUpdatePassword(user, newPassword);
 
       return user;
     } catch (error) {
-      throw new Error(error.message);
+      this.handleError(error);
     }
   }
 }
